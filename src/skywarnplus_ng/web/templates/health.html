@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">System Health</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor the health and status of all system components</p>
+    </div>
+
+    <!-- Health Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Overall Status</p>
+                    <p id="overall-status" class="text-2xl font-bold text-gray-900 dark:text-white">Loading...</p>
+                </div>
+                <div id="overall-status-indicator" class="status-indicator status-unknown"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
+                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white">0h 0m</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Version</p>
+                    <p id="version" class="text-2xl font-bold text-gray-900 dark:text-white">3.0.0</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last Check</p>
+                    <p id="last-check" class="text-2xl font-bold text-gray-900 dark:text-white">Never</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Component Health -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Component Status</h2>
+            
+            <div id="components-container">
+                <div class="text-center py-4">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading component status...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Health History</h2>
+            
+            <div id="health-history-container">
+                <div class="text-center py-4">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading health history...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="mt-8">
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">System Metrics</h2>
+            
+            <div id="metrics-container">
+                <div class="text-center py-4">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading metrics...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshInterval = null;
+
+    // Format uptime
+    function formatUptime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    }
+
+    // Format timestamp
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    }
+
+    // Format relative time
+    function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    // Get status color classes
+    function getStatusClasses(status) {
+        switch (status.toLowerCase()) {
+            case 'healthy':
+                return 'status-healthy';
+            case 'degraded':
+                return 'status-degraded';
+            case 'unhealthy':
+                return 'status-unhealthy';
+            default:
+                return 'status-unknown';
+        }
+    }
+
+    // Update overall status
+    function updateOverallStatus(health) {
+        document.getElementById('overall-status').textContent = health.overall_status;
+        document.getElementById('overall-status-indicator').className = `status-indicator ${getStatusClasses(health.overall_status)}`;
+        document.getElementById('uptime').textContent = formatUptime(health.uptime_seconds);
+        document.getElementById('version').textContent = health.version || '3.0.0';
+        document.getElementById('last-check').textContent = formatRelativeTime(health.timestamp);
+    }
+
+    // Render components
+    function renderComponents(components) {
+        const container = document.getElementById('components-container');
+        
+        const componentsHtml = components.map(comp => `
+            <div class="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                <div class="flex items-center space-x-3">
+                    <div class="status-indicator ${getStatusClasses(comp.status)}"></div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">${comp.name.replace('_', ' ').toUpperCase()}</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${comp.message}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    ${comp.response_time_ms ? `<p class="text-xs text-gray-500 dark:text-gray-400">${comp.response_time_ms.toFixed(1)}ms</p>` : ''}
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = componentsHtml;
+    }
+
+    // Render health history
+    function renderHealthHistory(history) {
+        const container = document.getElementById('health-history-container');
+        
+        if (history.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="text-gray-500 dark:text-gray-400">No health history available</p>
+                </div>
+            `;
+            return;
+        }
+
+        const historyHtml = history.map(entry => `
+            <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                <div class="flex items-center space-x-3">
+                    <div class="status-indicator ${getStatusClasses(entry.overall_status)}"></div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">${entry.overall_status}</span>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${formatRelativeTime(entry.timestamp)}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${formatUptime(entry.uptime_seconds)}</p>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = historyHtml;
+    }
+
+    // Render metrics
+    function renderMetrics(metrics) {
+        const container = document.getElementById('metrics-container');
+        
+        if (!metrics || Object.keys(metrics).length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="text-gray-500 dark:text-gray-400">No metrics available</p>
+                </div>
+            `;
+            return;
+        }
+
+        const metricsHtml = Object.entries(metrics).map(([key, value]) => `
+            <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                <span class="text-sm font-medium text-gray-900 dark:text-white">${key.replace('_', ' ').toUpperCase()}</span>
+                <span class="text-sm text-gray-600 dark:text-gray-400">${value}</span>
+            </div>
+        `).join('');
+
+        container.innerHTML = metricsHtml;
+    }
+
+    // Load health data
+    async function loadHealthData() {
+        try {
+            const health = await apiCall('/api/health');
+            updateOverallStatus(health);
+            renderComponents(health.components);
+            renderMetrics(health.metrics);
+            
+            // Load health history
+            const history = await apiCall('/api/health/history?limit=10');
+            renderHealthHistory(history);
+        } catch (error) {
+            console.error('Failed to load health data:', error);
+            showNotification('Failed to load health data', 'error');
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadHealthData();
+        
+        // Refresh every 30 seconds
+        refreshInterval = setInterval(loadHealthData, 30000);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+</script>
+{% endblock %}

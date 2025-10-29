@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Database</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor database status and statistics</p>
+    </div>
+
+    <!-- Database Status -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Status</p>
+                    <p id="db-status" class="text-2xl font-bold text-gray-900 dark:text-white">Loading...</p>
+                </div>
+                <div id="db-status-indicator" class="status-indicator status-unknown"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Alerts</p>
+                    <p id="total-alerts" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Active Alerts</p>
+                    <p id="active-alerts" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Database Size</p>
+                    <p id="db-size" class="text-2xl font-bold text-gray-900 dark:text-white">0 MB</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Statistics -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Statistics</h2>
+            
+            <div id="stats-container">
+                <div class="text-center py-4">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading statistics...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Database Operations</h2>
+            
+            <div class="space-y-4">
+                <button onclick="cleanupDatabase()" class="btn-secondary w-full">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clip-rule="evenodd"></path>
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    Cleanup Old Data
+                </button>
+                
+                <button onclick="backupDatabase()" class="btn-secondary w-full">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
+                    </svg>
+                    Backup Database
+                </button>
+                
+                <button onclick="optimizeDatabase()" class="btn-secondary w-full">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.532 1.532 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                    </svg>
+                    Optimize Database
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load database stats
+    async function loadDatabaseStats() {
+        try {
+            const stats = await apiCall('/api/database/stats');
+            updateDatabaseStatus(stats);
+            renderStats(stats);
+        } catch (error) {
+            console.error('Failed to load database stats:', error);
+            showNotification('Failed to load database statistics', 'error');
+        }
+    }
+
+    // Update database status
+    function updateDatabaseStatus(stats) {
+        document.getElementById('db-status').textContent = stats.connected ? 'Connected' : 'Disconnected';
+        document.getElementById('db-status-indicator').className = `status-indicator ${stats.connected ? 'status-healthy' : 'status-unhealthy'}`;
+        document.getElementById('total-alerts').textContent = stats.total_alerts || 0;
+        document.getElementById('active-alerts').textContent = stats.active_alerts || 0;
+        document.getElementById('db-size').textContent = formatBytes(stats.database_size || 0);
+    }
+
+    // Render statistics
+    function renderStats(stats) {
+        const container = document.getElementById('stats-container');
+        
+        const statsHtml = `
+            <div class="space-y-4">
+                <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Total Alerts</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${stats.total_alerts || 0}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Active Alerts</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${stats.active_alerts || 0}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Announced Alerts</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${stats.announced_alerts || 0}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Script Executed</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${stats.script_executed_alerts || 0}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Database Size</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${formatBytes(stats.database_size || 0)}</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">Last Cleanup</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${formatTimestamp(stats.last_cleanup)}</span>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = statsHtml;
+    }
+
+    // Format bytes
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Format timestamp
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    }
+
+    // Database operations
+    async function cleanupDatabase() {
+        if (confirm('Are you sure you want to cleanup old data? This action cannot be undone.')) {
+            try {
+                await apiCall('/api/database/cleanup', { method: 'POST' });
+                showNotification('Database cleanup completed', 'success');
+                loadDatabaseStats();
+            } catch (error) {
+                console.error('Failed to cleanup database:', error);
+                showNotification('Failed to cleanup database', 'error');
+            }
+        }
+    }
+
+    async function backupDatabase() {
+        try {
+            await apiCall('/api/database/backup', { method: 'POST' });
+            showNotification('Database backup completed', 'success');
+        } catch (error) {
+            console.error('Failed to backup database:', error);
+            showNotification('Failed to backup database', 'error');
+        }
+    }
+
+    async function optimizeDatabase() {
+        try {
+            await apiCall('/api/database/optimize', { method: 'POST' });
+            showNotification('Database optimization completed', 'success');
+            loadDatabaseStats();
+        } catch (error) {
+            console.error('Failed to optimize database:', error);
+            showNotification('Failed to optimize database', 'error');
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDatabaseStats();
+    });
+</script>
+{% endblock %}

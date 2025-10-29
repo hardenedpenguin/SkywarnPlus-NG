@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Active Alerts</h1>
+        <p class="text-gray-600 dark:text-gray-400">Current weather alerts and their status</p>
+    </div>
+
+    <!-- Alert Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Alerts</p>
+                    <p id="total-alerts" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Extreme</p>
+                    <p id="extreme-alerts" class="text-2xl font-bold text-red-600 dark:text-red-400">0</p>
+                </div>
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Severe</p>
+                    <p id="severe-alerts" class="text-2xl font-bold text-orange-600 dark:text-orange-400">0</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Moderate</p>
+                    <p id="moderate-alerts" class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">0</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-4">
+            <button onclick="refreshAlerts()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                </svg>
+                Refresh
+            </button>
+            
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Auto-refresh:</label>
+                <input type="checkbox" id="auto-refresh" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <span id="refresh-interval" class="text-sm text-gray-500 dark:text-gray-400">30s</span>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</label>
+            <select id="severity-filter" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                <option value="">All Severities</option>
+                <option value="Extreme">Extreme</option>
+                <option value="Severe">Severe</option>
+                <option value="Moderate">Moderate</option>
+                <option value="Minor">Minor</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Alerts List -->
+    <div class="card">
+        <div id="alerts-container">
+            <div class="text-center py-8">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-500 dark:text-gray-400">Loading alerts...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshInterval = null;
+    let autoRefreshEnabled = false;
+
+    // Format timestamp
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return 'Unknown';
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    }
+
+    // Format relative time
+    function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'Unknown';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    // Get severity color classes
+    function getSeverityClasses(severity) {
+        switch (severity) {
+            case 'Extreme':
+                return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800';
+            case 'Severe':
+                return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-800';
+            case 'Moderate':
+                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800';
+            case 'Minor':
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800';
+            default:
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200 dark:border-gray-800';
+        }
+    }
+
+    // Get urgency color classes
+    function getUrgencyClasses(urgency) {
+        switch (urgency) {
+            case 'Immediate':
+                return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+            case 'Expected':
+                return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+            case 'Future':
+                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+            case 'Past':
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+            default:
+                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+        }
+    }
+
+    // Update alert summary
+    function updateAlertSummary(alerts) {
+        const total = alerts.length;
+        const extreme = alerts.filter(a => a.severity === 'Extreme').length;
+        const severe = alerts.filter(a => a.severity === 'Severe').length;
+        const moderate = alerts.filter(a => a.severity === 'Moderate').length;
+        
+        document.getElementById('total-alerts').textContent = total;
+        document.getElementById('extreme-alerts').textContent = extreme;
+        document.getElementById('severe-alerts').textContent = severe;
+        document.getElementById('moderate-alerts').textContent = moderate;
+    }
+
+    // Render alerts
+    function renderAlerts(alerts) {
+        const container = document.getElementById('alerts-container');
+        
+        if (alerts.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Active Alerts</h3>
+                    <p class="text-gray-500 dark:text-gray-400">There are currently no active weather alerts.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Filter alerts by severity
+        const severityFilter = document.getElementById('severity-filter').value;
+        const filteredAlerts = severityFilter ? alerts.filter(a => a.severity === severityFilter) : alerts;
+
+        const alertsHtml = filteredAlerts.map(alert => `
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-4 last:mb-0 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <span class="px-3 py-1 text-sm font-medium rounded-full border ${getSeverityClasses(alert.severity)}">
+                                ${alert.severity}
+                            </span>
+                            <span class="px-3 py-1 text-sm font-medium rounded-full ${getUrgencyClasses(alert.urgency)}">
+                                ${alert.urgency}
+                            </span>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                                ${alert.certainty}
+                            </span>
+                        </div>
+                        
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">${alert.event}</h3>
+                        
+                        ${alert.headline ? `
+                            <p class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">${alert.headline}</p>
+                        ` : ''}
+                        
+                        ${alert.description ? `
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">${alert.description}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Area: ${alert.area_desc}</p>
+                        ` : `
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">${alert.area_desc}</p>
+                        `}
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500 dark:text-gray-400">
+                            <div>
+                                <span class="font-medium">Effective:</span>
+                                <div>${formatTimestamp(alert.effective)}</div>
+                                <div class="text-xs">${formatRelativeTime(alert.effective)}</div>
+                            </div>
+                            <div>
+                                <span class="font-medium">Expires:</span>
+                                <div>${formatTimestamp(alert.expires)}</div>
+                                <div class="text-xs">${formatRelativeTime(alert.expires)}</div>
+                            </div>
+                            <div>
+                                <span class="font-medium">Issued:</span>
+                                <div>${formatTimestamp(alert.sent)}</div>
+                                <div class="text-xs">${formatRelativeTime(alert.sent)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col items-end space-y-2">
+                        <div class="flex items-center space-x-2">
+                            ${alert.announced ? 
+                                '<span class="text-green-500" title="Announced"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></span>' : 
+                                '<span class="text-gray-400" title="Not announced"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg></span>'
+                            }
+                            ${alert.script_executed ? 
+                                '<span class="text-blue-500" title="Script executed"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path></svg></span>' : 
+                                '<span class="text-gray-400" title="Script not executed"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg></span>'
+                            }
+                        </div>
+                        
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                            ID: ${alert.id}
+                        </div>
+                    </div>
+                </div>
+                
+                
+                ${alert.instruction ? `
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Instructions</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">${alert.instruction}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+
+        container.innerHTML = alertsHtml;
+    }
+
+    // Load alerts
+    async function loadAlerts() {
+        try {
+            const response = await apiCall('/api/alerts');
+            updateAlertSummary(response.alerts);
+            renderAlerts(response.alerts);
+        } catch (error) {
+            console.error('Failed to load alerts:', error);
+            showNotification('Failed to load alerts', 'error');
+        }
+    }
+
+    // Refresh alerts
+    async function refreshAlerts() {
+        await loadAlerts();
+        showNotification('Alerts refreshed', 'success');
+    }
+
+    // Auto-refresh toggle
+    function toggleAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh');
+        autoRefreshEnabled = checkbox.checked;
+        
+        if (autoRefreshEnabled) {
+            refreshInterval = setInterval(loadAlerts, 30000);
+            document.getElementById('refresh-interval').textContent = '30s';
+        } else {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            document.getElementById('refresh-interval').textContent = 'Off';
+        }
+    }
+
+    // Filter change handler
+    function onFilterChange() {
+        loadAlerts();
+    }
+
+
+    // WebSocket message handlers
+    window.updateAlerts = function(alerts) {
+        updateAlertSummary(alerts);
+        renderAlerts(alerts);
+    };
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAlerts();
+        
+        // Set up event listeners
+        document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+        document.getElementById('severity-filter').addEventListener('change', onFilterChange);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+</script>
+{% endblock %}

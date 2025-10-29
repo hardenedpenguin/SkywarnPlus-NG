@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skywarnplus-ng"
+version = "3.0.0"
+description = "Modern weather alert system for Asterisk/app_rpt nodes"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "GPL-3.0"}
+authors = [
+    {name = "SkywarnPlus-NG Contributors"}
+]
+keywords = ["weather", "alerts", "asterisk", "ham-radio", "repeater"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "httpx>=0.25.0",
+    "ruamel.yaml>=0.18.0",
+    "python-dateutil>=2.8.0",
+    "structlog>=23.2.0",
+    "click>=8.1.0",
+    "rich>=13.7.0",
+    "gtts>=2.4.0",
+    "pydub>=0.25.1",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "aiohttp>=3.9.0",
+    "aiohttp-session>=2.12.0",
+    "aiohttp-cors>=0.7.0",
+    "jinja2>=3.1.0",
+    "websockets>=12.0",
+    "cryptography>=3.0.0",
+    "aiosqlite>=0.17.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.11.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[project.scripts]
+skywarnplus-ng = "skywarnplus_ng.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+asyncio_mode = "auto"

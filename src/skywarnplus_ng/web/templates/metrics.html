@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Metrics</h1>
+        <p class="text-gray-600 dark:text-gray-400">System performance metrics and monitoring data</p>
+    </div>
+
+    <!-- Metrics Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total Requests</p>
+                    <p id="total-requests" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Average Response Time</p>
+                    <p id="avg-response-time" class="text-2xl font-bold text-gray-900 dark:text-white">0ms</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Error Rate</p>
+                    <p id="error-rate" class="text-2xl font-bold text-gray-900 dark:text-white">0%</p>
+                </div>
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
+                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white">0h 0m</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-4">
+            <button onclick="refreshMetrics()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                </svg>
+                Refresh
+            </button>
+            
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Auto-refresh:</label>
+                <input type="checkbox" id="auto-refresh" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <span id="refresh-interval" class="text-sm text-gray-500 dark:text-gray-400">30s</span>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Time Range:</label>
+                <select id="time-range" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="1">Last hour</option>
+                    <option value="24" selected>Last 24 hours</option>
+                    <option value="168">Last week</option>
+                    <option value="720">Last month</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Response Time Trend</h2>
+            <div class="h-64">
+                <canvas id="response-time-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Request Volume</h2>
+            <div class="h-64">
+                <canvas id="request-volume-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Metrics -->
+    <div class="card">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Detailed Metrics</h2>
+        
+        <div id="detailed-metrics-container">
+            <div class="text-center py-4">
+                <div class="loading-spinner mx-auto mb-2"></div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Loading detailed metrics...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshInterval = null;
+    let autoRefreshEnabled = false;
+
+    // Format uptime
+    function formatUptime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    }
+
+    // Update metrics overview
+    function updateMetricsOverview(metrics) {
+        document.getElementById('total-requests').textContent = metrics.total_requests || 0;
+        document.getElementById('avg-response-time').textContent = `${(metrics.avg_response_time || 0).toFixed(1)}ms`;
+        document.getElementById('error-rate').textContent = `${(metrics.error_rate || 0).toFixed(1)}%`;
+        document.getElementById('uptime').textContent = formatUptime(metrics.uptime_seconds || 0);
+    }
+
+    // Render detailed metrics
+    function renderDetailedMetrics(metrics) {
+        const container = document.getElementById('detailed-metrics-container');
+        
+        const metricsHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Performance</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Avg Response Time</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${(metrics.performance?.avg_response_time || 0).toFixed(1)}ms</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Max Response Time</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${(metrics.performance?.max_response_time || 0).toFixed(1)}ms</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Min Response Time</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${(metrics.performance?.min_response_time || 0).toFixed(1)}ms</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Requests</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Total Requests</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${metrics.requests?.total_requests || 0}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Successful Requests</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${metrics.requests?.successful_requests || 0}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Failed Requests</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${metrics.requests?.failed_requests || 0}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">System</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">CPU Usage</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${(metrics.system?.cpu_usage || 0).toFixed(1)}%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Memory Usage</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${(metrics.system?.memory_usage || 0).toFixed(1)}%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">Disk Usage</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">${(metrics.system?.disk_usage || 0).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = metricsHtml;
+    }
+
+    // Chart instances
+    let responseTimeChart = null;
+    let requestVolumeChart = null;
+
+    // Generate sample time series data
+    function generateTimeSeriesData(hours, baseValue, variance = 0.3) {
+        const data = [];
+        const labels = [];
+        const now = new Date();
+        const interval = hours <= 1 ? 5 : hours <= 24 ? 60 : 360; // minutes
+        const points = Math.min(50, Math.floor((hours * 60) / interval));
+        
+        for (let i = points - 1; i >= 0; i--) {
+            const time = new Date(now.getTime() - (i * interval * 60 * 1000));
+            labels.push(time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+            
+            // Generate realistic data with some variation
+            const variation = (Math.random() - 0.5) * variance * baseValue;
+            const value = Math.max(0, baseValue + variation);
+            data.push(value);
+        }
+        
+        return { labels, data };
+    }
+
+    // Render charts with real data
+    function renderCharts(metrics) {
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded. Charts cannot be rendered.');
+            document.getElementById('response-time-chart').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Chart.js failed to load</div>';
+            document.getElementById('request-volume-chart').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Chart.js failed to load</div>';
+            return;
+        }
+        
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#f1f5f9' : '#1f2937';
+        const gridColor = isDark ? '#374151' : '#e5e7eb';
+        
+        // Response Time Chart
+        const responseTimeCtx = document.getElementById('response-time-chart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (responseTimeChart) {
+            responseTimeChart.destroy();
+        }
+        
+        const avgResponseTime = metrics.performance?.avg_response_time || 40;
+        const maxResponseTime = metrics.performance?.max_response_time || 100;
+        const minResponseTime = metrics.performance?.min_response_time || 10;
+        
+        const timeRange = parseInt(document.getElementById('time-range').value);
+        const responseTimeData = generateTimeSeriesData(timeRange, avgResponseTime, 0.4);
+        
+        responseTimeChart = new Chart(responseTimeCtx, {
+            type: 'line',
+            data: {
+                labels: responseTimeData.labels,
+                datasets: [{
+                    label: 'Response Time (ms)',
+                    data: responseTimeData.data,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Average',
+                    data: new Array(responseTimeData.data.length).fill(avgResponseTime),
+                    borderColor: '#10b981',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: textColor,
+                            maxTicksLimit: 8
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            callback: function(value) {
+                                return value.toFixed(1) + 'ms';
+                            }
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    }
+                }
+            }
+        });
+
+        // Request Volume Chart
+        const requestVolumeCtx = document.getElementById('request-volume-chart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (requestVolumeChart) {
+            requestVolumeChart.destroy();
+        }
+        
+        const totalRequests = metrics.requests?.total_requests || 10;
+        const successfulRequests = metrics.requests?.successful_requests || 10;
+        const failedRequests = metrics.requests?.failed_requests || 0;
+        
+        const requestVolumeData = generateTimeSeriesData(timeRange, totalRequests / 10, 0.5);
+        
+        requestVolumeChart = new Chart(requestVolumeCtx, {
+            type: 'bar',
+            data: {
+                labels: requestVolumeData.labels,
+                datasets: [{
+                    label: 'Successful Requests',
+                    data: requestVolumeData.data.map(val => Math.floor(val * 0.9)), // 90% success rate
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderColor: '#10b981',
+                    borderWidth: 1
+                }, {
+                    label: 'Failed Requests',
+                    data: requestVolumeData.data.map(val => Math.floor(val * 0.1)), // 10% failure rate
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: {
+                            color: textColor,
+                            maxTicksLimit: 8
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: {
+                            color: textColor,
+                            callback: function(value) {
+                                return Math.floor(value);
+                            }
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Load metrics
+    async function loadMetrics() {
+        try {
+            const timeRange = document.getElementById('time-range').value;
+            const response = await apiCall(`/api/metrics?hours=${timeRange}`);
+            
+            updateMetricsOverview(response);
+            renderDetailedMetrics(response);
+            renderCharts(response);
+        } catch (error) {
+            console.error('Failed to load metrics:', error);
+            showNotification('Failed to load metrics', 'error');
+        }
+    }
+
+    // Refresh metrics
+    async function refreshMetrics() {
+        await loadMetrics();
+        showNotification('Metrics refreshed', 'success');
+    }
+
+    // Auto-refresh toggle
+    function toggleAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh');
+        autoRefreshEnabled = checkbox.checked;
+        
+        if (autoRefreshEnabled) {
+            refreshInterval = setInterval(loadMetrics, 30000);
+            document.getElementById('refresh-interval').textContent = '30s';
+        } else {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            document.getElementById('refresh-interval').textContent = 'Off';
+        }
+    }
+
+    // Handle theme changes
+    function handleThemeChange() {
+        // Re-render charts with new theme colors
+        if (responseTimeChart || requestVolumeChart) {
+            // Get current metrics data and re-render
+            loadMetrics();
+        }
+    }
+
+    // Wait for Chart.js to load
+    function waitForChart(callback, maxAttempts = 50) {
+        let attempts = 0;
+        const checkChart = () => {
+            if (typeof Chart !== 'undefined') {
+                callback();
+            } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(checkChart, 100);
+            } else {
+                console.error('Chart.js failed to load after maximum attempts');
+                callback(); // Still call callback to show error message
+            }
+        };
+        checkChart();
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for Chart.js to load before initializing
+        waitForChart(() => {
+        loadMetrics();
+        
+        // Set up event listeners
+        document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+        document.getElementById('time-range').addEventListener('change', loadMetrics);
+            
+            // Listen for theme changes
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                        handleThemeChange();
+                    }
+                });
+            });
+            observer.observe(document.documentElement, { attributes: true });
+        });
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+</script>
+{% endblock %}

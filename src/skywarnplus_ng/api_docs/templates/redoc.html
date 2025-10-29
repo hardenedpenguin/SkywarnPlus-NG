@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+        }
+        .redoc-wrap {
+            background: #fafafa;
+        }
+        .redoc-wrap .redoc-json {
+            background: #ffffff;
+        }
+        .redoc-wrap .redoc-json code {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        .redoc-wrap .redoc-json .redoc-json code {
+            color: #495057;
+        }
+        .redoc-wrap .redoc-json .redoc-json .redoc-json code {
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div id="redoc-container"></div>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+    <script>
+        Redoc.init({{ openapi_spec | tojson }}, {
+            scrollYOffset: 0,
+            hideDownloadButton: false,
+            hideHostname: false,
+            hideLoading: false,
+            nativeScrollbars: false,
+            pathInMiddlePanel: false,
+            requiredPropsFirst: true,
+            sortPropsAlphabetically: false,
+            showExtensions: false,
+            showObjectSchemaExamples: true,
+            theme: {
+                colors: {
+                    primary: {
+                        main: '#1f2937'
+                    }
+                },
+                typography: {
+                    fontSize: '14px',
+                    lineHeight: '1.5em',
+                    code: {
+                        fontSize: '13px',
+                        fontFamily: 'Monaco, Consolas, "Courier New", monospace'
+                    },
+                    headings: {
+                        fontFamily: 'Montserrat, sans-serif',
+                        fontWeight: '400'
+                    }
+                },
+                spacing: {
+                    unit: 5,
+                    sectionHorizontal: 40,
+                    sectionVertical: 40
+                },
+                breakpoints: {
+                    medium: '50rem',
+                    large: '85rem',
+                    xlarge: '120rem'
+                }
+            }
+        }, document.getElementById('redoc-container'));
+    </script>
+</body>
+</html>

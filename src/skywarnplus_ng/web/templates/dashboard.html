@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Dashboard</h1>
+        <p class="text-gray-600 dark:text-gray-400">SkywarnPlus-NG Weather Alert System Overview</p>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- System Status -->
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</p>
+                    <p id="system-status" class="text-2xl font-bold text-gray-900 dark:text-white">Loading...</p>
+                </div>
+                <div id="system-status-indicator" class="status-indicator status-unknown"></div>
+            </div>
+        </div>
+
+        <!-- Active Alerts -->
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Active Alerts</p>
+                    <p id="active-alerts-count" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Uptime -->
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
+                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white">0h 0m</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Poll -->
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last Poll</p>
+                    <p id="last-poll" class="text-2xl font-bold text-gray-900 dark:text-white">Never</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Active Alerts -->
+        <div class="lg:col-span-2">
+            <div class="card">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Active Alerts</h2>
+                    <button onclick="refreshAlerts()" class="btn-secondary text-sm">
+                        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                
+                <div id="alerts-container">
+                    <div class="text-center py-8">
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p class="text-gray-500 dark:text-gray-400">Loading alerts...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div>
+            <div class="card">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">System Health</h2>
+                
+                <div id="health-components">
+                    <div class="text-center py-4">
+                        <div class="loading-spinner mx-auto mb-2"></div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Loading health status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="mt-8">
+        <div class="card">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Activity</h2>
+            
+            <div id="recent-activity">
+                <div class="text-center py-4">
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading recent activity...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshInterval = null;
+
+    // Format uptime
+    function formatUptime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    }
+
+    // Format timestamp
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    }
+
+    // Format relative time
+    function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    // Update system status
+    function updateSystemStatus(status) {
+        const statusElement = document.getElementById('system-status');
+        const indicatorElement = document.getElementById('system-status-indicator');
+        
+        if (status.running) {
+            statusElement.textContent = 'Running';
+            indicatorElement.className = 'status-indicator status-healthy';
+        } else {
+            statusElement.textContent = 'Stopped';
+            indicatorElement.className = 'status-indicator status-unhealthy';
+        }
+    }
+
+    // Update active alerts count
+    function updateActiveAlertsCount(count) {
+        document.getElementById('active-alerts-count').textContent = count;
+    }
+
+    // Update uptime
+    function updateUptime(uptimeSeconds) {
+        document.getElementById('uptime').textContent = formatUptime(uptimeSeconds);
+    }
+
+    // Update last poll
+    function updateLastPoll(timestamp) {
+        document.getElementById('last-poll').textContent = formatRelativeTime(timestamp);
+    }
+
+    // Render alerts
+    function renderAlerts(alerts) {
+        const container = document.getElementById('alerts-container');
+        
+        if (alerts.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-gray-500 dark:text-gray-400">No active alerts</p>
+                </div>
+            `;
+            return;
+        }
+
+        const alertsHtml = alerts.map(alert => `
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 last:mb-0">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                                alert.severity === 'Extreme' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                                alert.severity === 'Severe' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
+                                alert.severity === 'Moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                            }">
+                                ${alert.severity}
+                            </span>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                ${alert.urgency}
+                            </span>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">${alert.event}</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">
+                            ${alert.description ? 
+                                (alert.description.length > 200 ? 
+                                    alert.description.substring(0, 200) + '...' : 
+                                    alert.description
+                                ) : 
+                                alert.area_desc
+                            }
+                        </p>
+                        ${alert.description && alert.description.length > 200 ? 
+                            `<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Area: ${alert.area_desc}</p>` : 
+                            ''
+                        }
+                        <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                            <span>Effective: ${formatTimestamp(alert.effective)}</span>
+                            <span>Expires: ${formatTimestamp(alert.expires)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        ${alert.announced ? '<span class="text-green-500" title="Announced">📢</span>' : ''}
+                        ${alert.script_executed ? '<span class="text-blue-500" title="Script Executed">⚙️</span>' : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = alertsHtml;
+    }
+
+    // Render health components
+    function renderHealthComponents(components) {
+        const container = document.getElementById('health-components');
+        
+        const componentsHtml = components.map(comp => `
+            <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                <div class="flex items-center space-x-3">
+                    <div class="status-indicator status-${comp.status.toLowerCase()}"></div>
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">${comp.name.replace('_', ' ').toUpperCase()}</span>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${comp.message}</p>
+                    ${comp.response_time_ms ? `<p class="text-xs text-gray-400">${comp.response_time_ms.toFixed(1)}ms</p>` : ''}
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = componentsHtml;
+    }
+
+    // Render recent activity
+    function renderRecentActivity(activity) {
+        const container = document.getElementById('recent-activity');
+        
+        if (!activity || activity.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="text-gray-500 dark:text-gray-400">No recent activity</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Icon mapping for different activity types
+        const iconMap = {
+            'alert-triangle': '⚠️',
+            'info': 'ℹ️',
+            'volume-2': '🔊',
+            'wifi': '📡',
+            'phone': '📞',
+            'speaker': '🔊',
+            'play-circle': '▶️',
+            'check-circle': '✅',
+            'x-circle': '❌'
+        };
+
+        // Severity color mapping
+        const severityColors = {
+            'extreme': 'bg-red-500',
+            'severe': 'bg-orange-500',
+            'moderate': 'bg-yellow-500',
+            'minor': 'bg-blue-500',
+            'info': 'bg-blue-500',
+            'success': 'bg-green-500',
+            'warning': 'bg-yellow-500',
+            'error': 'bg-red-500'
+        };
+
+        const activityHtml = activity.map(item => {
+            const icon = iconMap[item.icon] || '•';
+            const colorClass = severityColors[item.severity] || 'bg-blue-500';
+            
+            return `
+                <div class="flex items-start space-x-3 py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                    <div class="flex-shrink-0 w-8 h-8 ${colorClass} rounded-full flex items-center justify-center text-white text-sm">
+                        ${icon}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">${item.message}</p>
+                        ${item.details ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${item.details}</p>` : ''}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${formatRelativeTime(item.timestamp)}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = activityHtml;
+    }
+
+    // Load dashboard data
+    async function loadDashboardData() {
+        try {
+            // Load system status
+            const status = await apiCall('/api/status');
+            updateSystemStatus(status);
+            updateActiveAlertsCount(status.active_alerts);
+            updateUptime(status.uptime_seconds);
+            updateLastPoll(status.last_poll);
+
+            // Load active alerts
+            const alerts = await apiCall('/api/alerts');
+            renderAlerts(alerts.alerts);
+
+            // Load health status
+            const health = await apiCall('/api/health');
+            renderHealthComponents(health.components);
+
+            // Load recent activity
+            const activity = await apiCall('/api/activity?limit=10');
+            renderRecentActivity(activity.activities);
+
+        } catch (error) {
+            console.error('Failed to load dashboard data:', error);
+        }
+    }
+
+    // Refresh alerts
+    async function refreshAlerts() {
+        try {
+            const alerts = await apiCall('/api/alerts');
+            renderAlerts(alerts.alerts);
+            updateActiveAlertsCount(alerts.count);
+            showNotification('Alerts refreshed', 'success');
+        } catch (error) {
+            console.error('Failed to refresh alerts:', error);
+        }
+    }
+
+    // WebSocket message handlers
+    window.updateAlerts = function(alerts) {
+        renderAlerts(alerts);
+        updateActiveAlertsCount(alerts.length);
+    };
+
+    window.updateStatus = function(status) {
+        updateSystemStatus(status);
+        updateActiveAlertsCount(status.active_alerts);
+        updateUptime(status.uptime_seconds);
+        updateLastPoll(status.last_poll);
+    };
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardData();
+        
+        // Refresh data every 30 seconds
+        refreshInterval = setInterval(loadDashboardData, 30000);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+</script>
+{% endblock %}

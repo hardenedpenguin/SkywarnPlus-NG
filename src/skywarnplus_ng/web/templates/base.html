@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }}{% endblock %} - SkywarnPlus-NG</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Additional head content -->
+    {% block head %}{% endblock %}
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --background-light: #ffffff;
+            --background-dark: #0f172a;
+            --surface-light: #f8fafc;
+            --surface-dark: #1e293b;
+            --text-light: #0f172a;
+            --text-dark: #f1f5f9;
+            --border-light: #d1d5db;
+            --border-dark: #334155;
+            --secondary-text-light: #374151;
+            --secondary-text-dark: #d1d5db;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #60a5fa;
+            --primary-dark: #3b82f6;
+            --secondary-color: #94a3b8;
+            --success-color: #34d399;
+            --warning-color: #fbbf24;
+            --error-color: #f87171;
+            --background: var(--background-dark);
+            --surface: var(--surface-dark);
+            --text: var(--text-dark);
+            --border: var(--border-dark);
+            --secondary-text: var(--secondary-text-dark);
+        }
+
+        [data-theme="light"] {
+            --background: var(--background-light);
+            --surface: var(--surface-light);
+            --text: var(--text-light);
+            --border: var(--border-light);
+            --secondary-text: var(--secondary-text-light);
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: #475569;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-healthy { background-color: var(--success-color); }
+        .status-degraded { background-color: var(--warning-color); }
+        .status-unhealthy { background-color: var(--error-color); }
+        .status-unknown { background-color: var(--secondary-color); }
+
+        /* Light theme improvements */
+        [data-theme="light"] input,
+        [data-theme="light"] select,
+        [data-theme="light"] textarea {
+            background-color: #ffffff;
+            border: 2px solid var(--border-light);
+            color: var(--text-light);
+        }
+
+        [data-theme="light"] input:focus,
+        [data-theme="light"] select:focus,
+        [data-theme="light"] textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        [data-theme="light"] .card {
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .text-gray-600 {
+            color: #4b5563 !important;
+        }
+
+        [data-theme="light"] .text-gray-500 {
+            color: #6b7280 !important;
+        }
+
+        [data-theme="light"] .text-gray-400 {
+            color: #9ca3af !important;
+        }
+
+        /* Improve button contrast in light mode */
+        [data-theme="light"] .btn-primary {
+            background-color: #1d4ed8 !important;
+            color: #ffffff !important;
+            border: 1px solid #1d4ed8 !important;
+        }
+
+        [data-theme="light"] .btn-primary:hover {
+            background-color: #1e40af !important;
+            border-color: #1e40af !important;
+        }
+
+        [data-theme="light"] .btn-secondary {
+            background-color: #6b7280 !important;
+            color: #ffffff !important;
+            border: 1px solid #6b7280 !important;
+        }
+
+        [data-theme="light"] .btn-secondary:hover {
+            background-color: #4b5563 !important;
+            border-color: #4b5563 !important;
+        }
+
+        /* Fix refresh button and other secondary buttons in light theme */
+        [data-theme="light"] button.btn-secondary {
+            background-color: #6b7280 !important;
+            color: #ffffff !important;
+            border: 1px solid #6b7280 !important;
+        }
+
+        [data-theme="light"] button.btn-secondary:hover {
+            background-color: #4b5563 !important;
+            border-color: #4b5563 !important;
+        }
+
+        [data-theme="light"] button.btn-secondary svg {
+            color: #ffffff !important;
+        }
+
+        .sidebar {
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            min-height: 100vh;
+            width: 18rem;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 40;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+
+        .main-content {
+            margin-left: 18rem;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content-full {
+            margin-left: 0;
+        }
+
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar-open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        .loading-spinner {
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            width: 1rem;
+            height: 1rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 60;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            color: white;
+            max-width: 20rem;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification-success { background-color: var(--success-color); }
+        .notification-warning { background-color: var(--warning-color); }
+        .notification-error { background-color: var(--error-color); }
+        .notification-info { background-color: var(--primary-color); }
+
+        /* Comprehensive Light Theme Fixes */
+        [data-theme="light"] {
+            --tw-bg-opacity: 1;
+            --tw-text-opacity: 1;
+        }
+
+        /* Override Tailwind classes for light theme */
+        [data-theme="light"] .text-gray-900 {
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] .text-gray-800 {
+            color: #1f2937 !important;
+        }
+
+        [data-theme="light"] .text-gray-700 {
+            color: #374151 !important;
+        }
+
+        [data-theme="light"] .text-gray-600 {
+            color: #4b5563 !important;
+        }
+
+        [data-theme="light"] .text-gray-500 {
+            color: #6b7280 !important;
+        }
+
+        [data-theme="light"] .text-gray-400 {
+            color: #9ca3af !important;
+        }
+
+        [data-theme="light"] .bg-gray-50 {
+            background-color: #f9fafb !important;
+        }
+
+        [data-theme="light"] .bg-white {
+            background-color: #ffffff !important;
+        }
+
+        [data-theme="light"] .bg-gray-100 {
+            background-color: #f3f4f6 !important;
+        }
+
+        [data-theme="light"] .bg-gray-200 {
+            background-color: #e5e7eb !important;
+        }
+
+        [data-theme="light"] .border-gray-200 {
+            border-color: #e5e7eb !important;
+        }
+
+        [data-theme="light"] .border-gray-300 {
+            border-color: #d1d5db !important;
+        }
+
+        /* Force high contrast text in light mode */
+        [data-theme="light"] body {
+            background-color: #ffffff !important;
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] .card {
+            background-color: #ffffff !important;
+            color: #111827 !important;
+            border: 1px solid #d1d5db !important;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+        }
+
+        /* Sidebar fixes for light theme */
+        [data-theme="light"] .sidebar {
+            background-color: #ffffff !important;
+            border-right: 1px solid #e5e7eb !important;
+        }
+
+        [data-theme="light"] .sidebar h1 {
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] .sidebar p {
+            color: #6b7280 !important;
+        }
+
+        [data-theme="light"] .sidebar a {
+            color: #374151 !important;
+        }
+
+        [data-theme="light"] .sidebar a:hover {
+            background-color: #f3f4f6 !important;
+            color: #111827 !important;
+        }
+
+        /* Input and form elements */
+        [data-theme="light"] input,
+        [data-theme="light"] select,
+        [data-theme="light"] textarea {
+            background-color: #ffffff !important;
+            border: 2px solid #d1d5db !important;
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] input:focus,
+        [data-theme="light"] select:focus,
+        [data-theme="light"] textarea:focus {
+            border-color: #3b82f6 !important;
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+        }
+
+        /* Button improvements */
+        [data-theme="light"] .btn-primary {
+            background-color: #1d4ed8 !important;
+            color: #ffffff !important;
+        }
+
+        [data-theme="light"] .btn-primary:hover {
+            background-color: #1e40af !important;
+        }
+
+        [data-theme="light"] .btn-secondary {
+            background-color: #374151 !important;
+            color: #ffffff !important;
+        }
+
+        [data-theme="light"] .btn-secondary:hover {
+            background-color: #1f2937 !important;
+        }
+
+        /* Status indicators and badges */
+        [data-theme="light"] .bg-blue-50 {
+            background-color: #eff6ff !important;
+        }
+
+        [data-theme="light"] .text-blue-600 {
+            color: #2563eb !important;
+        }
+
+        [data-theme="light"] .text-blue-400 {
+            color: #3b82f6 !important;
+        }
+
+        /* Alert and notification text */
+        [data-theme="light"] .alert-text {
+            color: #111827 !important;
+        }
+
+        /* Table and data display */
+        [data-theme="light"] table {
+            background-color: #ffffff !important;
+        }
+
+        [data-theme="light"] th {
+            background-color: #f9fafb !important;
+            color: #111827 !important;
+            border-bottom: 1px solid #e5e7eb !important;
+        }
+
+        [data-theme="light"] td {
+            color: #374151 !important;
+            border-bottom: 1px solid #f3f4f6 !important;
+        }
+
+        /* Override any remaining low-contrast text */
+        [data-theme="light"] * {
+            --tw-text-opacity: 1 !important;
+        }
+
+        [data-theme="light"] .text-sm {
+            color: #374151 !important;
+        }
+
+        [data-theme="light"] .text-xs {
+            color: #4b5563 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+        <div class="px-8 py-6">
+            <div class="flex items-center space-x-3 mb-8">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h1 class="text-xl font-bold whitespace-nowrap">SkywarnPlus-NG</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Weather Alert System</p>
+                </div>
+            </div>
+
+            <ul class="space-y-2">
+                <li>
+                    <a href="/" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'dashboard' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
+                        </svg>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/alerts" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Active Alerts</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/alerts/history" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts_history' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Alert History</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/configuration" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'configuration' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Configuration</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/health" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'health' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>System Health</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/logs" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'logs' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Logs</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/database" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'database' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
+                        </svg>
+                        <span>Database</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/metrics" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'metrics' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
+                        </svg>
+                        <span>Metrics</span>
+                    </a>
+                </li>
+            </ul>
+            
+            <!-- Bottom Actions -->
+            <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="space-y-2">
+                    <button onclick="toggleTheme()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400">
+                        <svg id="sidebar-sun-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" style="display: none;">
+                            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                        </svg>
+                        <svg id="sidebar-moon-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                        </svg>
+                        <span>Toggle Theme</span>
+                    </button>
+                    {% if page == 'configuration' %}
+                    <button onclick="logout()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"></path>
+                        </svg>
+                        <span>Logout</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Button -->
+    <button id="mobile-menu-btn" class="md:hidden fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+        </svg>
+    </button>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <div class="p-6">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+
+    <!-- JavaScript -->
+    <script>
+        // Theme management
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update theme icon
+            const sunIcon = document.getElementById('sidebar-sun-icon');
+            const moonIcon = document.getElementById('sidebar-moon-icon');
+            
+            if (newTheme === 'dark') {
+                if (sunIcon) sunIcon.style.display = 'none';
+                if (moonIcon) moonIcon.style.display = 'block';
+            } else {
+                if (sunIcon) sunIcon.style.display = 'block';
+                if (moonIcon) moonIcon.style.display = 'none';
+            }
+        }
+
+        // Load saved theme
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            
+            const sunIcon = document.getElementById('sidebar-sun-icon');
+            const moonIcon = document.getElementById('sidebar-moon-icon');
+            
+            if (savedTheme === 'dark') {
+                if (sunIcon) sunIcon.style.display = 'none';
+                if (moonIcon) moonIcon.style.display = 'block';
+            } else {
+                if (sunIcon) sunIcon.style.display = 'block';
+                if (moonIcon) moonIcon.style.display = 'none';
+            }
+        }
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+            
+            sidebar.classList.toggle('sidebar-open');
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            // Auto remove
+            if (duration > 0) {
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }, duration);
+            }
+        }
+
+        // API helper
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                showNotification(`API Error: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Force redirect even if API call fails
+                window.location.href = '/';
+            }
+        }
+
+        // WebSocket connection
+        let ws = null;
+        let reconnectInterval = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                // Reconnect after 5 seconds
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(connectWebSocket, 5000);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            // Handle different message types
+            switch (data.type) {
+                case 'alerts_update':
+                    if (window.updateAlerts) {
+                        window.updateAlerts(data.data);
+                    }
+                    break;
+                case 'status_update':
+                    if (window.updateStatus) {
+                        window.updateStatus(data.data);
+                    }
+                    break;
+                default:
+                    console.log('Unknown WebSocket message:', data);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTheme();
+            connectWebSocket();
+            
+            // Mobile menu button
+            document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);
+            
+            // Close mobile menu when clicking outside
+            document.addEventListener('click', function(event) {
+                const sidebar = document.getElementById('sidebar');
+                const menuBtn = document.getElementById('mobile-menu-btn');
+                
+                if (window.innerWidth < 768 && 
+                    !sidebar.contains(event.target) && 
+                    !menuBtn.contains(event.target)) {
+                    sidebar.classList.remove('sidebar-open');
+                }
+            });
+        });
+    </script>
+
+    <!-- Page-specific JavaScript -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>

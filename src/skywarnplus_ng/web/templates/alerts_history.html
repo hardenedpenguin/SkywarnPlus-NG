@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Alert History</h1>
+        <p class="text-gray-600 dark:text-gray-400">Historical weather alerts and their processing status</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-4">
+            <button onclick="refreshHistory()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Time Range:</label>
+                <select id="time-range" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="24">Last 24 hours</option>
+                    <option value="72">Last 3 days</option>
+                    <option value="168">Last week</option>
+                    <option value="720">Last month</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Severity:</label>
+                <select id="severity-filter" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="">All</option>
+                    <option value="Extreme">Extreme</option>
+                    <option value="Severe">Severe</option>
+                    <option value="Moderate">Moderate</option>
+                    <option value="Minor">Minor</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- History List -->
+    <div class="card">
+        <div id="history-container">
+            <div class="text-center py-8">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-500 dark:text-gray-400">Loading alert history...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load alert history
+    async function loadHistory() {
+        try {
+            const timeRange = document.getElementById('time-range').value;
+            const severity = document.getElementById('severity-filter').value;
+            
+            let url = `/api/alerts/history?hours=${timeRange}`;
+            if (severity) {
+                url += `&severity=${severity}`;
+            }
+            
+            const response = await apiCall(url);
+            renderHistory(response.alerts);
+        } catch (error) {
+            console.error('Failed to load alert history:', error);
+            showNotification('Failed to load alert history', 'error');
+        }
+    }
+
+    // Render history
+    function renderHistory(alerts) {
+        const container = document.getElementById('history-container');
+        
+        if (alerts.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Alert History</h3>
+                    <p class="text-gray-500 dark:text-gray-400">No alerts found for the selected time range and filters.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const historyHtml = alerts.map(alert => `
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 last:mb-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                                alert.severity === 'Extreme' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                                alert.severity === 'Severe' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
+                                alert.severity === 'Moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                            }">
+                                ${alert.severity}
+                            </span>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${alert.event}</h3>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${alert.area_desc}</p>
+                        <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                            <span>Processed: ${formatTimestamp(alert.processed_at)}</span>
+                            <span>Effective: ${formatTimestamp(alert.effective_time)}</span>
+                            <span>Expires: ${formatTimestamp(alert.expires_time)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        ${alert.announced ? '<span class="text-green-500" title="Announced">📢</span>' : ''}
+                        ${alert.script_executed ? '<span class="text-blue-500" title="Script Executed">⚙️</span>' : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = historyHtml;
+    }
+
+    // Refresh history
+    async function refreshHistory() {
+        await loadHistory();
+        showNotification('Alert history refreshed', 'success');
+    }
+
+    // Format timestamp
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return 'Unknown';
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadHistory();
+        
+        // Set up event listeners
+        document.getElementById('time-range').addEventListener('change', loadHistory);
+        document.getElementById('severity-filter').addEventListener('change', loadHistory);
+    });
+</script>
+{% endblock %}

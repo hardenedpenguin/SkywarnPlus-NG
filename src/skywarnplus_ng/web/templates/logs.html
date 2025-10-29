@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Application Logs</h1>
+        <p class="text-gray-600 dark:text-gray-400">View and monitor application logs in real-time</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-4">
+            <button onclick="refreshLogs()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                </svg>
+                Refresh
+            </button>
+            
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Auto-refresh:</label>
+                <input type="checkbox" id="auto-refresh" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <span id="refresh-interval" class="text-sm text-gray-500 dark:text-gray-400">10s</span>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Level:</label>
+                <select id="log-level" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Levels</option>
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Limit:</label>
+                <select id="log-limit" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="50">50 lines</option>
+                    <option value="100" selected>100 lines</option>
+                    <option value="200">200 lines</option>
+                    <option value="500">500 lines</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Container -->
+    <div class="card">
+        <div id="logs-container" class="bg-gray-900 text-green-400 font-mono text-sm p-4 rounded-lg overflow-auto max-h-96">
+            <div class="text-center py-4">
+                <div class="loading-spinner mx-auto mb-2"></div>
+                <p class="text-gray-500">Loading logs...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let refreshInterval = null;
+    let autoRefreshEnabled = false;
+
+    // Get log level color
+    function getLogLevelColor(level) {
+        switch (level) {
+            case 'DEBUG':
+                return 'text-gray-400';
+            case 'INFO':
+                return 'text-blue-400';
+            case 'WARNING':
+                return 'text-yellow-400';
+            case 'ERROR':
+                return 'text-red-400';
+            case 'CRITICAL':
+                return 'text-red-600';
+            default:
+                return 'text-gray-400';
+        }
+    }
+
+    // Format log entry
+    function formatLogEntry(entry) {
+        if (typeof entry === 'string') {
+            return entry;
+        }
+        
+        const timestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown';
+        const level = entry.level || 'INFO';
+        const message = entry.message || entry;
+        const logger = entry.logger || '';
+        
+        return `[${timestamp}] ${level.padEnd(8)} ${logger ? `[${logger}] ` : ''}${message}`;
+    }
+
+    // Render logs
+    function renderLogs(logs) {
+        const container = document.getElementById('logs-container');
+        
+        if (logs.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="text-gray-500">No logs available</p>
+                </div>
+            `;
+            return;
+        }
+
+        const logsHtml = logs.map(entry => {
+            const level = entry.level || 'INFO';
+            const colorClass = getLogLevelColor(level);
+            const formattedEntry = formatLogEntry(entry);
+            
+            return `<div class="${colorClass}">${formattedEntry}</div>`;
+        }).join('');
+
+        container.innerHTML = logsHtml;
+        
+        // Auto-scroll to bottom
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Load logs
+    async function loadLogs() {
+        try {
+            const level = document.getElementById('log-level').value;
+            const limit = document.getElementById('log-limit').value;
+            
+            let url = `/api/logs?limit=${limit}`;
+            if (level) {
+                url += `&level=${level}`;
+            }
+            
+            const response = await apiCall(url);
+            renderLogs(response.logs);
+        } catch (error) {
+            console.error('Failed to load logs:', error);
+            showNotification('Failed to load logs', 'error');
+        }
+    }
+
+    // Refresh logs
+    async function refreshLogs() {
+        await loadLogs();
+        showNotification('Logs refreshed', 'success');
+    }
+
+    // Auto-refresh toggle
+    function toggleAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh');
+        autoRefreshEnabled = checkbox.checked;
+        
+        if (autoRefreshEnabled) {
+            refreshInterval = setInterval(loadLogs, 10000);
+            document.getElementById('refresh-interval').textContent = '10s';
+        } else {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+            document.getElementById('refresh-interval').textContent = 'Off';
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadLogs();
+        
+        // Set up event listeners
+        document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+        document.getElementById('log-level').addEventListener('change', loadLogs);
+        document.getElementById('log-limit').addEventListener('change', loadLogs);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+</script>
+{% endblock %}

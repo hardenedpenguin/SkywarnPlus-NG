@@ -1,0 +1,883 @@
+"""
+Core application logic for SkywarnPlus-NG.
+"""
+
+import asyncio
+import logging
+import signal
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+
+from .config import AppConfig
+from .state import ApplicationState
+from .models import WeatherAlert
+from ..api.nws_client import NWSClient, NWSClientError
+from ..audio.manager import AudioManager, AudioManagerError
+from ..asterisk.manager import AsteriskManager, AsteriskError
+from ..utils.script_manager import ScriptManager, ScriptExecutionError
+from ..utils.logging import setup_logging, get_logger, PerformanceLogger, AlertLogger
+from ..monitoring.health import HealthMonitor
+from ..database.manager import DatabaseManager, DatabaseError
+from ..web.server import WebDashboard
+from ..processing.pipeline import AlertProcessingPipeline, ProcessingStage
+from ..processing.filters import FilterChain, GeographicFilter, TimeFilter, SeverityFilter, CustomRuleFilter
+from ..processing.deduplication import AlertDeduplicator, DuplicateDetectionStrategy
+from ..processing.prioritization import AlertPrioritizer
+from ..processing.validation import AlertValidator
+from ..processing.workflows import WorkflowEngine, AlertWorkflow, WorkflowStep, ResponseAction, ActionType
+from ..processing.analytics import AlertAnalytics
+
+logger = logging.getLogger(__name__)
+
+
+class SkywarnPlusApplication:
+    """Main application class for SkywarnPlus-NG."""
+
+    def __init__(self, config: AppConfig):
+        """
+        Initialize the application.
+
+        Args:
+            config: Application configuration
+        """
+        self.config = config
+        self.state_manager = ApplicationState(
+            state_file=config.data_dir / "state.json"
+        )
+        self.nws_client: Optional[NWSClient] = None
+        self.audio_manager: Optional[AudioManager] = None
+        self.asterisk_manager: Optional[AsteriskManager] = None
+        self.script_manager: Optional[ScriptManager] = None
+        self.health_monitor: Optional[HealthMonitor] = None
+        self.database_manager: Optional[DatabaseManager] = None
+        self.performance_logger: Optional[PerformanceLogger] = None
+        self.alert_logger: Optional[AlertLogger] = None
+        self.web_dashboard: Optional[WebDashboard] = None
+        self.alert_pipeline: Optional[AlertProcessingPipeline] = None
+        self.filter_chain: Optional[FilterChain] = None
+        self.deduplicator: Optional[AlertDeduplicator] = None
+        self.prioritizer: Optional[AlertPrioritizer] = None
+        self.validator: Optional[AlertValidator] = None
+        self.workflow_engine: Optional[WorkflowEngine] = None
+        self.analytics: Optional[AlertAnalytics] = None
+        self.running = False
+        self._shutdown_event = asyncio.Event()
+        self._start_time = datetime.now(timezone.utc)
+
+    async def initialize(self) -> None:
+        """Initialize the application components."""
+        # Setup enhanced logging first
+        main_logger, self.performance_logger, self.alert_logger = setup_logging(self.config.logging)
+        logger.info("Initializing SkywarnPlus-NG application")
+
+        # Initialize NWS client
+        self.nws_client = NWSClient(self.config.nws)
+        
+        # Test NWS connection
+        if not await self.nws_client.test_connection():
+            logger.warning("NWS API connection test failed - continuing anyway")
+        else:
+            logger.info("NWS API connection test successful")
+
+        # Initialize audio manager
+        try:
+            self.audio_manager = AudioManager(self.config.audio)
+            logger.info("Audio manager initialized successfully")
+        except AudioManagerError as e:
+            logger.error(f"Failed to initialize audio manager: {e}")
+            logger.warning("Audio features will be disabled")
+            self.audio_manager = None
+
+        # Initialize Asterisk manager
+        if self.config.asterisk.enabled:
+            try:
+                self.asterisk_manager = AsteriskManager(self.config.asterisk)
+                
+                # Test Asterisk connection
+                if await self.asterisk_manager.test_connection():
+                    logger.info("Asterisk manager initialized successfully")
+                else:
+                    logger.warning("Asterisk connection test failed - continuing anyway")
+            except AsteriskError as e:
+                logger.error(f"Failed to initialize Asterisk manager: {e}")
+                logger.warning("Asterisk features will be disabled")
+                self.asterisk_manager = None
+        else:
+            logger.info("Asterisk integration disabled in configuration")
+
+        # Initialize script manager
+        if self.config.scripts.enabled:
+            try:
+                self.script_manager = ScriptManager(self.config.scripts)
+                logger.info("Script manager initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize script manager: {e}")
+                logger.warning("Script execution will be disabled")
+                self.script_manager = None
+        else:
+            logger.info("Script execution disabled in configuration")
+
+        # Initialize database manager
+        if self.config.database.enabled:
+            try:
+                self.database_manager = DatabaseManager(self.config)
+                await self.database_manager.initialize()
+                logger.info("Database manager initialized successfully")
+            except DatabaseError as e:
+                logger.error(f"Failed to initialize database manager: {e}")
+                logger.warning("Database features will be disabled")
+                self.database_manager = None
+        else:
+            logger.info("Database storage disabled in configuration")
+
+        # Initialize health monitor
+        self.health_monitor = HealthMonitor(self.config, self._start_time)
+        self.health_monitor.set_components(
+            nws_client=self.nws_client,
+            audio_manager=self.audio_manager,
+            asterisk_manager=self.asterisk_manager,
+            script_manager=self.script_manager,
+            database_manager=self.database_manager
+        )
+        logger.info("Health monitor initialized")
+
+        # Initialize web dashboard
+        if self.config.monitoring.enabled and self.config.monitoring.http_server.enabled:
+            try:
+                self.web_dashboard = WebDashboard(self, self.config)
+                await self.web_dashboard.start(
+                    host=self.config.monitoring.http_server.host,
+                    port=self.config.monitoring.http_server.port
+                )
+                logger.info("Web dashboard initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize web dashboard: {e}")
+                logger.warning("Web dashboard will be disabled")
+                self.web_dashboard = None
+        else:
+            logger.info("Web dashboard disabled in configuration")
+
+        # Initialize alert processing pipeline
+        try:
+            self._initialize_processing_pipeline()
+            logger.info("Alert processing pipeline initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize processing pipeline: {e}")
+            logger.warning("Alert processing pipeline will be disabled")
+            self.alert_pipeline = None
+
+        # Load initial state
+        self.state = self.state_manager.load_state()
+        logger.info("Application initialized successfully")
+
+    def _initialize_processing_pipeline(self) -> None:
+        """Initialize the alert processing pipeline components."""
+        # Initialize analytics
+        self.analytics = AlertAnalytics()
+        
+        # Initialize filter chain
+        self.filter_chain = FilterChain("MainFilterChain")
+        
+        # Add geographic filter
+        geo_filter = GeographicFilter(
+            name="GeographicFilter",
+            enabled=True,
+            allowed_counties=[c.code for c in self.config.counties if c.enabled],
+            blocked_counties=[]
+        )
+        self.filter_chain.add_filter(geo_filter)
+        
+        # Add time filter
+        time_filter = TimeFilter(
+            name="TimeFilter",
+            enabled=True,
+            business_hours_only=False,
+            weekdays_only=False,
+            time_window_hours=24
+        )
+        self.filter_chain.add_filter(time_filter)
+        
+        # Add severity filter
+        severity_filter = SeverityFilter(
+            name="SeverityFilter",
+            enabled=True,
+            min_severity=None,  # Accept all severities
+            blocked_severities=[]
+        )
+        self.filter_chain.add_filter(severity_filter)
+        
+        # Initialize deduplicator
+        self.deduplicator = AlertDeduplicator(
+            strategy=DuplicateDetectionStrategy.HYBRID,
+            similarity_threshold=0.8,
+            time_window_minutes=30
+        )
+        
+        # Initialize prioritizer
+        self.prioritizer = AlertPrioritizer()
+        
+        # Initialize validator
+        self.validator = AlertValidator(
+            min_confidence_threshold=0.6,
+            enable_cross_validation=True,
+            enable_anomaly_detection=True,
+            enable_consistency_checks=True
+        )
+        
+        # Initialize workflow engine
+        self.workflow_engine = WorkflowEngine()
+        
+        # Create default workflow for severe alerts
+        severe_workflow = self._create_severe_alert_workflow()
+        self.workflow_engine.register_workflow(severe_workflow)
+        
+        # Initialize processing pipeline
+        self.alert_pipeline = AlertProcessingPipeline()
+        
+        # Add processors to pipeline
+        from ..processing.pipeline import AlertProcessor
+        
+        # Filter processor
+        class FilterProcessor(AlertProcessor):
+            def __init__(self, filter_chain: FilterChain):
+                super().__init__("FilterProcessor")
+                self.filter_chain = filter_chain
+            
+            async def process(self, context):
+                result = self.filter_chain.filter_alert(context.alert)
+                if not result.passed:
+                    context.metadata["filtered"] = True
+                    context.metadata["filter_reason"] = result.reason
+                return context
+        
+        # Deduplication processor
+        class DeduplicationProcessor(AlertProcessor):
+            def __init__(self, deduplicator: AlertDeduplicator):
+                super().__init__("DeduplicationProcessor")
+                self.deduplicator = deduplicator
+            
+            async def process(self, context):
+                # This would be called on a batch of alerts
+                # For now, just pass through
+                return context
+        
+        # Prioritization processor
+        class PrioritizationProcessor(AlertProcessor):
+            def __init__(self, prioritizer: AlertPrioritizer):
+                super().__init__("PrioritizationProcessor")
+                self.prioritizer = prioritizer
+            
+            async def process(self, context):
+                priority_score = self.prioritizer.prioritize_alert(context.alert)
+                context.metadata["priority_score"] = priority_score.total_score
+                context.metadata["priority_level"] = priority_score.priority_level.value
+                return context
+        
+        # Validation processor
+        class ValidationProcessor(AlertProcessor):
+            def __init__(self, validator: AlertValidator):
+                super().__init__("ValidationProcessor")
+                self.validator = validator
+            
+            async def process(self, context):
+                validation_result = self.validator.validate_alert(context.alert)
+                context.metadata["validation_status"] = validation_result.status.value
+                context.metadata["confidence_score"] = validation_result.confidence_score
+                return context
+        
+        # Workflow processor
+        class WorkflowProcessor(AlertProcessor):
+            def __init__(self, workflow_engine: WorkflowEngine):
+                super().__init__("WorkflowProcessor")
+                self.workflow_engine = workflow_engine
+            
+            async def process(self, context):
+                executions = await self.workflow_engine.execute_workflows(context.alert)
+                context.metadata["workflow_executions"] = len(executions)
+                return context
+        
+        # Add processors to pipeline
+        self.alert_pipeline.add_processor(
+            FilterProcessor(self.filter_chain), 
+            ProcessingStage.FILTERED
+        )
+        self.alert_pipeline.add_processor(
+            DeduplicationProcessor(self.deduplicator), 
+            ProcessingStage.DEDUPLICATED
+        )
+        self.alert_pipeline.add_processor(
+            PrioritizationProcessor(self.prioritizer), 
+            ProcessingStage.PRIORITIZED
+        )
+        self.alert_pipeline.add_processor(
+            ValidationProcessor(self.validator), 
+            ProcessingStage.VALIDATED
+        )
+        self.alert_pipeline.add_processor(
+            WorkflowProcessor(self.workflow_engine), 
+            ProcessingStage.WORKFLOW_EXECUTED
+        )
+    
+    def _create_severe_alert_workflow(self) -> AlertWorkflow:
+        """Create a default workflow for severe alerts."""
+        # Create workflow steps
+        notification_step = WorkflowStep(
+            step_id="notification",
+            name="Send Notifications",
+            description="Send notifications for severe alerts",
+            actions=[
+                ResponseAction(
+                    action_id="email_notification",
+                    action_type=ActionType.NOTIFICATION,
+                    name="Email Notification",
+                    description="Send email notification",
+                    parameters={"type": "email", "priority": "high"}
+                ),
+                ResponseAction(
+                    action_id="sms_notification",
+                    action_type=ActionType.NOTIFICATION,
+                    name="SMS Notification",
+                    description="Send SMS notification",
+                    parameters={"type": "sms", "priority": "high"}
+                )
+            ],
+            conditions=[
+                {"type": "severity_gte", "severity": "Severe"}
+            ]
+        )
+        
+        escalation_step = WorkflowStep(
+            step_id="escalation",
+            name="Escalate Alert",
+            description="Escalate severe alerts to management",
+            actions=[
+                ResponseAction(
+                    action_id="management_escalation",
+                    action_type=ActionType.ESCALATION,
+                    name="Management Escalation",
+                    description="Escalate to management team",
+                    parameters={"escalation_level": "management"}
+                )
+            ],
+            conditions=[
+                {"type": "severity_equals", "severity": "Extreme"}
+            ]
+        )
+        
+        # Create workflow
+        workflow = AlertWorkflow(
+            workflow_id="severe_alert_workflow",
+            name="Severe Alert Workflow",
+            description="Workflow for processing severe weather alerts",
+            trigger_conditions=[
+                {"type": "severity_gte", "severity": "Severe"}
+            ],
+            steps=[notification_step, escalation_step],
+            enabled=True
+        )
+        
+        return workflow
+
+    async def shutdown(self) -> None:
+        """Shutdown the application gracefully."""
+        logger.info("Shutting down SkywarnPlus-NG application")
+        
+        self.running = False
+        self._shutdown_event.set()
+        
+        # Close database connections
+        if self.database_manager:
+            await self.database_manager.close()
+        
+        # Stop web dashboard
+        if self.web_dashboard:
+            await self.web_dashboard.stop()
+        
+        if self.nws_client:
+            await self.nws_client.close()
+        
+        # Save final state
+        self.state_manager.save_state(self.state)
+        logger.info("Application shutdown complete")
+
+    async def run(self) -> None:
+        """Run the main application loop."""
+        await self.initialize()
+        
+        # Set up signal handlers for graceful shutdown
+        self._setup_signal_handlers()
+        
+        self.running = True
+        logger.info(f"Starting main loop with {self.config.poll_interval}s poll interval")
+        
+        try:
+            while self.running:
+                await self._poll_cycle()
+                
+                # Wait for next poll or shutdown signal
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(), 
+                        timeout=self.config.poll_interval
+                    )
+                    break  # Shutdown signal received
+                except asyncio.TimeoutError:
+                    pass  # Continue to next poll cycle
+                    
+        except Exception as e:
+            logger.error(f"Error in main loop: {e}", exc_info=True)
+        finally:
+            await self.shutdown()
+
+    def _setup_signal_handlers(self) -> None:
+        """Set up signal handlers for graceful shutdown."""
+        def signal_handler(signum, frame):
+            logger.info(f"Received signal {signum}, initiating shutdown")
+            asyncio.create_task(self.shutdown())
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+    async def _poll_cycle(self) -> None:
+        """Execute one polling cycle."""
+        logger.debug("Starting poll cycle")
+        
+        try:
+            # Update poll time
+            self.state_manager.update_poll_time(self.state)
+            
+            # Get county codes from configuration
+            county_codes = [county.code for county in self.config.counties if county.enabled]
+            if not county_codes:
+                logger.warning("No enabled counties configured")
+                return
+
+            # Fetch alerts from NWS
+            current_alerts = await self._fetch_alerts(county_codes)
+            
+            # Process alerts
+            await self._process_alerts(current_alerts)
+            
+            # Clean up old alerts
+            self.state_manager.cleanup_old_alerts(self.state)
+            
+            # Clean up old audio files
+            if self.audio_manager:
+                self.audio_manager.cleanup_old_audio()
+            
+            # Save state
+            self.state_manager.save_state(self.state)
+            
+            # Broadcast status update via WebSocket
+            if self.web_dashboard:
+                await self.web_dashboard.broadcast_update('status_update', self.get_status())
+            
+            logger.debug(f"Poll cycle complete - {len(current_alerts)} alerts processed")
+            
+        except Exception as e:
+            logger.error(f"Error in poll cycle: {e}", exc_info=True)
+
+    async def _fetch_alerts(self, county_codes: List[str]) -> List[WeatherAlert]:
+        """
+        Fetch alerts from NWS API.
+
+        Args:
+            county_codes: List of county codes to fetch alerts for
+
+        Returns:
+            List of current alerts
+        """
+        if not self.nws_client:
+            logger.error("NWS client not initialized")
+            return []
+
+        try:
+            # Fetch alerts for all counties concurrently
+            alerts = await self.nws_client.fetch_alerts_for_zones(county_codes)
+            
+            # Filter to only active alerts
+            active_alerts = self.nws_client.filter_active_alerts(
+                alerts, 
+                time_type=self.config.alerts.time_type
+            )
+            
+            logger.info(f"Fetched {len(active_alerts)} active alerts from {len(county_codes)} counties")
+            return active_alerts
+            
+        except NWSClientError as e:
+            logger.error(f"Failed to fetch alerts: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error fetching alerts: {e}", exc_info=True)
+            return []
+
+    async def _process_alerts(self, current_alerts: List[WeatherAlert]) -> None:
+        """
+        Process alerts and determine what actions to take.
+
+        Args:
+            current_alerts: List of current active alerts
+        """
+        # Apply processing pipeline if available
+        if self.alert_pipeline and current_alerts:
+            try:
+                # Process alerts through the pipeline
+                processing_results = await self.alert_pipeline.process_alerts(current_alerts)
+                
+                # Update analytics
+                if self.analytics:
+                    for result in processing_results:
+                        if result.processed:
+                            self.analytics.add_alert(result.alert, result.processing_time_ms)
+                        else:
+                            self.analytics.add_error("processing_failed")
+                
+                # Filter out alerts that were filtered by the pipeline
+                processed_alerts = [
+                    result.alert for result in processing_results
+                    if result.processed and not result.metadata.get("filtered", False)
+                ]
+            except Exception as e:
+                logger.error(f"Alert processing pipeline failed: {e}")
+                processed_alerts = current_alerts
+        else:
+            processed_alerts = current_alerts
+        
+        # Get new and expired alerts
+        new_alerts = self.state_manager.get_new_alerts(self.state, processed_alerts)
+        expired_alerts = self.state_manager.get_expired_alerts(self.state, processed_alerts)
+        
+        # Update active alerts
+        current_alert_ids = [alert.id for alert in processed_alerts]
+        self.state_manager.update_active_alerts(self.state, current_alert_ids)
+        
+        # Process new alerts
+        if new_alerts:
+            await self._handle_new_alerts(new_alerts)
+        
+        # Process expired alerts
+        if expired_alerts:
+            await self._handle_expired_alerts(expired_alerts)
+        
+        # Check for all-clear scenario
+        if not processed_alerts and self.state.get('active_alerts'):
+            await self._handle_all_clear()
+
+    async def _handle_new_alerts(self, new_alerts: List[WeatherAlert]) -> None:
+        """
+        Handle newly discovered alerts.
+
+        Args:
+            new_alerts: List of new alerts
+        """
+        logger.info(f"Processing {len(new_alerts)} new alerts")
+        
+        for alert in new_alerts:
+            # Start performance timer for this alert
+            timer_id = self.performance_logger.start_timer(f"alert_processing_{alert.id}") if self.performance_logger else None
+            alert_start_time = datetime.now(timezone.utc)
+            
+            try:
+                # Log alert received
+                self.alert_logger.log_alert_received(
+                    alert.id, alert.event, alert.area_desc,
+                    severity=alert.severity.value,
+                    urgency=alert.urgency.value,
+                    certainty=alert.certainty.value
+                ) if self.alert_logger else logger.info(f"New alert detected: {alert.event} (ID: {alert.id})")
+                
+                # Add to state
+                self.state_manager.add_alert(self.state, alert)
+                
+                # Check if alert should be announced
+                if self._should_announce_alert(alert):
+                    await self._announce_alert(alert)
+                    self.state_manager.mark_alert_announced(self.state, alert.id)
+                
+                # Execute alert script
+                if self.script_manager:
+                    script_success = await self.script_manager.execute_alert_script(alert)
+                    if script_success:
+                        self.state_manager.mark_alert_script_triggered(self.state, alert.id)
+                        logger.info(f"Alert script executed successfully for: {alert.event}")
+                    else:
+                        logger.warning(f"Alert script failed for: {alert.event}")
+                
+                # Log alert processing completion
+                processing_time = (datetime.now(timezone.utc) - alert_start_time).total_seconds() * 1000
+                self.alert_logger.log_alert_processed(
+                    alert.id, alert.event, True, processing_time,
+                    severity=alert.severity.value,
+                    area=alert.area_desc
+                ) if self.alert_logger else logger.info(f"Processed new alert: {alert.event} ({alert.severity.value})")
+                
+                # Store alert in database
+                if self.database_manager:
+                    try:
+                        await self.database_manager.store_alert(
+                            alert=alert,
+                            announced=self._should_announce_alert(alert),
+                            script_executed=script_success if self.script_manager else False,
+                            announcement_nodes=[]  # TODO: Get actual nodes from announcement
+                        )
+                    except DatabaseError as e:
+                        logger.error(f"Failed to store alert in database: {e}")
+                
+                # Broadcast alert update via WebSocket
+                if self.web_dashboard:
+                    await self.web_dashboard.broadcast_update('alerts_update', [alert.model_dump()])
+                
+            except Exception as e:
+                processing_time = (datetime.now(timezone.utc) - alert_start_time).total_seconds() * 1000
+                self.alert_logger.log_alert_processed(
+                    alert.id, alert.event, False, processing_time,
+                    error=str(e)
+                ) if self.alert_logger else logger.error(f"Error processing alert {alert.event}: {e}")
+                raise
+            finally:
+                # End performance timer
+                if timer_id and self.performance_logger:
+                    self.performance_logger.end_timer(timer_id, success=True)
+
+    async def _handle_expired_alerts(self, expired_alert_ids: List[str]) -> None:
+        """
+        Handle expired alerts.
+
+        Args:
+            expired_alert_ids: List of expired alert IDs
+        """
+        logger.info(f"Processing {len(expired_alert_ids)} expired alerts")
+        
+        for alert_id in expired_alert_ids:
+            self.state_manager.remove_alert(self.state, alert_id)
+            logger.debug(f"Removed expired alert: {alert_id}")
+
+    async def _handle_all_clear(self) -> None:
+        """Handle all-clear scenario (no active alerts)."""
+        # Log all-clear event
+        self.alert_logger.log_all_clear() if self.alert_logger else logger.info("All clear - no active weather alerts")
+        
+        if self.config.alerts.say_all_clear:
+            await self._announce_all_clear()
+        
+        # Execute all-clear script
+        if self.script_manager:
+            script_success = await self.script_manager.execute_all_clear_script()
+            if script_success:
+                logger.info("All-clear script executed successfully")
+            else:
+                logger.warning("All-clear script failed")
+        
+        self.state_manager.update_all_clear_time(self.state)
+        
+        # Clear active alerts
+        self.state_manager.update_active_alerts(self.state, [])
+
+    def _should_announce_alert(self, alert: WeatherAlert) -> bool:
+        """
+        Determine if an alert should be announced.
+
+        Args:
+            alert: Alert to check
+
+        Returns:
+            True if alert should be announced
+        """
+        # Check if alerts are enabled
+        if not self.config.alerts.say_alert:
+            return False
+        
+        # Check if this event type is blocked from announcement
+        for blocked_event in self.config.filtering.say_alert_blocked:
+            if self._matches_pattern(alert.event, blocked_event):
+                logger.debug(f"Alert {alert.event} blocked from announcement by pattern: {blocked_event}")
+                return False
+        
+        return True
+
+
+    def _matches_pattern(self, text: str, pattern: str) -> bool:
+        """
+        Check if text matches a glob pattern.
+
+        Args:
+            text: Text to match
+            pattern: Glob pattern
+
+        Returns:
+            True if text matches pattern
+        """
+        import fnmatch
+        return fnmatch.fnmatch(text, pattern)
+
+    async def _announce_alert(self, alert: WeatherAlert) -> None:
+        """
+        Announce an alert using TTS and Asterisk.
+
+        Args:
+            alert: Alert to announce
+        """
+        logger.info(f"Announcing alert: {alert.event} - {alert.area_desc}")
+        logger.debug(f"Alert description: {alert.description[:100]}..." if alert.description and len(alert.description) > 100 else f"Alert description: {alert.description}")
+        
+        if not self.audio_manager:
+            logger.warning("Audio manager not available - skipping announcement")
+            return
+        
+        if not self.asterisk_manager:
+            logger.warning("Asterisk manager not available - skipping announcement")
+            return
+        
+        try:
+            # Generate TTS audio for the alert
+            audio_path = self.audio_manager.generate_alert_audio(alert)
+            if not audio_path:
+                logger.error(f"Failed to generate audio for alert: {alert.event}")
+                return
+            
+            logger.info(f"Generated alert audio: {audio_path}")
+            
+            # Play audio on all configured Asterisk nodes
+            successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)
+            
+            if successful_nodes:
+                logger.info(f"Alert audio playing on {len(successful_nodes)} nodes: {successful_nodes}")
+                
+                # Add audio delay if configured
+                if self.config.asterisk.audio_delay > 0:
+                    await asyncio.sleep(self.config.asterisk.audio_delay / 1000.0)
+            else:
+                logger.error(f"Failed to play alert audio on any nodes: {alert.event}")
+            
+        except Exception as e:
+            logger.error(f"Error announcing alert {alert.event}: {e}", exc_info=True)
+
+    async def _announce_all_clear(self) -> None:
+        """Announce all-clear message using TTS and Asterisk."""
+        logger.info("Announcing all-clear message")
+        
+        if not self.audio_manager:
+            logger.warning("Audio manager not available - skipping all-clear announcement")
+            return
+        
+        if not self.asterisk_manager:
+            logger.warning("Asterisk manager not available - skipping all-clear announcement")
+            return
+        
+        try:
+            # Generate TTS audio for all-clear message
+            audio_path = self.audio_manager.generate_all_clear_audio()
+            if not audio_path:
+                logger.error("Failed to generate all-clear audio")
+                return
+            
+            logger.info(f"Generated all-clear audio: {audio_path}")
+            
+            # Play audio on all configured Asterisk nodes
+            successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)
+            
+            if successful_nodes:
+                logger.info(f"All-clear audio playing on {len(successful_nodes)} nodes: {successful_nodes}")
+                
+                # Add audio delay if configured
+                if self.config.asterisk.audio_delay > 0:
+                    await asyncio.sleep(self.config.asterisk.audio_delay / 1000.0)
+            else:
+                logger.error("Failed to play all-clear audio on any nodes")
+            
+        except Exception as e:
+            logger.error(f"Error announcing all-clear: {e}", exc_info=True)
+
+
+    def get_status(self) -> Dict[str, Any]:
+        """
+        Get current application status.
+
+        Returns:
+            Status dictionary
+        """
+        # Check if application is fully initialized
+        initialized = hasattr(self, 'state') and self.state is not None
+        
+        status = {
+            'running': self.running,
+            'initialized': initialized,
+            'nws_connected': self.nws_client is not None,
+            'audio_available': self.audio_manager is not None,
+            'asterisk_available': self.asterisk_manager is not None,
+            'asterisk_enabled': self.config.asterisk.enabled,
+            'asterisk_nodes': self.config.asterisk.nodes,
+            'scripts_available': self.script_manager is not None,
+            'scripts_enabled': self.config.scripts.enabled,
+            'database_available': self.database_manager is not None,
+            'database_enabled': self.config.database.enabled,
+            'processing_pipeline_available': self.alert_pipeline is not None,
+            'filter_chain_available': self.filter_chain is not None,
+            'deduplicator_available': self.deduplicator is not None,
+            'prioritizer_available': self.prioritizer is not None,
+            'validator_available': self.validator is not None,
+            'workflow_engine_available': self.workflow_engine is not None,
+            'analytics_available': self.analytics is not None,
+            'uptime_seconds': (datetime.now(timezone.utc) - self._start_time).total_seconds(),
+        }
+        
+        # Add state-dependent information only if initialized
+        if initialized:
+            status.update({
+                'last_poll': self.state.get('last_poll'),
+                'active_alerts': len(self.state.get('active_alerts', [])),
+                'total_alerts': len(self.state.get('last_alerts', {})),
+                'last_all_clear': self.state.get('last_all_clear'),
+            })
+        else:
+            status.update({
+                'last_poll': None,
+                'active_alerts': 0,
+                'total_alerts': 0,
+                'last_all_clear': None,
+            })
+        
+        # Add script manager status if available
+        if self.script_manager:
+            try:
+                status['script_status'] = self.script_manager.get_script_status()
+            except Exception as e:
+                logger.error(f"Failed to get script status: {e}")
+                status['script_status'] = {}
+        
+        # Add health summary if available
+        if self.health_monitor:
+            try:
+                status['health_summary'] = self.health_monitor.get_health_summary()
+            except Exception as e:
+                logger.error(f"Failed to get health summary: {e}")
+                status['health_summary'] = {}
+        
+        # Add processing pipeline statistics if available
+        if self.alert_pipeline:
+            try:
+                status['processing_stats'] = self.alert_pipeline.get_processing_stats()
+            except Exception as e:
+                logger.error(f"Failed to get processing stats: {e}")
+                status['processing_stats'] = {}
+        
+        # Add analytics summary if available
+        if self.analytics:
+            try:
+                performance_metrics = self.analytics.get_performance_metrics()
+                status['performance_metrics'] = {
+                    'total_processed': performance_metrics.total_processed,
+                    'successful_processing': performance_metrics.successful_processing,
+                    'failed_processing': performance_metrics.failed_processing,
+                    'average_processing_time_ms': performance_metrics.average_processing_time_ms,
+                    'throughput_per_hour': performance_metrics.throughput_per_hour,
+                    'error_rate': performance_metrics.error_rate,
+                    'uptime_percentage': performance_metrics.uptime_percentage
+                }
+            except Exception as e:
+                logger.error(f"Failed to get performance metrics: {e}")
+                status['performance_metrics'] = {}
+        
+        return status

@@ -1,0 +1,142 @@
+# SkywarnPlus-NG Default Configuration
+
+# Application settings
+enabled: true
+poll_interval: 60  # seconds
+data_dir: "/tmp/SkywarnPlus-NG"
+
+# NWS API configuration
+nws:
+  base_url: "https://api.weather.gov"
+  timeout: 30
+  user_agent: "SkywarnPlus-NG"
+
+# County configuration (add your counties here)
+counties:
+  - code: "TXC039"  # Brazoria County, TX
+    name: "Brazoria County"
+    enabled: true
+  - code: "TXC201"  # Galveston County, TX
+    name: "Galveston County"
+    enabled: true
+
+# Asterisk configuration
+asterisk:
+  enabled: true
+  nodes: [546050]  # Add your node numbers here (example: 546050)
+  audio_delay: 0  # Delay in milliseconds before playing audio
+
+# Audio configuration
+audio:
+  sounds_path: "SOUNDS"
+  alert_sound: "Duncecap.wav"
+  all_clear_sound: "Triangles.wav"
+  separator_sound: "Woodblock.wav"
+  temp_dir: "/tmp/skywarnplus-ng-audio"
+  tts:
+    engine: "gtts"
+    language: "en"
+    tld: "com"
+    slow: false
+    output_format: "wav"
+    sample_rate: 22050
+    bit_rate: 128
+
+# Alert filtering
+filtering:
+  max_alerts: 99
+  blocked_events: []  # Glob patterns for globally blocked events
+  say_alert_blocked: []  # Events blocked from voice announcement
+  tail_message_blocked: []  # Events blocked from tail message
+
+# Alert behavior
+alerts:
+  say_alert: true
+  say_all_clear: true
+  tail_message: true
+  with_county_names: false
+  time_type: "onset"  # "onset" or "effective"
+
+# Script execution
+scripts:
+  enabled: true
+  default_timeout: 30
+  alert_scripts:
+    # Example: Send SMS for tornado warnings
+    "Tornado Warning":
+      command: "/usr/local/bin/send-sms.sh"
+      args: ["Tornado Warning detected in area"]
+      timeout: 10
+      enabled: true
+    # Example: Update status page for severe weather
+    "Severe Thunderstorm Warning":
+      command: "/usr/local/bin/update-status.sh"
+      args: ["severe", "active"]
+      timeout: 15
+      enabled: true
+    # Example: Pattern matching for all flood alerts
+    "Flood*":
+      command: "/usr/local/bin/flood-alert.sh"
+      args: ["$ALERT_EVENT", "$ALERT_AREA"]
+      timeout: 20
+      enabled: true
+  # All-clear script
+  all_clear_script:
+    command: "/usr/local/bin/clear-status.sh"
+    args: ["all_clear"]
+    timeout: 10
+    enabled: true
+
+# Logging configuration
+logging:
+  level: "INFO"
+  file: "/var/log/skywarnplus-ng/skywarnplus-ng.log"  # Set to null to disable file logging
+  format: "json"  # "json" or "text"
+
+# Database configuration
+database:
+  enabled: true
+  url: null  # Use SQLite by default, set to PostgreSQL/MySQL URL for production
+  cleanup_interval_hours: 24  # Run cleanup every 24 hours
+  retention_days: 30  # Keep data for 30 days
+  backup_enabled: false  # Enable for production
+  backup_interval_hours: 24
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  health_check_interval: 60  # Health check interval in seconds
+  http_server:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8100
+  metrics:
+    enabled: true
+    retention_days: 7
+
+# SkyDescribe DTMF configuration
+skydescribe:
+  enabled: true
+  descriptions_dir: "/var/lib/skywarnplus-ng/descriptions"
+  cleanup_interval_hours: 24
+  max_file_age_hours: 48
+  # Configurable DTMF codes - change these to avoid conflicts with existing assignments
+  dtmf_codes:
+    current_alerts: "*1"      # Current active weather alerts
+    alert_by_id: "*2"         # Specific alert by ID (followed by 4-digit ID)
+    all_clear: "*3"           # All-clear status
+    system_status: "*4"       # System status information
+    help: "*5"                # Help and available commands
+  # Alternative DTMF code sets (uncomment to use)
+  # dtmf_codes:
+  #   current_alerts: "*9"      # Alternative: *9 for current alerts
+  #   alert_by_id: "*8"         # Alternative: *8 for specific alert
+  #   all_clear: "*7"           # Alternative: *7 for all-clear
+  #   system_status: "*6"       # Alternative: *6 for system status
+  #   help: "*0"                # Alternative: *0 for help
+  # dtmf_codes:
+  #   current_alerts: "**1"     # Alternative: **1 for current alerts
+  #   alert_by_id: "**2"        # Alternative: **2 for specific alert
+  #   all_clear: "**3"          # Alternative: **3 for all-clear
+  #   system_status: "**4"      # Alternative: **4 for system status
+  #   help: "**5"               # Alternative: **5 for help
