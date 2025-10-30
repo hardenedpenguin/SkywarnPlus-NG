@@ -60,6 +60,7 @@ fi
 # Create directories
 echo "Creating application directories..."
 sudo mkdir -p /var/lib/skywarnplus-ng/{descriptions,audio,data,scripts}
+sudo mkdir -p /var/lib/skywarnplus-ng/src/skywarnplus_ng/web/static
 sudo mkdir -p /var/log/skywarnplus-ng
 sudo mkdir -p /etc/skywarnplus-ng
 sudo mkdir -p /tmp/skywarnplus-ng-audio
