@@ -113,18 +113,14 @@ else
     echo "⚠️  Warning: config/default.yaml not found. Skipping configuration copy."
 fi
 
-# Generate rpt.conf for Asterisk
-echo "Generating rpt.conf for Asterisk integration..."
-if [ -f "scripts/generate_asterisk_config.py" ] && [ -f "/var/lib/skywarnplus-ng/venv/bin/python" ]; then
-    # Copy the script to the installed location and run it from there
-    sudo cp scripts/generate_asterisk_config.py /var/lib/skywarnplus-ng/scripts/
-    sudo chown skywarnplus:skywarnplus /var/lib/skywarnplus-ng/scripts/generate_asterisk_config.py
-    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/python scripts/generate_asterisk_config.py --type rpt --output /tmp/rpt_skydescribe.conf"
-    sudo cp /tmp/rpt_skydescribe.conf /etc/asterisk/custom/rpt_skydescribe.conf
-    sudo chown asterisk:asterisk /etc/asterisk/custom/rpt_skydescribe.conf
-    echo "✓ rpt.conf generated and installed"
+# Copy scripts directory for user convenience
+echo "Copying scripts..."
+if [ -d "scripts" ]; then
+    sudo cp -r scripts/* /var/lib/skywarnplus-ng/scripts/
+    sudo chown -R skywarnplus:skywarnplus /var/lib/skywarnplus-ng/scripts/
+    echo "✓ Scripts copied to /var/lib/skywarnplus-ng/scripts/"
 else
-    echo "⚠️  Warning: scripts/generate_asterisk_config.py not found or venv not created. Skipping Asterisk config generation."
+    echo "⚠️  Warning: scripts directory not found."
 fi
 
 # Create systemd service
@@ -192,7 +188,7 @@ echo "5. View logs: sudo journalctl -u skywarnplus-ng -f"
 echo "6. Web dashboard: http://localhost:8100"
 echo ""
 echo "Asterisk integration:"
-echo "- rpt.conf configuration: /etc/asterisk/rpt_skydescribe.conf"
-echo "- Audio files: /var/lib/skywarnplus-ng/descriptions/"
-echo "- Test DTMF: skywarnplus-ng dtmf current_alerts"
+echo "- Generate config: /var/lib/skywarnplus-ng/venv/bin/python /var/lib/skywarnplus-ng/scripts/generate_asterisk_config.py --type rpt --show"
+echo "- Audio files: /var/lib/skywarnplus-ng/SOUNDS/"
+echo "- Web dashboard: http://localhost:8100 or via reverse proxy"
 echo ""
