@@ -517,13 +517,11 @@ class WebDashboard:
                         # Fallback to plain text
                         filtered_lines.append({"message": line.strip(), "level": "INFO"})
             
-            # For now, return empty logs to fix the frontend
             return web.json_response({
-                "logs": [],
-                "count": 0,
+                "logs": filtered_lines,
+                "count": len(filtered_lines),
                 "level": level,
-                "limit": limit,
-                "message": "Log reading temporarily disabled"
+                "limit": limit
             })
         except Exception as e:
             logger.error(f"Error getting logs: {e}")
