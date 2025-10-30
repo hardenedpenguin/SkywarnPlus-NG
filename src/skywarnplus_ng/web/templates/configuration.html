@@ -1,0 +1,1955 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Configuration</h1>
+        <p class="text-gray-600 dark:text-gray-400">Manage all aspects of SkywarnPlus-NG configuration</p>
+    </div>
+
+    <!-- Configuration Tabs -->
+    <div class="mb-8">
+        <div class="border-b border-gray-200 dark:border-gray-700">
+            <nav class="-mb-px flex space-x-8">
+                <button onclick="showTab('core')" id="tab-core" class="tab-button active py-2 px-1 border-b-2 font-medium text-sm">
+                    Core Settings
+                </button>
+                <button onclick="showTab('nws')" id="tab-nws" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    NWS API
+                </button>
+                <button onclick="showTab('counties')" id="tab-counties" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Counties
+                </button>
+                <button onclick="showTab('asterisk')" id="tab-asterisk" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Asterisk
+                </button>
+                <button onclick="showTab('audio')" id="tab-audio" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Audio & TTS
+                </button>
+                <button onclick="showTab('alerts')" id="tab-alerts" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Alert Behavior
+                </button>
+                <button onclick="showTab('filtering')" id="tab-filtering" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Filtering
+                </button>
+                <button onclick="showTab('scripts')" id="tab-scripts" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Scripts
+                </button>
+                <button onclick="showTab('logging')" id="tab-logging" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Logging
+                </button>
+                <button onclick="showTab('database')" id="tab-database" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Database
+                </button>
+                <button onclick="showTab('monitoring')" id="tab-monitoring" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Monitoring
+                </button>
+                <button onclick="showTab('notifications')" id="tab-notifications" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Notifications
+                </button>
+                <button onclick="showTab('subscribers')" id="tab-subscribers" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Subscribers
+                </button>
+                <button onclick="showTab('templates')" id="tab-templates" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
+                    Templates
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <form id="config-form" class="space-y-8">
+        <!-- Core Settings Tab -->
+        <div id="tab-content-core" class="tab-content">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Core Application Settings</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Application Enabled
+                        </label>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="enabled" name="enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="enabled" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                Enable SkywarnPlus-NG
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="poll_interval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Poll Interval (seconds)
+                        </label>
+                        <input type="number" id="poll_interval" name="poll_interval" min="10" max="3600" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="data_dir" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Data Directory
+                        </label>
+                        <input type="text" id="data_dir" name="data_dir" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="config_file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Configuration File
+                        </label>
+                        <input type="text" id="config_file" name="config_file" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NWS API Tab -->
+        <div id="tab-content-nws" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">NWS API Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="nws_base_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Base URL
+                        </label>
+                        <input type="url" id="nws_base_url" name="nws.base_url" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="nws_timeout" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Timeout (seconds)
+                        </label>
+                        <input type="number" id="nws_timeout" name="nws.timeout" min="5" max="300" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label for="nws_user_agent" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            User Agent
+                        </label>
+                        <input type="text" id="nws_user_agent" name="nws.user_agent" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Counties Tab -->
+        <div id="tab-content-counties" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">County Configuration</h3>
+                
+                <div id="counties-container">
+                    <!-- Counties will be dynamically added here -->
+                </div>
+                
+                <button type="button" onclick="addCounty()" class="mt-4 btn-secondary">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    Add County
+                </button>
+            </div>
+        </div>
+
+        <!-- Asterisk Tab -->
+        <div id="tab-content-asterisk" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Asterisk Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="asterisk_enabled" name="asterisk.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="asterisk_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Asterisk Integration
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label for="asterisk_audio_delay" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Audio Delay (milliseconds)
+                        </label>
+                        <input type="number" id="asterisk_audio_delay" name="asterisk.audio_delay" min="0" max="5000" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Target Nodes
+                        </label>
+                        <div id="nodes-container">
+                            <!-- Nodes will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addNode()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Node
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio & TTS Tab -->
+        <div id="tab-content-audio" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Audio & TTS Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="audio_sounds_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Sounds Directory
+                        </label>
+                        <input type="text" id="audio_sounds_path" name="audio.sounds_path" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="audio_alert_sound" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Alert Sound File
+                        </label>
+                        <input type="text" id="audio_alert_sound" name="audio.alert_sound" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="audio_all_clear_sound" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            All Clear Sound File
+                        </label>
+                        <input type="text" id="audio_all_clear_sound" name="audio.all_clear_sound" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="audio_separator_sound" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Separator Sound File
+                        </label>
+                        <input type="text" id="audio_separator_sound" name="audio.separator_sound" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="audio_temp_dir" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Temporary Directory
+                        </label>
+                        <input type="text" id="audio_temp_dir" name="audio.temp_dir" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">TTS Configuration</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="tts_engine" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                TTS Engine
+                            </label>
+                            <select id="tts_engine" name="audio.tts.engine" 
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <option value="gtts">Google Text-to-Speech (gTTS)</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="tts_language" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Language
+                            </label>
+                            <input type="text" id="tts_language" name="audio.tts.language" 
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        </div>
+                        
+                        <div>
+                            <label for="tts_tld" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Top-Level Domain
+                            </label>
+                            <input type="text" id="tts_tld" name="audio.tts.tld" 
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" id="tts_slow" name="audio.tts.slow" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="tts_slow" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Slow Speech
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label for="tts_output_format" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Output Format
+                            </label>
+                            <select id="tts_output_format" name="audio.tts.output_format" 
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <option value="wav">WAV</option>
+                                <option value="mp3">MP3</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="tts_sample_rate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Sample Rate (Hz)
+                            </label>
+                            <input type="number" id="tts_sample_rate" name="audio.tts.sample_rate" min="8000" max="48000" 
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        </div>
+                        
+                        <div>
+                            <label for="tts_bit_rate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Bit Rate (kbps)
+                            </label>
+                            <input type="number" id="tts_bit_rate" name="audio.tts.bit_rate" min="64" max="320" 
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Behavior Tab -->
+        <div id="tab-content-alerts" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Alert Behavior Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="alerts_say_alert" name="alerts.say_alert" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="alerts_say_alert" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Voice Announcements
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="alerts_say_all_clear" name="alerts.say_all_clear" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="alerts_say_all_clear" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable All-Clear Announcements
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="alerts_tail_message" name="alerts.tail_message" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="alerts_tail_message" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Tail Messages
+                        </label>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="alerts_with_county_names" name="alerts.with_county_names" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="alerts_with_county_names" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Include County Names in Announcements
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label for="alerts_time_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Time Type
+                        </label>
+                        <select id="alerts_time_type" name="alerts.time_type" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="onset">Onset Time</option>
+                            <option value="effective">Effective Time</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtering Tab -->
+        <div id="tab-content-filtering" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Alert Filtering Configuration</h3>
+                
+                <div class="grid grid-cols-1 gap-6">
+                    <div>
+                        <label for="filtering_max_alerts" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Maximum Alerts to Process
+                        </label>
+                        <input type="number" id="filtering_max_alerts" name="filtering.max_alerts" min="1" max="999" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Globally Blocked Events (glob patterns)
+                        </label>
+                        <div id="blocked-events-container">
+                            <!-- Blocked events will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addBlockedEvent()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Pattern
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Events Blocked from Voice Announcement (glob patterns)
+                        </label>
+                        <div id="say-alert-blocked-container">
+                            <!-- Say alert blocked patterns will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addSayAlertBlocked()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Pattern
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Events Blocked from Tail Message (glob patterns)
+                        </label>
+                        <div id="tail-message-blocked-container">
+                            <!-- Tail message blocked patterns will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addTailMessageBlocked()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Pattern
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scripts Tab -->
+        <div id="tab-content-scripts" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Script Configuration</h3>
+                
+                <div class="grid grid-cols-1 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="scripts_enabled" name="scripts.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="scripts_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Script Execution
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label for="scripts_default_timeout" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Default Script Timeout (seconds)
+                        </label>
+                        <input type="number" id="scripts_default_timeout" name="scripts.default_timeout" min="5" max="300" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Alert Scripts</h4>
+                        <div id="alert-scripts-container">
+                            <!-- Alert scripts will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addAlertScript()" class="mt-2 btn-secondary">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Alert Script
+                        </button>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">All-Clear Script</h4>
+                        <div id="all-clear-script-container">
+                            <!-- All-clear script will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addAllClearScript()" class="mt-2 btn-secondary">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add All-Clear Script
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logging Tab -->
+        <div id="tab-content-logging" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Logging Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="logging_level" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Log Level
+                        </label>
+                        <select id="logging_level" name="logging.level" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="logging_format" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Log Format
+                        </label>
+                        <select id="logging_format" name="logging.format" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="json">JSON</option>
+                            <option value="text">Text</option>
+                        </select>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label for="logging_file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Log File Path
+                        </label>
+                        <input type="text" id="logging_file" name="logging.file" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Leave empty to disable file logging</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Tab -->
+        <div id="tab-content-database" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Database Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="database_enabled" name="database.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="database_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Database Storage
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label for="database_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Database URL
+                        </label>
+                        <input type="text" id="database_url" name="database.url" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Leave empty to use SQLite</p>
+                    </div>
+                    
+                    <div>
+                        <label for="database_cleanup_interval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Cleanup Interval (hours)
+                        </label>
+                        <input type="number" id="database_cleanup_interval" name="database.cleanup_interval_hours" min="1" max="168" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div>
+                        <label for="database_retention_days" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Data Retention (days)
+                        </label>
+                        <input type="number" id="database_retention_days" name="database.retention_days" min="1" max="365" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="database_backup_enabled" name="database.backup_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="database_backup_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Automatic Backups
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label for="database_backup_interval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Backup Interval (hours)
+                        </label>
+                        <input type="number" id="database_backup_interval" name="database.backup_interval_hours" min="1" max="168" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Tab -->
+        <div id="tab-content-monitoring" class="tab-content hidden">
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Monitoring Configuration</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="monitoring_enabled" name="monitoring.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="monitoring_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Monitoring
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label for="monitoring_health_check_interval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Health Check Interval (seconds)
+                        </label>
+                        <input type="number" id="monitoring_health_check_interval" name="monitoring.health_check_interval" min="10" max="3600" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">HTTP Server</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="monitoring_http_enabled" name="monitoring.http_server.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="monitoring_http_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Enable HTTP Server
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label for="monitoring_http_host" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Host
+                                </label>
+                                <input type="text" id="monitoring_http_host" name="monitoring.http_server.host" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                            
+                            <div>
+                                <label for="monitoring_http_port" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Port
+                                </label>
+                                <input type="number" id="monitoring_http_port" name="monitoring.http_server.port" min="1" max="65535" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Metrics</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="monitoring_metrics_enabled" name="monitoring.metrics.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="monitoring_metrics_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Enable Metrics Collection
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label for="monitoring_metrics_retention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Metrics Retention (days)
+                                </label>
+                                <input type="number" id="monitoring_metrics_retention" name="monitoring.metrics.retention_days" min="1" max="365" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Authentication</h4>
+                        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                </svg>
+                                <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                                    <strong>Security Note:</strong> Authentication only protects the configuration page. All monitoring features remain publicly accessible.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="monitoring_auth_enabled" name="monitoring.http_server.auth.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="monitoring_auth_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Enable Authentication
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label for="monitoring_auth_session_timeout" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Session Timeout (hours)
+                                </label>
+                                <input type="number" id="monitoring_auth_session_timeout" name="monitoring.http_server.auth.session_timeout_hours" min="1" max="168" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                            
+                            <div>
+                                <label for="monitoring_auth_username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Username
+                                </label>
+                                <input type="text" id="monitoring_auth_username" name="monitoring.http_server.auth.username" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                       placeholder="admin">
+                            </div>
+                            
+                            <div>
+                                <label for="monitoring_auth_password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Password
+                                </label>
+                                <div class="relative">
+                                    <input type="password" id="monitoring_auth_password" name="monitoring.http_server.auth.password" 
+                                           class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                           placeholder="Enter new password">
+                                    <button type="button" onclick="togglePasswordVisibility('monitoring_auth_password')" 
+                                            class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                        <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Leave blank to keep current password
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">PushOver Notifications</h4>
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"></path>
+                                </svg>
+                                <p class="text-sm text-blue-800 dark:text-blue-200">
+                                    <strong>PushOver:</strong> Mobile push notifications for weather alerts. Priority is automatically adjusted based on alert severity.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="pushover_enabled" name="pushover.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="pushover_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Enable PushOver Notifications
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label for="pushover_priority" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Default Priority (-2 to 2)
+                                </label>
+                                <input type="number" id="pushover_priority" name="pushover.priority" min="-2" max="2" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                       placeholder="0 (normal)">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    -2 (silent) to 2 (emergency). Alert severity overrides this.
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label for="pushover_api_token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    API Token
+                                </label>
+                                <input type="password" id="pushover_api_token" name="pushover.api_token" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                       placeholder="Your PushOver application token">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Create at <a href="https://pushover.net/apps/build" target="_blank" class="text-blue-600 hover:text-blue-800">pushover.net/apps/build</a>
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label for="pushover_user_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    User Key
+                                </label>
+                                <input type="password" id="pushover_user_key" name="pushover.user_key" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                       placeholder="Your PushOver user key">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Find at <a href="https://pushover.net/" target="_blank" class="text-blue-600 hover:text-blue-800">pushover.net</a>
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label for="pushover_sound" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Default Sound
+                                </label>
+                                <input type="text" id="pushover_sound" name="pushover.sound" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                       placeholder="Leave empty for device default">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Optional: pushover, siren, magic, etc. (see <a href="https://pushover.net/api#sounds" target="_blank" class="text-blue-600 hover:text-blue-800">available sounds</a>)
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label for="pushover_timeout" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Timeout (seconds)
+                                </label>
+                                <input type="number" id="pushover_timeout" name="pushover.timeout_seconds" min="5" max="120" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="tab-content-notifications" class="tab-content hidden">
+            <div class="space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Email Notifications</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Email Provider
+                            </label>
+                            <select name="notifications.email.provider" class="form-input">
+                                <option value="gmail">Gmail</option>
+                                <option value="outlook">Outlook</option>
+                                <option value="yahoo">Yahoo</option>
+                                <option value="icloud">iCloud</option>
+                                <option value="custom">Custom SMTP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                SMTP Server
+                            </label>
+                            <input type="text" name="notifications.email.smtp_server" class="form-input" placeholder="smtp.gmail.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                SMTP Port
+                            </label>
+                            <input type="number" name="notifications.email.smtp_port" class="form-input" placeholder="587">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Username/Email
+                            </label>
+                            <input type="email" name="notifications.email.username" class="form-input" placeholder="your-email@gmail.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Password/App Password
+                            </label>
+                            <input type="password" name="notifications.email.password" class="form-input" placeholder="Your password or app password">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                From Name
+                            </label>
+                            <input type="text" name="notifications.email.from_name" class="form-input" placeholder="SkywarnPlus-NG">
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="notifications.email.use_tls" class="form-checkbox">
+                            <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Use TLS</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="notifications.email.use_ssl" class="form-checkbox">
+                            <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Use SSL</label>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="button" onclick="testEmailConnection()" class="btn-secondary">
+                            Test Email Connection
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Webhook Notifications</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Slack Webhook URL
+                            </label>
+                            <input type="url" name="notifications.webhook.slack_url" class="form-input" placeholder="https://hooks.slack.com/services/...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Discord Webhook URL
+                            </label>
+                            <input type="url" name="notifications.webhook.discord_url" class="form-input" placeholder="https://discord.com/api/webhooks/...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Microsoft Teams Webhook URL
+                            </label>
+                            <input type="url" name="notifications.webhook.teams_url" class="form-input" placeholder="https://outlook.office.com/webhook/...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Generic Webhook URL
+                            </label>
+                            <input type="url" name="notifications.webhook.generic_url" class="form-input" placeholder="https://your-webhook-endpoint.com/...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Push Notifications</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Firebase FCM Server Key
+                            </label>
+                            <input type="password" name="notifications.push.fcm_server_key" class="form-input" placeholder="Your FCM server key">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Firebase Project ID
+                            </label>
+                            <input type="text" name="notifications.push.fcm_project_id" class="form-input" placeholder="your-project-id">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Delivery Settings</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Max Concurrent Deliveries
+                            </label>
+                            <input type="number" name="notifications.delivery.max_concurrent" class="form-input" value="10">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Delivery Timeout (seconds)
+                            </label>
+                            <input type="number" name="notifications.delivery.timeout_seconds" class="form-input" value="30">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Max Retries
+                            </label>
+                            <input type="number" name="notifications.delivery.max_retries" class="form-input" value="3">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Retry Delay (seconds)
+                            </label>
+                            <input type="number" name="notifications.delivery.retry_delay" class="form-input" value="5">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscribers Tab -->
+        <div id="tab-content-subscribers" class="tab-content hidden">
+            <div class="space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Subscribers</h3>
+                        <button onclick="addSubscriber()" class="btn-primary">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Subscriber
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Methods</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Counties</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subscribers-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <!-- Subscribers will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="tab-content-templates" class="tab-content hidden">
+            <div class="space-y-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Notification Templates</h3>
+                        <button onclick="addTemplate()" class="btn-primary">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Template
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="templates-grid">
+                        <!-- Templates will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Action Buttons -->
+    <div class="mt-8 flex justify-between">
+        <div class="flex space-x-4">
+            <button onclick="resetConfig()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
+                </svg>
+                Reset to Defaults
+            </button>
+            
+            <button onclick="backupConfig()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
+                </svg>
+                Backup Config
+            </button>
+        </div>
+        
+        <div class="flex space-x-4">
+            <button onclick="previewConfig()" class="btn-secondary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                </svg>
+                Preview
+            </button>
+            
+            <button onclick="saveConfig()" class="btn-primary">
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                </svg>
+                Save Configuration
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentConfig = {};
+    let currentTab = 'core';
+
+    // Tab management
+    function showTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.add('hidden');
+        });
+        
+        // Remove active class from all tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
+            btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        });
+        
+        // Show selected tab content
+        document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+        
+        // Add active class to selected tab button
+        const activeBtn = document.getElementById(`tab-${tabName}`);
+        activeBtn.classList.add('active', 'border-blue-500', 'text-blue-600');
+        activeBtn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        
+        currentTab = tabName;
+    }
+
+    // Load configuration
+    async function loadConfig() {
+        try {
+            currentConfig = await apiCall('/api/config');
+            populateForm(currentConfig);
+            showNotification('Configuration loaded', 'success');
+        } catch (error) {
+            console.error('Failed to load configuration:', error);
+            showNotification('Failed to load configuration', 'error');
+        }
+    }
+
+    // Populate form with configuration data
+    function populateForm(config) {
+        // Core settings
+        document.getElementById('enabled').checked = config.enabled || false;
+        document.getElementById('poll_interval').value = config.poll_interval || 60;
+        document.getElementById('data_dir').value = config.data_dir || '';
+        document.getElementById('config_file').value = config.config_file || '';
+
+        // NWS API
+        document.getElementById('nws_base_url').value = config.nws?.base_url || '';
+        document.getElementById('nws_timeout').value = config.nws?.timeout || 30;
+        document.getElementById('nws_user_agent').value = config.nws?.user_agent || '';
+
+        // Counties
+        populateCounties(config.counties || []);
+
+        // Asterisk
+        document.getElementById('asterisk_enabled').checked = config.asterisk?.enabled || false;
+        document.getElementById('asterisk_audio_delay').value = config.asterisk?.audio_delay || 0;
+        populateNodes(config.asterisk?.nodes || []);
+
+        // Audio & TTS
+        document.getElementById('audio_sounds_path').value = config.audio?.sounds_path || '';
+        document.getElementById('audio_alert_sound').value = config.audio?.alert_sound || '';
+        document.getElementById('audio_all_clear_sound').value = config.audio?.all_clear_sound || '';
+        document.getElementById('audio_separator_sound').value = config.audio?.separator_sound || '';
+        document.getElementById('audio_temp_dir').value = config.audio?.temp_dir || '';
+        
+        document.getElementById('tts_engine').value = config.audio?.tts?.engine || 'gtts';
+        document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
+        document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
+        document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
+        document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'wav';
+        document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 22050;
+        document.getElementById('tts_bit_rate').value = config.audio?.tts?.bit_rate || 128;
+
+        // Alert behavior
+        document.getElementById('alerts_say_alert').checked = config.alerts?.say_alert || false;
+        document.getElementById('alerts_say_all_clear').checked = config.alerts?.say_all_clear || false;
+        document.getElementById('alerts_tail_message').checked = config.alerts?.tail_message || false;
+        document.getElementById('alerts_with_county_names').checked = config.alerts?.with_county_names || false;
+        document.getElementById('alerts_time_type').value = config.alerts?.time_type || 'onset';
+
+        // Filtering
+        document.getElementById('filtering_max_alerts').value = config.filtering?.max_alerts || 99;
+        populateBlockedEvents(config.filtering?.blocked_events || []);
+        populateSayAlertBlocked(config.filtering?.say_alert_blocked || []);
+        populateTailMessageBlocked(config.filtering?.tail_message_blocked || []);
+
+        // Scripts
+        document.getElementById('scripts_enabled').checked = config.scripts?.enabled || false;
+        document.getElementById('scripts_default_timeout').value = config.scripts?.default_timeout || 30;
+        populateAlertScripts(config.scripts?.alert_scripts || {});
+        populateAllClearScript(config.scripts?.all_clear_script);
+
+        // Logging
+        document.getElementById('logging_level').value = config.logging?.level || 'INFO';
+        document.getElementById('logging_format').value = config.logging?.format || 'json';
+        document.getElementById('logging_file').value = config.logging?.file || '';
+
+        // Database
+        document.getElementById('database_enabled').checked = config.database?.enabled || false;
+        document.getElementById('database_url').value = config.database?.url || '';
+        document.getElementById('database_cleanup_interval').value = config.database?.cleanup_interval_hours || 24;
+        document.getElementById('database_retention_days').value = config.database?.retention_days || 30;
+        document.getElementById('database_backup_enabled').checked = config.database?.backup_enabled || false;
+        document.getElementById('database_backup_interval').value = config.database?.backup_interval_hours || 24;
+
+        // Monitoring
+        document.getElementById('monitoring_enabled').checked = config.monitoring?.enabled || false;
+        document.getElementById('monitoring_health_check_interval').value = config.monitoring?.health_check_interval || 60;
+        document.getElementById('monitoring_http_enabled').checked = config.monitoring?.http_server?.enabled || false;
+        document.getElementById('monitoring_http_host').value = config.monitoring?.http_server?.host || '0.0.0.0';
+        document.getElementById('monitoring_http_port').value = config.monitoring?.http_server?.port || 8080;
+        document.getElementById('monitoring_metrics_enabled').checked = config.monitoring?.metrics?.enabled || false;
+        document.getElementById('monitoring_metrics_retention').value = config.monitoring?.metrics?.retention_days || 7;
+        
+        // Authentication
+        document.getElementById('monitoring_auth_enabled').checked = config.monitoring?.http_server?.auth?.enabled || false;
+        document.getElementById('monitoring_auth_session_timeout').value = config.monitoring?.http_server?.auth?.session_timeout_hours || 24;
+        document.getElementById('monitoring_auth_username').value = config.monitoring?.http_server?.auth?.username || 'admin';
+        // Don't populate password field for security reasons - it will remain blank
+
+        // PushOver
+        document.getElementById('pushover_enabled').checked = config.pushover?.enabled || false;
+        document.getElementById('pushover_priority').value = config.pushover?.priority ?? 0;
+        document.getElementById('pushover_api_token').value = config.pushover?.api_token || '';
+        document.getElementById('pushover_user_key').value = config.pushover?.user_key || '';
+        document.getElementById('pushover_sound').value = config.pushover?.sound || '';
+        document.getElementById('pushover_timeout').value = config.pushover?.timeout_seconds || 30;
+
+        // Notifications - populate if available
+        populateNotifications(config.notifications || {});
+        
+        // Subscribers and Templates are loaded separately when their tabs are shown
+    }
+
+    // Notifications management
+    function populateNotifications(notifications) {
+        // Email settings
+        if (notifications.email) {
+            const emailInputs = document.querySelectorAll('[name^="notifications.email."]');
+            emailInputs.forEach(input => {
+                const fieldName = input.name.split('.').pop();
+                if (notifications.email[fieldName] !== undefined) {
+                    if (input.type === 'checkbox') {
+                        input.checked = notifications.email[fieldName];
+                    } else {
+                        input.value = notifications.email[fieldName];
+                    }
+                }
+            });
+        }
+        
+        // Webhook settings
+        if (notifications.webhook) {
+            const webhookInputs = document.querySelectorAll('[name^="notifications.webhook."]');
+            webhookInputs.forEach(input => {
+                const fieldName = input.name.split('.').pop();
+                if (notifications.webhook[fieldName] !== undefined) {
+                    input.value = notifications.webhook[fieldName];
+                }
+            });
+        }
+        
+        // Push settings
+        if (notifications.push) {
+            const pushInputs = document.querySelectorAll('[name^="notifications.push."]');
+            pushInputs.forEach(input => {
+                const fieldName = input.name.split('.').pop();
+                if (notifications.push[fieldName] !== undefined) {
+                    if (input.type === 'password') {
+                        input.value = ''; // Don't populate passwords for security
+                    } else {
+                        input.value = notifications.push[fieldName];
+                    }
+                }
+            });
+        }
+        
+        // Delivery settings
+        if (notifications.delivery) {
+            const deliveryInputs = document.querySelectorAll('[name^="notifications.delivery."]');
+            deliveryInputs.forEach(input => {
+                const fieldName = input.name.split('.').pop();
+                if (notifications.delivery[fieldName] !== undefined) {
+                    input.value = notifications.delivery[fieldName];
+                }
+            });
+        }
+    }
+
+    // County management
+    function populateCounties(counties) {
+        const container = document.getElementById('counties-container');
+        container.innerHTML = '';
+        
+        counties.forEach((county, index) => {
+            addCountyRow(county.code, county.name, county.enabled, index);
+        });
+    }
+
+    function addCounty() {
+        const container = document.getElementById('counties-container');
+        const currentCounties = container.children.length;
+        addCountyRow('', '', true, currentCounties);
+    }
+
+    function addCountyRow(code, name, enabled, index) {
+        const container = document.getElementById('counties-container');
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg';
+        row.innerHTML = `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Code</label>
+                <input type="text" name="counties[${index}].code" value="${code}" 
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Name</label>
+                <input type="text" name="counties[${index}].name" value="${name}" 
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" name="counties[${index}].enabled" ${enabled ? 'checked' : ''} 
+                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+            </div>
+            <div class="flex items-center">
+                <button type="button" onclick="removeCountyRow(this)" class="btn-secondary text-sm">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                    Remove
+                </button>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeCountyRow(button) {
+        button.closest('.grid').remove();
+    }
+
+    // Node management
+    function populateNodes(nodes) {
+        const container = document.getElementById('nodes-container');
+        container.innerHTML = '';
+        
+        nodes.forEach((node, index) => {
+            addNodeRow(node, index);
+        });
+    }
+
+    function addNode() {
+        const container = document.getElementById('nodes-container');
+        const currentNodes = container.children.length;
+        addNodeRow('', currentNodes);
+    }
+
+    function addNodeRow(node, index) {
+        const container = document.getElementById('nodes-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 mb-2';
+        row.innerHTML = `
+            <input type="number" name="asterisk.nodes[${index}]" value="${node}" min="1" max="999999" 
+                   class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            <button type="button" onclick="removeNodeRow(this)" class="btn-secondary text-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeNodeRow(button) {
+        button.closest('.flex').remove();
+    }
+
+    // Blocked events management
+    function populateBlockedEvents(events) {
+        const container = document.getElementById('blocked-events-container');
+        container.innerHTML = '';
+        
+        events.forEach((event, index) => {
+            addBlockedEventRow(event, index);
+        });
+    }
+
+    function addBlockedEvent() {
+        const container = document.getElementById('blocked-events-container');
+        const currentEvents = container.children.length;
+        addBlockedEventRow('', currentEvents);
+    }
+
+    function addBlockedEventRow(event, index) {
+        const container = document.getElementById('blocked-events-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 mb-2';
+        row.innerHTML = `
+            <input type="text" name="filtering.blocked_events[${index}]" value="${event}" 
+                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            <button type="button" onclick="removeBlockedEventRow(this)" class="btn-secondary text-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeBlockedEventRow(button) {
+        button.closest('.flex').remove();
+    }
+
+    // Similar functions for say_alert_blocked and tail_message_blocked
+    function populateSayAlertBlocked(events) {
+        const container = document.getElementById('say-alert-blocked-container');
+        container.innerHTML = '';
+        
+        events.forEach((event, index) => {
+            addSayAlertBlockedRow(event, index);
+        });
+    }
+
+    function addSayAlertBlocked() {
+        const container = document.getElementById('say-alert-blocked-container');
+        const currentEvents = container.children.length;
+        addSayAlertBlockedRow('', currentEvents);
+    }
+
+    function addSayAlertBlockedRow(event, index) {
+        const container = document.getElementById('say-alert-blocked-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 mb-2';
+        row.innerHTML = `
+            <input type="text" name="filtering.say_alert_blocked[${index}]" value="${event}" 
+                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            <button type="button" onclick="removeSayAlertBlockedRow(this)" class="btn-secondary text-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeSayAlertBlockedRow(button) {
+        button.closest('.flex').remove();
+    }
+
+    function populateTailMessageBlocked(events) {
+        const container = document.getElementById('tail-message-blocked-container');
+        container.innerHTML = '';
+        
+        events.forEach((event, index) => {
+            addTailMessageBlockedRow(event, index);
+        });
+    }
+
+    function addTailMessageBlocked() {
+        const container = document.getElementById('tail-message-blocked-container');
+        const currentEvents = container.children.length;
+        addTailMessageBlockedRow('', currentEvents);
+    }
+
+    function addTailMessageBlockedRow(event, index) {
+        const container = document.getElementById('tail-message-blocked-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 mb-2';
+        row.innerHTML = `
+            <input type="text" name="filtering.tail_message_blocked[${index}]" value="${event}" 
+                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            <button type="button" onclick="removeTailMessageBlockedRow(this)" class="btn-secondary text-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeTailMessageBlockedRow(button) {
+        button.closest('.flex').remove();
+    }
+
+    // Script management
+    function populateAlertScripts(scripts) {
+        const container = document.getElementById('alert-scripts-container');
+        container.innerHTML = '';
+        
+        Object.entries(scripts).forEach(([eventType, script], index) => {
+            addAlertScriptRow(eventType, script, index);
+        });
+    }
+
+    function addAlertScript() {
+        const container = document.getElementById('alert-scripts-container');
+        const currentScripts = container.children.length;
+        addAlertScriptRow('', { command: '', args: [], timeout: 30, enabled: true }, currentScripts);
+    }
+
+    function addAlertScriptRow(eventType, script, index) {
+        const container = document.getElementById('alert-scripts-container');
+        const row = document.createElement('div');
+        row.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4';
+        row.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type (glob pattern)</label>
+                    <input type="text" name="scripts.alert_scripts[${index}].event_type" value="${eventType}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Command</label>
+                    <input type="text" name="scripts.alert_scripts[${index}].command" value="${script.command || ''}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Arguments (comma-separated)</label>
+                    <input type="text" name="scripts.alert_scripts[${index}].args" value="${(script.args || []).join(', ')}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Timeout (seconds)</label>
+                    <input type="number" name="scripts.alert_scripts[${index}].timeout" value="${script.timeout || 30}" min="5" max="300" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" name="scripts.alert_scripts[${index}].enabled" ${script.enabled ? 'checked' : ''} 
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+                </div>
+                <div class="flex items-center">
+                    <button type="button" onclick="removeAlertScriptRow(this)" class="btn-secondary text-sm">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        Remove
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeAlertScriptRow(button) {
+        button.closest('.border').remove();
+    }
+
+    function populateAllClearScript(script) {
+        const container = document.getElementById('all-clear-script-container');
+        container.innerHTML = '';
+        
+        if (script) {
+            addAllClearScriptRow(script, 0);
+        }
+    }
+
+    function addAllClearScript() {
+        addAllClearScriptRow({ command: '', args: [], timeout: 30, enabled: true }, 0);
+    }
+
+    function addAllClearScriptRow(script, index) {
+        const container = document.getElementById('all-clear-script-container');
+        const row = document.createElement('div');
+        row.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4';
+        row.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Command</label>
+                    <input type="text" name="scripts.all_clear_script.command" value="${script.command || ''}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Arguments (comma-separated)</label>
+                    <input type="text" name="scripts.all_clear_script.args" value="${(script.args || []).join(', ')}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Timeout (seconds)</label>
+                    <input type="number" name="scripts.all_clear_script.timeout" value="${script.timeout || 30}" min="5" max="300" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" name="scripts.all_clear_script.enabled" ${script.enabled ? 'checked' : ''} 
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+                </div>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    // Form actions
+    async function saveConfig() {
+        try {
+            const formData = new FormData(document.getElementById('config-form'));
+            const config = {};
+            
+            // Convert form data to nested object
+            for (const [key, value] of formData.entries()) {
+                // Handle array notation like "asterisk.nodes[0]" or "counties[0].code"
+                if (key.includes('[') && key.includes(']')) {
+                    const arrayMatch = key.match(/^(.+)\[(\d+)\](.*)$/);
+                    if (arrayMatch) {
+                        const [, arrayPath, index, remainingPath] = arrayMatch;
+                        const keys = arrayPath.split('.');
+                        let current = config;
+                        
+                        // Navigate to the parent object
+                        for (let i = 0; i < keys.length - 1; i++) {
+                            if (!current[keys[i]]) {
+                                current[keys[i]] = {};
+                            }
+                            current = current[keys[i]];
+                        }
+                        
+                        // Initialize array if it doesn't exist
+                        const arrayKey = keys[keys.length - 1];
+                        if (!current[arrayKey]) {
+                            current[arrayKey] = [];
+                        }
+                        
+                        const arrayIndex = parseInt(index);
+                        
+                        // Handle nested object in array (e.g., "counties[0].code")
+                        if (remainingPath) {
+                            const nestedKeys = remainingPath.substring(1).split('.'); // Remove leading dot
+                            
+                            // Initialize object in array if it doesn't exist
+                            if (!current[arrayKey][arrayIndex]) {
+                                current[arrayKey][arrayIndex] = {};
+                            }
+                            
+                            let nestedCurrent = current[arrayKey][arrayIndex];
+                            
+                            // Navigate to nested property
+                            for (let i = 0; i < nestedKeys.length - 1; i++) {
+                                if (!nestedCurrent[nestedKeys[i]]) {
+                                    nestedCurrent[nestedKeys[i]] = {};
+                                }
+                                nestedCurrent = nestedCurrent[nestedKeys[i]];
+                            }
+                            
+                            // Set nested value
+                            const finalKey = nestedKeys[nestedKeys.length - 1];
+                            if (value === 'on') {
+                                nestedCurrent[finalKey] = true;
+                            } else if (value === 'off') {
+                                nestedCurrent[finalKey] = false;
+                            } else if (!isNaN(value) && value !== '') {
+                                nestedCurrent[finalKey] = Number(value);
+                            } else if (finalKey === 'args') {
+                                // Handle args fields - convert comma-separated string to array
+                                nestedCurrent[finalKey] = value ? value.split(',').map(s => s.trim()).filter(s => s) : [];
+                            } else {
+                                nestedCurrent[finalKey] = value;
+                            }
+                        } else {
+                            // Handle simple array value (e.g., "asterisk.nodes[0]")
+                            if (value === 'on') {
+                                current[arrayKey][arrayIndex] = true;
+                            } else if (value === 'off') {
+                                current[arrayKey][arrayIndex] = false;
+                            } else if (!isNaN(value) && value !== '') {
+                                current[arrayKey][arrayIndex] = Number(value);
+                            } else {
+                                current[arrayKey][arrayIndex] = value;
+                            }
+                        }
+                        continue;
+                    }
+                }
+                
+                // Handle regular dot notation
+                const keys = key.split('.');
+                let current = config;
+                
+                for (let i = 0; i < keys.length - 1; i++) {
+                    if (!current[keys[i]]) {
+                        current[keys[i]] = {};
+                    }
+                    current = current[keys[i]];
+                }
+                
+                if (value === 'on') {
+                    current[keys[keys.length - 1]] = true;
+                } else if (value === 'off') {
+                    current[keys[keys.length - 1]] = false;
+                } else if (!isNaN(value) && value !== '') {
+                    current[keys[keys.length - 1]] = Number(value);
+                } else if (keys[keys.length - 1] === 'args') {
+                    // Handle args fields - convert comma-separated string to array
+                    current[keys[keys.length - 1]] = value ? value.split(',').map(s => s.trim()).filter(s => s) : [];
+                } else {
+                    current[keys[keys.length - 1]] = value;
+                }
+            }
+            
+            // Convert scripts.alert_scripts from array to dict
+            if (config.scripts && config.scripts.alert_scripts && Array.isArray(config.scripts.alert_scripts)) {
+                const alertScriptsDict = {};
+                config.scripts.alert_scripts.forEach(script => {
+                    if (script.event_type) {
+                        alertScriptsDict[script.event_type] = {
+                            command: script.command,
+                            args: script.args || [],
+                            timeout: script.timeout || 30,
+                            enabled: script.enabled || false
+                        };
+                    }
+                });
+                config.scripts.alert_scripts = alertScriptsDict;
+            }
+            
+            await apiCall('/api/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            
+            showNotification('Configuration saved successfully', 'success');
+        } catch (error) {
+            console.error('Failed to save configuration:', error);
+            showNotification('Failed to save configuration', 'error');
+        }
+    }
+
+    async function resetConfig() {
+        if (confirm('Are you sure you want to reset the configuration to defaults? This action cannot be undone.')) {
+            try {
+                await apiCall('/api/config/reset', { method: 'POST' });
+                await loadConfig();
+                showNotification('Configuration reset to defaults', 'success');
+            } catch (error) {
+                console.error('Failed to reset configuration:', error);
+                showNotification('Failed to reset configuration', 'error');
+            }
+        }
+    }
+
+    async function backupConfig() {
+        try {
+            await apiCall('/api/config/backup', { method: 'POST' });
+            showNotification('Configuration backed up successfully', 'success');
+        } catch (error) {
+            console.error('Failed to backup configuration:', error);
+            showNotification('Failed to backup configuration', 'error');
+        }
+    }
+
+    function previewConfig() {
+        const formData = new FormData(document.getElementById('config-form'));
+        const config = {};
+        
+        // Convert form data to nested object (same logic as saveConfig)
+        for (const [key, value] of formData.entries()) {
+            const keys = key.split('.');
+            let current = config;
+            
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!current[keys[i]]) {
+                    current[keys[i]] = {};
+                }
+                current = current[keys[i]];
+            }
+            
+            if (value === 'on') {
+                current[keys[keys.length - 1]] = true;
+            } else if (value === 'off') {
+                current[keys[keys.length - 1]] = false;
+            } else if (!isNaN(value) && value !== '') {
+                current[keys[keys.length - 1]] = Number(value);
+            } else if (keys[keys.length - 1] === 'args') {
+                // Handle args fields - convert comma-separated string to array
+                current[keys[keys.length - 1]] = value ? value.split(',').map(s => s.trim()).filter(s => s) : [];
+            } else {
+                current[keys[keys.length - 1]] = value;
+            }
+        }
+        
+        // Open preview in new window
+        const previewWindow = window.open('', '_blank', 'width=800,height=600');
+        previewWindow.document.write(`
+            <html>
+                <head>
+                    <title>Configuration Preview</title>
+                    <style>
+                        body { font-family: monospace; margin: 20px; background: #f5f5f5; }
+                        pre { background: white; padding: 20px; border-radius: 5px; border: 1px solid #ddd; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Configuration Preview</h1>
+                    <pre>${JSON.stringify(config, null, 2)}</pre>
+                </body>
+            </html>
+        `);
+    }
+
+    // Notification functions
+    async function testEmailConnection() {
+        try {
+            const formData = new FormData(document.getElementById('config-form'));
+            const emailConfig = {
+                provider: formData.get('notifications.email.provider'),
+                smtp_server: formData.get('notifications.email.smtp_server'),
+                smtp_port: parseInt(formData.get('notifications.email.smtp_port')),
+                username: formData.get('notifications.email.username'),
+                password: formData.get('notifications.email.password'),
+                use_tls: formData.get('notifications.email.use_tls') === 'on',
+                use_ssl: formData.get('notifications.email.use_ssl') === 'on'
+            };
+            
+            showNotification('Testing email connection...', 'info');
+            const result = await apiCall('/api/notifications/test-email', {
+                method: 'POST',
+                body: JSON.stringify(emailConfig)
+            });
+            
+            if (result.success) {
+                showNotification('Email connection test successful!', 'success');
+            } else {
+                showNotification(`Email connection test failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Email connection test failed:', error);
+            showNotification('Email connection test failed', 'error');
+        }
+    }
+
+    async function loadSubscribers() {
+        try {
+            const subscribers = await apiCall('/api/notifications/subscribers');
+            const tableBody = document.getElementById('subscribers-table');
+            tableBody.innerHTML = '';
+            
+            if (!subscribers || subscribers.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No subscribers configured. Notification system is not yet set up.
+                    </td>
+                `;
+                tableBody.appendChild(row);
+                return;
+            }
+            
+            subscribers.forEach(subscriber => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        ${subscriber.name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        ${subscriber.email}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            subscriber.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }">
+                            ${subscriber.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        ${subscriber.preferences?.enabled_methods?.join(', ') || 'None'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        ${subscriber.preferences?.counties?.join(', ') || 'None'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                        <button onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Failed to load subscribers:', error);
+            const tableBody = document.getElementById('subscribers-table');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Notification system not available. This feature is not yet implemented.
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    function addSubscriber() {
+        // Open subscriber modal or redirect to add page
+        showNotification('Add subscriber functionality coming soon', 'info');
+    }
+
+    function editSubscriber(subscriberId) {
+        // Open subscriber edit modal
+        showNotification(`Edit subscriber ${subscriberId} functionality coming soon`, 'info');
+    }
+
+    function deleteSubscriber(subscriberId) {
+        if (confirm(`Are you sure you want to delete subscriber ${subscriberId}?`)) {
+            // Delete subscriber
+            showNotification(`Delete subscriber ${subscriberId} functionality coming soon`, 'info');
+        }
+    }
+
+    async function loadTemplates() {
+        try {
+            const templates = await apiCall('/api/notifications/templates');
+            const templatesGrid = document.getElementById('templates-grid');
+            templatesGrid.innerHTML = '';
+            
+            if (!templates || Object.keys(templates).length === 0) {
+                const emptyCard = document.createElement('div');
+                emptyCard.className = 'col-span-full bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center';
+                emptyCard.innerHTML = `
+                    <div class="text-gray-500 dark:text-gray-400">
+                        <svg class="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="text-sm">No notification templates configured.</p>
+                        <p class="text-xs mt-1">Notification system is not yet set up.</p>
+                    </div>
+                `;
+                templatesGrid.appendChild(emptyCard);
+                return;
+            }
+            
+            Object.entries(templates).forEach(([type, templateList]) => {
+                if (Array.isArray(templateList)) {
+                    templateList.forEach(template => {
+                        const templateCard = document.createElement('div');
+                        templateCard.className = 'bg-gray-50 dark:bg-gray-700 rounded-lg p-4';
+                        templateCard.innerHTML = `
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">${template.name || 'Unnamed Template'}</h4>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    ${type}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">${template.description || 'No description'}</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    ${template.enabled ? 'Enabled' : 'Disabled'}
+                                </span>
+                                <div class="flex space-x-2">
+                                    <button onclick="editTemplate('${template.id}')" class="text-blue-600 hover:text-blue-900 text-xs">Edit</button>
+                                    <button onclick="deleteTemplate('${template.id}')" class="text-red-600 hover:text-red-900 text-xs">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                        templatesGrid.appendChild(templateCard);
+                    });
+                }
+            });
+        } catch (error) {
+            console.error('Failed to load templates:', error);
+            const templatesGrid = document.getElementById('templates-grid');
+            templatesGrid.innerHTML = `
+                <div class="col-span-full bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center">
+                    <div class="text-gray-500 dark:text-gray-400">
+                        <svg class="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <p class="text-sm">Notification system not available.</p>
+                        <p class="text-xs mt-1">This feature is not yet implemented.</p>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function addTemplate() {
+        // Open template creation modal
+        showNotification('Add template functionality coming soon', 'info');
+    }
+
+    function editTemplate(templateId) {
+        // Open template edit modal
+        showNotification(`Edit template ${templateId} functionality coming soon`, 'info');
+    }
+
+    function deleteTemplate(templateId) {
+        if (confirm(`Are you sure you want to delete template ${templateId}?`)) {
+            // Delete template
+            showNotification(`Delete template ${templateId} functionality coming soon`, 'info');
+        }
+    }
+
+    // Update showTab function to load data for new tabs
+    const originalShowTab = showTab;
+    showTab = function(tabName) {
+        originalShowTab(tabName);
+        
+        // Load data for specific tabs
+        if (tabName === 'subscribers') {
+            loadSubscribers();
+        } else if (tabName === 'templates') {
+            loadTemplates();
+        }
+    };
+
+    // Toggle password visibility
+    function togglePasswordVisibility(fieldId) {
+        const field = document.getElementById(fieldId);
+        const button = field.nextElementSibling;
+        const icon = button.querySelector('svg');
+        
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+            `;
+        } else {
+            field.type = 'password';
+            icon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            `;
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadConfig();
+    });
+</script>
+{% endblock %}
