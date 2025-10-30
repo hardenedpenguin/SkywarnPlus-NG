@@ -281,7 +281,8 @@
             };
             
             try {
-                const response = await fetch('/api/auth/login', {
+                const basePath = '{{ base_path }}' || '';
+                const response = await fetch(`${basePath}/api/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -291,7 +292,7 @@
                 
                 if (response.ok) {
                     // Redirect to configuration page
-                    window.location.href = '/configuration';
+                    window.location.href = `${basePath}/configuration`;
                 } else {
                     const error = await response.json();
                     showError(error.message || 'Login failed');

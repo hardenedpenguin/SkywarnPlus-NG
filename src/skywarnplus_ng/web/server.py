@@ -69,6 +69,8 @@ class WebDashboard:
             loader=FileSystemLoader(str(template_dir)),
             autoescape=True
         )
+        # Add base_path as a global variable available to all templates
+        self.template_env.globals['base_path'] = self.config.monitoring.http_server.base_path
         
         # Generate secret key if not provided
         if not self.config.monitoring.http_server.auth.secret_key:
@@ -111,7 +113,8 @@ class WebDashboard:
                 return web.json_response({'error': 'Authentication required to access configuration'}, status=401)
             # For configuration page requests, redirect to login
             else:
-                return web.Response(status=302, headers={'Location': '/login'})
+                base_path = self.config.monitoring.http_server.base_path
+                return web.Response(status=302, headers={'Location': f'{base_path}/login'})
         return None
 
     def require_auth(self, handler):
@@ -1412,7 +1415,8 @@ class WebDashboard:
         """Handle login page."""
         # If already authenticated, redirect to configuration page
         if await self._is_authenticated(request):
-            return web.Response(status=302, headers={'Location': '/configuration'})
+            base_path = self.config.monitoring.http_server.base_path
+            return web.Response(status=302, headers={'Location': f'{base_path}/configuration'})
             
         template = self.template_env.get_template('login.html')
         content = template.render(title="Login - Configuration Access")

@@ -119,6 +119,7 @@ class HttpServerConfig(BaseModel):
     enabled: bool = Field(True, description="Enable HTTP server")
     host: str = Field("0.0.0.0", description="Server host")
     port: int = Field(8100, description="Server port")
+    base_path: str = Field("", description="Base path for reverse proxy (e.g., '/skywarnplus-ng')")
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
 

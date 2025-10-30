@@ -110,6 +110,7 @@ monitoring:
     enabled: true
     host: "0.0.0.0"
     port: 8100
+    base_path: ""  # Set to "/skywarnplus-ng" for reverse proxy
   metrics:
     enabled: true
     retention_days: 7
