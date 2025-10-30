@@ -147,7 +147,7 @@ SkywarnPlus-NG/
 │   ├── processing/              # Alert processing pipeline
 │   ├── database/                # Database management
 │   ├── monitoring/              # Health monitoring
-│   └── notifications/           # Notification system
+│   └── notifications/           # Notification system (Email, Webhook, PushOver)
 ├── config/                      # Configuration files
 ├── SOUNDS/                      # Audio files for alerts
 ├── scripts/                     # Development and utility scripts
@@ -194,6 +194,14 @@ monitoring:
       enabled: true
       username: "admin"
       password: "skywarn123"      # Change this!
+
+# PushOver notifications (optional)
+pushover:
+  enabled: false                  # Set to true to enable
+  api_token: null                 # Your PushOver API token
+  user_key: null                  # Your PushOver user key
+  priority: 0                     # -2 to 2 (0=normal)
+  sound: null                     # Sound name or null for device default
 ```
 
 ### DTMF Codes (`skydescribe.dtmf_codes`)
@@ -278,6 +286,78 @@ all_alerts = await client.get_active_alerts()
 - **Multiple levels** - DEBUG, INFO, WARNING, ERROR, CRITICAL
 - **File and console output** - Configurable destinations
 - **Log rotation** - Automatic cleanup and archival
+
+## 📱 PushOver Notifications
+
+SkywarnPlus-NG includes support for PushOver push notifications to keep you informed about weather alerts on your mobile device.
+
+### Setup
+
+1. **Create a PushOver account** (if you don't have one):
+   - Visit https://pushover.net/ and sign up
+   - Install the PushOver app on your phone/tablet
+   
+2. **Create an application**:
+   - Go to https://pushover.net/apps/build
+   - Create a new application (e.g., "SkywarnPlus-NG")
+   - Copy the **API Token**
+
+3. **Get your user key**:
+   - Visit https://pushover.net/ while logged in
+   - Your user key is displayed on the dashboard
+
+4. **Configure SkywarnPlus-NG**:
+   ```yaml
+   pushover:
+     enabled: true
+     api_token: "your_api_token_here"
+     user_key: "your_user_key_here"
+     priority: 0  # Normal priority (0), can be -2 to 2
+     sound: null  # Use device default sound
+   ```
+
+5. **Test your setup**:
+   ```bash
+   python3 scripts/test_pushover.py <API_TOKEN> <USER_KEY>
+   ```
+
+### Features
+
+- **Smart priority selection** - Priority automatically adjusted based on alert severity
+  - **Extreme + Immediate** → Emergency priority (requires acknowledgment, retries every 5 minutes)
+  - **Severe + Immediate** → High priority (bypasses quiet hours)
+  - **Moderate** → Normal priority
+  - **Minor** → Normal priority with gentle sound
+
+- **Rich formatting** - Include alert details, area description, and clickable links to full alert
+
+- **Multiple sounds** - Choose from 24 different notification sounds or use device default
+
+- **Automatic retries** - Failed notifications retry up to 3 times with exponential backoff
+
+- **All-clear notifications** - Get notified when weather alerts expire and conditions clear
+
+### Priority Levels
+
+PushOver supports 5 priority levels:
+
+- **Emergency (2)** - Require acknowledgment, repeat every 5 minutes until acknowledged
+- **High (1)** - Bypass quiet hours, use default sound
+- **Normal (0)** - Default priority, respects quiet hours
+- **Low (-1)** - Silent notification, no sound or vibration
+- **Lowest (-2)** - No notification at all
+
+### Testing
+
+Use the included test script to verify your PushOver setup:
+
+```bash
+python3 scripts/test_pushover.py <API_TOKEN> <USER_KEY>
+```
+
+This will send:
+1. A simple test notification
+2. A mock weather alert notification (Tornado Warning)
 
 ## 🚀 Production Deployment
 

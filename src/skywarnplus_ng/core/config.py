@@ -169,6 +169,19 @@ class SkyDescribeConfig(BaseModel):
     dtmf_codes: DTMFConfig = Field(default_factory=DTMFConfig)
 
 
+class PushOverConfig(BaseModel):
+    """PushOver notification configuration."""
+
+    enabled: bool = Field(False, description="Enable PushOver notifications")
+    api_token: Optional[str] = Field(None, description="PushOver application API token")
+    user_key: Optional[str] = Field(None, description="PushOver user key")
+    priority: int = Field(0, description="Default priority (-2 to 2, 0 is normal)")
+    sound: Optional[str] = Field(None, description="Default sound (None uses device default)")
+    timeout_seconds: int = Field(30, description="Request timeout in seconds")
+    retry_count: int = Field(3, description="Number of retry attempts")
+    retry_delay_seconds: int = Field(5, description="Delay between retries in seconds")
+
+
 class AppConfig(BaseSettings):
     """Application configuration."""
 
@@ -198,6 +211,7 @@ class AppConfig(BaseSettings):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     skydescribe: SkyDescribeConfig = Field(default_factory=SkyDescribeConfig)
+    pushover: PushOverConfig = Field(default_factory=PushOverConfig)
 
     @classmethod
     def from_yaml(cls, config_path = None) -> "AppConfig":

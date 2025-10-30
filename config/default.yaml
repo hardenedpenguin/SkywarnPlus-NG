@@ -140,3 +140,14 @@ skydescribe:
   #   all_clear: "**3"          # Alternative: **3 for all-clear
   #   system_status: "**4"      # Alternative: **4 for system status
   #   help: "**5"               # Alternative: **5 for help
+
+# PushOver notification configuration
+pushover:
+  enabled: false  # Set to true to enable PushOver notifications
+  api_token: null  # Your PushOver application API token (create at https://pushover.net/apps/build)
+  user_key: null  # Your PushOver user key (find at https://pushover.net/)
+  priority: 0  # Default priority: -2 (silent) to 2 (emergency), 0 is normal
+  sound: null  # Sound name (null = device default). See https://pushover.net/api#sounds
+  timeout_seconds: 30
+  retry_count: 3
+  retry_delay_seconds: 5

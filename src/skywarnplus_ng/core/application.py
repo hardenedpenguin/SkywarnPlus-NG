@@ -605,6 +605,29 @@ class SkywarnPlusApplication:
                     else:
                         logger.warning(f"Alert script failed for: {alert.event}")
                 
+                # Send PushOver notification if enabled
+                if self.config.pushover.enabled and self.config.pushover.api_token and self.config.pushover.user_key:
+                    try:
+                        from ..notifications.pushover import PushOverNotifier, PushOverConfig, PushOverNotifier as PONotifier
+                        pushover_config = PushOverConfig(
+                            api_token=self.config.pushover.api_token,
+                            user_key=self.config.pushover.user_key,
+                            enabled=True,
+                            priority=self.config.pushover.priority,
+                            sound=self.config.pushover.sound,
+                            timeout_seconds=self.config.pushover.timeout_seconds,
+                            retry_count=self.config.pushover.retry_count,
+                            retry_delay_seconds=self.config.pushover.retry_delay_seconds
+                        )
+                        async with PONotifier(pushover_config) as pushover:
+                            result = await pushover.send_alert_push(alert)
+                            if result.get("success", False):
+                                logger.info(f"PushOver notification sent for alert: {alert.event}")
+                            else:
+                                logger.warning(f"PushOver notification failed: {result.get('error', 'Unknown error')}")
+                    except Exception as e:
+                        logger.error(f"Failed to send PushOver notification: {e}")
+                
                 # Log alert processing completion
                 processing_time = (datetime.now(timezone.utc) - alert_start_time).total_seconds() * 1000
                 self.alert_logger.log_alert_processed(
@@ -669,6 +692,30 @@ class SkywarnPlusApplication:
                 logger.info("All-clear script executed successfully")
             else:
                 logger.warning("All-clear script failed")
+        
+        # Send PushOver all-clear notification if enabled
+        if self.config.pushover.enabled and self.config.pushover.api_token and self.config.pushover.user_key:
+            try:
+                from ..notifications.pushover import PushOverNotifier, PushOverConfig, PushOverNotifier as PONotifier
+                pushover_config = PushOverConfig(
+                    api_token=self.config.pushover.api_token,
+                    user_key=self.config.pushover.user_key,
+                    enabled=True,
+                    priority=self.config.pushover.priority,
+                    sound=self.config.pushover.sound,
+                    timeout_seconds=self.config.pushover.timeout_seconds,
+                    retry_count=self.config.pushover.retry_count,
+                    retry_delay_seconds=self.config.pushover.retry_delay_seconds
+                )
+                async with PONotifier(pushover_config) as pushover:
+                    county_names = [county.name for county in self.config.counties]
+                    result = await pushover.send_all_clear(county_names)
+                    if result.get("success", False):
+                        logger.info("PushOver all-clear notification sent")
+                    else:
+                        logger.warning(f"PushOver all-clear notification failed: {result.get('error', 'Unknown error')}")
+            except Exception as e:
+                logger.error(f"Failed to send PushOver all-clear notification: {e}")
         
         self.state_manager.update_all_clear_time(self.state)
         

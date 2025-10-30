@@ -947,13 +947,25 @@ class WebDashboard:
                     else:
                         logger.info("Updating password")
                 
+                # Handle PushOver credentials - keep current values if empty
+                if 'pushover' in data:
+                    if 'api_token' in data['pushover'] and (not data['pushover']['api_token'] or data['pushover']['api_token'].strip() == ''):
+                        data['pushover']['api_token'] = self.config.pushover.api_token
+                        logger.info("Keeping current PushOver API token (new token was empty)")
+                    if 'user_key' in data['pushover'] and (not data['pushover']['user_key'] or data['pushover']['user_key'].strip() == ''):
+                        data['pushover']['user_key'] = self.config.pushover.user_key
+                        logger.info("Keeping current PushOver user key (new key was empty)")
+                
                 # Create new config from the received data
                 from ..core.config import AppConfig
                 updated_config = AppConfig(**data)
                 
-                # Save to config file (save to a runtime config file)
-                config_path = Path("config/runtime.yaml")
-                config_path.parent.mkdir(exist_ok=True)
+                # Save to config file (use the configured config file path)
+                config_path = self.config.config_file
+                if not config_path.is_absolute():
+                    # If relative path, make it relative to the application directory
+                    config_path = Path("/etc/skywarnplus-ng") / config_path
+                config_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 yaml = YAML()
                 yaml.default_flow_style = False
@@ -987,8 +999,8 @@ class WebDashboard:
                 
                 logger.info(f"Configuration saved to {config_path}")
                 
-            return web.json_response({
-                "success": True,
+                return web.json_response({
+                    "success": True,
                     "message": "Configuration updated and saved successfully",
                     "config_file": str(config_path)
                 })
@@ -1069,10 +1081,17 @@ class WebDashboard:
             notifier = EmailNotifier(email_config)
             success = notifier.test_connection()
             
-            return web.json_response({
-                "success": success,
-                "message": "Email connection test completed"
-            })
+            if success:
+                return web.json_response({
+                    "success": True,
+                    "message": "Email connection test successful"
+                })
+            else:
+                return web.json_response({
+                    "success": False,
+                    "message": "Email connection test failed - check credentials and settings",
+                    "error": "Connection test failed"
+                })
             
         except Exception as e:
             logger.error(f"Error testing email connection: {e}")

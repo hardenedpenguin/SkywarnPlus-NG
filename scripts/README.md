@@ -60,6 +60,26 @@ Safely restarts the SkywarnPlus-NG server with proper process management.
 - Comprehensive logging and status reporting
 - Health endpoint testing
 
+### `test_pushover.py`
+Tests PushOver notification functionality.
+
+**Usage:**
+```bash
+python3 scripts/test_pushover.py <API_TOKEN> <USER_KEY>
+```
+
+**What it tests:**
+- Simple notification delivery
+- Weather alert notification with proper formatting
+- Priority and sound selection based on alert severity
+
+**To get your credentials:**
+1. Create a PushOver application at: https://pushover.net/apps/build
+2. Get your user key from: https://pushover.net/
+3. Use the API token from your application in the test script
+
+**Note:** You can also configure PushOver through the web dashboard at `/configuration` under the Monitoring tab.
+
 ## Requirements
 
 These scripts require the SkywarnPlus-NG source code to be available in the parent directory. They are designed to be run from the project root directory.

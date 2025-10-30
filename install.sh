@@ -30,6 +30,7 @@ sudo apt-get update
 sudo apt-get install -y \
     python3-pip \
     python3-venv \
+    python3-full \
     python3-dev \
     gcc \
     g++ \
@@ -73,26 +74,55 @@ sudo chown -R skywarnplus:skywarnplus /tmp/skywarnplus-ng-audio
 
 echo "✓ Directories created and permissions set"
 
-# Install Python dependencies
-echo "Installing Python dependencies..."
-pip3 install --user -e ".[dev]"
+# Copy source files to /var/lib/skywarnplus-ng
+echo "Copying source files..."
+CURRENT_DIR=$(pwd)
+sudo cp -r src/ /var/lib/skywarnplus-ng/
+if [ -f "pyproject.toml" ]; then
+    sudo cp pyproject.toml /var/lib/skywarnplus-ng/
+fi
+sudo chown -R skywarnplus:skywarnplus /var/lib/skywarnplus-ng/src
+if [ -f "pyproject.toml" ]; then
+    sudo chown skywarnplus:skywarnplus /var/lib/skywarnplus-ng/pyproject.toml
+fi
+echo "✓ Source files copied"
 
-echo "✓ Python dependencies installed"
+# Create virtual environment and install Python dependencies
+echo "Installing Python dependencies..."
+if [ -f "pyproject.toml" ]; then
+    # Create virtual environment in /var/lib/skywarnplus-ng/venv
+    echo "Creating virtual environment..."
+    sudo -u skywarnplus python3 -m venv /var/lib/skywarnplus-ng/venv
+    
+    # Install dependencies using venv's pip (from /var/lib/skywarnplus-ng directory)
+    echo "Installing packages..."
+    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install --upgrade pip"
+    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install -e '.[dev]'"
+    echo "✓ Python dependencies installed"
+else
+    echo "⚠️  Warning: pyproject.toml not found. Skipping Python dependencies installation."
+fi
 
 # Copy configuration
 echo "Setting up configuration..."
-sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
-sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
-
-echo "✓ Configuration copied"
+if [ -f "config/default.yaml" ]; then
+    sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
+    sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
+    echo "✓ Configuration copied"
+else
+    echo "⚠️  Warning: config/default.yaml not found. Skipping configuration copy."
+fi
 
 # Generate rpt.conf for Asterisk
 echo "Generating rpt.conf for Asterisk integration..."
-python3 examples/generate_rpt_conf.py --config /etc/skywarnplus-ng/config.yaml --output /tmp/rpt_skydescribe.conf
-sudo cp /tmp/rpt_skydescribe.conf /etc/asterisk/rpt_skydescribe.conf
-sudo chown asterisk:asterisk /etc/asterisk/rpt_skydescribe.conf
-
-echo "✓ rpt.conf generated and installed"
+if [ -f "scripts/generate_asterisk_config.py" ]; then
+    python3 scripts/generate_asterisk_config.py --type rpt --output /tmp/rpt_skydescribe.conf
+    sudo cp /tmp/rpt_skydescribe.conf /etc/asterisk/custom/rpt_skydescribe.conf
+    sudo chown asterisk:asterisk /etc/asterisk/custom/rpt_skydescribe.conf
+    echo "✓ rpt.conf generated and installed"
+else
+    echo "⚠️  Warning: scripts/generate_asterisk_config.py not found. Skipping Asterisk config generation."
+fi
 
 # Create systemd service
 echo "Creating systemd service..."
@@ -107,7 +137,7 @@ Type=simple
 User=skywarnplus
 Group=skywarnplus
 WorkingDirectory=/var/lib/skywarnplus-ng
-ExecStart=/usr/local/bin/skywarnplus-ng run --config /etc/skywarnplus-ng/config.yaml
+ExecStart=/var/lib/skywarnplus-ng/venv/bin/python -m skywarnplus_ng.cli run --config /etc/skywarnplus-ng/config.yaml
 Restart=always
 RestartSec=10
 StandardOutput=journal
