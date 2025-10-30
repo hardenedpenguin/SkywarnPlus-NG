@@ -198,6 +198,7 @@ class WebDashboard:
         app.router.add_get('/api/status', self.api_status_handler)
         app.router.add_get('/api/alerts', self.api_alerts_handler)
         app.router.add_get('/api/alerts/history', self.api_alerts_history_handler)
+        app.router.add_get('/api/alerts/{alert_id}/audio', self.api_alert_audio_handler)
         app.router.add_get('/api/health', self.api_health_handler)
         app.router.add_get('/api/health/history', self.api_health_history_handler)
         app.router.add_get('/api/logs', self.api_logs_handler)
@@ -338,6 +339,65 @@ class WebDashboard:
             })
         except Exception as e:
             logger.error(f"Error getting alerts: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_alert_audio_handler(self, request: Request) -> Response:
+        """Generate and stream TTS audio for a specific alert."""
+        try:
+            alert_id = request.match_info.get('alert_id')
+            if not alert_id:
+                return web.json_response({"error": "alert_id is required"}, status=400)
+
+            # Ensure audio subsystem is available
+            if not self.app or not self.app.audio_manager:
+                return web.json_response({"error": "Audio system not available"}, status=503)
+
+            # Look up alert data from state
+            alert_data = self.app.state.get('last_alerts', {}).get(alert_id)
+            if not alert_data:
+                return web.json_response({"error": "Alert not found or expired"}, status=404)
+
+            # Construct WeatherAlert model defensively
+            try:
+                from ..core.models import WeatherAlert
+                alert_model = WeatherAlert(**alert_data)
+            except Exception:
+                # Fallback: minimal model using required fields
+                from datetime import datetime
+                from ..core.models import WeatherAlert
+                minimal = {
+                    'id': alert_data.get('id', alert_id),
+                    'event': alert_data.get('event', 'Weather Alert'),
+                    'description': alert_data.get('description', alert_data.get('area_desc', '')),
+                    'sent': datetime.now(timezone.utc),
+                    'effective': datetime.now(timezone.utc),
+                    'expires': datetime.now(timezone.utc),
+                    'area_desc': alert_data.get('area_desc', ''),
+                    'sender': alert_data.get('sender', 'NWS'),
+                    'sender_name': alert_data.get('sender_name', 'National Weather Service'),
+                }
+                alert_model = WeatherAlert(**minimal)
+
+            # Generate audio file
+            audio_path = self.app.audio_manager.generate_alert_audio(alert_model)
+            if not audio_path or not audio_path.exists():
+                return web.json_response({"error": "Failed to generate audio"}, status=500)
+
+            # Determine content type from extension
+            ext = audio_path.suffix.lower()
+            if ext in ['.mp3']:
+                content_type = 'audio/mpeg'
+            elif ext in ['.wav']:
+                content_type = 'audio/wav'
+            elif ext in ['.ogg']:
+                content_type = 'audio/ogg'
+            else:
+                content_type = 'application/octet-stream'
+
+            # Stream file to client
+            return web.FileResponse(path=str(audio_path), headers={'Content-Type': content_type})
+        except Exception as e:
+            logger.error(f"Error generating alert audio: {e}", exc_info=True)
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_alerts_history_handler(self, request: Request) -> Response:

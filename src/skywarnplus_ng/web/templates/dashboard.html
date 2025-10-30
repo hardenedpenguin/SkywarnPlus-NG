@@ -240,12 +240,35 @@
                     <div class="flex items-center space-x-2">
                         ${alert.announced ? '<span class="text-green-500" title="Announced">📢</span>' : ''}
                         ${alert.script_executed ? '<span class="text-blue-500" title="Script Executed">⚙️</span>' : ''}
+                        <button class="btn-secondary text-sm" title="Play announcement" onclick="playAlertAudio('${alert.id}')">
+                            ▶️ Play
+                        </button>
                     </div>
                 </div>
             </div>
         `).join('');
 
         container.innerHTML = alertsHtml;
+    }
+
+    async function playAlertAudio(alertId) {
+        try {
+            const response = await fetch(`/api/alerts/${encodeURIComponent(alertId)}/audio`);
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                showNotification(err.error || 'Failed to generate audio', 'error');
+                return;
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.onended = () => URL.revokeObjectURL(url);
+            await audio.play();
+            showNotification('Playing alert audio', 'success');
+        } catch (e) {
+            console.error('Play audio failed:', e);
+            showNotification('Audio playback failed', 'error');
+        }
     }
 
     // Render health components
