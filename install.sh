@@ -53,7 +53,7 @@ fi
 
 # Create directories
 echo "Creating application directories..."
-sudo mkdir -p /var/lib/skywarnplus-ng/{descriptions,audio,data}
+sudo mkdir -p /var/lib/skywarnplus-ng/{descriptions,audio,data,scripts}
 sudo mkdir -p /var/log/skywarnplus-ng
 sudo mkdir -p /etc/skywarnplus-ng
 sudo mkdir -p /tmp/skywarnplus-ng-audio
@@ -115,13 +115,16 @@ fi
 
 # Generate rpt.conf for Asterisk
 echo "Generating rpt.conf for Asterisk integration..."
-if [ -f "scripts/generate_asterisk_config.py" ]; then
-    python3 scripts/generate_asterisk_config.py --type rpt --output /tmp/rpt_skydescribe.conf
+if [ -f "scripts/generate_asterisk_config.py" ] && [ -f "/var/lib/skywarnplus-ng/venv/bin/python" ]; then
+    # Copy the script to the installed location and run it from there
+    sudo cp scripts/generate_asterisk_config.py /var/lib/skywarnplus-ng/scripts/
+    sudo chown skywarnplus:skywarnplus /var/lib/skywarnplus-ng/scripts/generate_asterisk_config.py
+    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/python scripts/generate_asterisk_config.py --type rpt --output /tmp/rpt_skydescribe.conf"
     sudo cp /tmp/rpt_skydescribe.conf /etc/asterisk/custom/rpt_skydescribe.conf
     sudo chown asterisk:asterisk /etc/asterisk/custom/rpt_skydescribe.conf
     echo "✓ rpt.conf generated and installed"
 else
-    echo "⚠️  Warning: scripts/generate_asterisk_config.py not found. Skipping Asterisk config generation."
+    echo "⚠️  Warning: scripts/generate_asterisk_config.py not found or venv not created. Skipping Asterisk config generation."
 fi
 
 # Create systemd service
