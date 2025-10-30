@@ -13,13 +13,12 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 import uuid
 
-from aiohttp import web, WSMsgType, ClientSession
+from aiohttp import web, WSMsgType
 from aiohttp.web import Request, Response
 from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from aiohttp_cors import setup as cors_setup, ResourceOptions
 from jinja2 import Environment, FileSystemLoader
-import websockets
 from websockets.exceptions import ConnectionClosed
 
 from typing import TYPE_CHECKING

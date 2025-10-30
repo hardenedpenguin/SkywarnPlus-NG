@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
-from aiohttp import web, ClientSession
+from aiohttp import web
 from aiohttp.web import Request, Response
 
 from .health import HealthMonitor, HealthStatus

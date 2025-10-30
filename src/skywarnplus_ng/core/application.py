@@ -17,7 +17,7 @@ from ..api.nws_client import NWSClient, NWSClientError
 from ..audio.manager import AudioManager, AudioManagerError
 from ..asterisk.manager import AsteriskManager, AsteriskError
 from ..utils.script_manager import ScriptManager, ScriptExecutionError
-from ..utils.logging import setup_logging, get_logger, PerformanceLogger, AlertLogger
+from ..utils.logging import setup_logging, PerformanceLogger, AlertLogger
 from ..monitoring.health import HealthMonitor
 from ..database.manager import DatabaseManager, DatabaseError
 from ..web.server import WebDashboard
