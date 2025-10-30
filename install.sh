@@ -109,12 +109,19 @@ else
     echo "⚠️  Warning: pyproject.toml not found. Skipping Python dependencies installation."
 fi
 
-# Copy configuration
+# Copy configuration (do not overwrite existing user config)
 echo "Setting up configuration..."
 if [ -f "config/default.yaml" ]; then
-    sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
-    sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
-    echo "✓ Configuration copied"
+    if [ ! -f "/etc/skywarnplus-ng/config.yaml" ]; then
+        sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
+        sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
+        echo "✓ Configuration created at /etc/skywarnplus-ng/config.yaml"
+    else
+        # Preserve user config; provide example for reference
+        sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml.example
+        sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml.example
+        echo "✓ Existing config preserved; example updated at /etc/skywarnplus-ng/config.yaml.example"
+    fi
 else
     echo "⚠️  Warning: config/default.yaml not found. Skipping configuration copy."
 fi
