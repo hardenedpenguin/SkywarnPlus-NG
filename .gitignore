@@ -60,10 +60,10 @@ config/local.yaml
 config/production.yaml
 config/development.yaml
 
-# Audio files (generated)
-SOUNDS/
+# Audio files (generated, but keep SOUNDS directory)
 *.wav
 *.mp3
+!SOUNDS/*.wav
 
 # Application data
 /tmp/
