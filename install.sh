@@ -162,6 +162,15 @@ sudo systemctl enable skywarnplus-ng
 
 echo "✓ Systemd service created and enabled"
 
+# Ensure port 8100 is clear
+echo "Ensuring port 8100 is available..."
+if command -v lsof >/dev/null 2>&1; then
+    sudo kill -9 $(sudo lsof -t -i :8100) 2>/dev/null || true
+elif command -v fuser >/dev/null 2>&1; then
+    sudo fuser -k 8100/tcp 2>/dev/null || true
+fi
+echo "✓ Port 8100 cleared"
+
 # Create logrotate configuration
 echo "Setting up log rotation..."
 sudo tee /etc/logrotate.d/skywarnplus-ng > /dev/null <<EOF
