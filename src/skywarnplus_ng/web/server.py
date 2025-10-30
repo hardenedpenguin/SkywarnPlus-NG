@@ -1440,7 +1440,7 @@ class WebDashboard:
         """Handle notification statistics endpoint."""
         try:
             # Import notification modules
-            from ..notifications.manager import NotificationManager, NotificationConfig
+            from ..notifications.manager import NotificationManager
             
             # Get notification stats (this would need to be integrated with the app)
             # For now, return mock data
