@@ -51,6 +51,12 @@ else
     echo "✓ User skywarnplus already exists"
 fi
 
+# Add skywarnplus user to asterisk group for Asterisk socket access
+if id "asterisk" &>/dev/null; then
+    sudo usermod -a -G asterisk skywarnplus
+    echo "✓ Added skywarnplus user to asterisk group"
+fi
+
 # Create directories
 echo "Creating application directories..."
 sudo mkdir -p /var/lib/skywarnplus-ng/{descriptions,audio,data,scripts}
