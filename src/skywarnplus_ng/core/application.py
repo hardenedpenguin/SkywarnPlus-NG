@@ -501,13 +501,22 @@ class SkywarnPlusApplication:
         try:
             # Check for test injection mode
             if self.config.dev.inject_enabled:
-                logger.info("DEV: Test alert injection enabled, generating test alerts")
-                injected_alerts = self.nws_client.generate_inject_alerts(
-                    self.config.dev.inject_alerts,
-                    county_codes
-                )
-                logger.info(f"Generated {len(injected_alerts)} test alerts")
-                return injected_alerts
+                logger.info("DEV: Test alert injection enabled, generating tornado warning test alert")
+                # Auto-generate a tornado warning for all configured counties
+                if county_codes:
+                    tornado_alert_config = [{
+                        "Title": "Tornado Warning",
+                        "CountyCodes": county_codes
+                    }]
+                    injected_alerts = self.nws_client.generate_inject_alerts(
+                        tornado_alert_config,
+                        county_codes
+                    )
+                    logger.info(f"Generated {len(injected_alerts)} test tornado warning alerts for {len(county_codes)} counties")
+                    return injected_alerts
+                else:
+                    logger.warning("DEV: No counties configured, cannot generate test alert")
+                    return []
             
             # Fetch alerts for all counties concurrently
             alerts = await self.nws_client.fetch_alerts_for_zones(county_codes)
