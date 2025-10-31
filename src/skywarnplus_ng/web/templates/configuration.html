@@ -207,6 +207,54 @@
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
                     
+                    <div>
+                        <label for="asterisk_ami_host" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            AMI Host
+                        </label>
+                        <input type="text" id="asterisk_ami_host" name="asterisk.ami_host" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="127.0.0.1">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Asterisk AMI server hostname or IP address
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <label for="asterisk_ami_port" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            AMI Port
+                        </label>
+                        <input type="number" id="asterisk_ami_port" name="asterisk.ami_port" min="1" max="65535" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="5038">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Asterisk AMI server port (default: 5038)
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <label for="asterisk_ami_username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            AMI Username
+                        </label>
+                        <input type="text" id="asterisk_ami_username" name="asterisk.ami_username" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="AMI username">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Asterisk AMI username (configured in manager.conf)
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <label for="asterisk_ami_secret" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            AMI Secret/Password
+                        </label>
+                        <input type="password" id="asterisk_ami_secret" name="asterisk.ami_secret" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="AMI secret/password">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Asterisk AMI secret/password (configured in manager.conf)
+                        </p>
+                    </div>
+                    
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Target Nodes
@@ -1158,6 +1206,10 @@
         // Asterisk
         document.getElementById('asterisk_enabled').checked = config.asterisk?.enabled || false;
         document.getElementById('asterisk_audio_delay').value = config.asterisk?.audio_delay || 0;
+        document.getElementById('asterisk_ami_host').value = config.asterisk?.ami_host || '127.0.0.1';
+        document.getElementById('asterisk_ami_port').value = config.asterisk?.ami_port || 5038;
+        document.getElementById('asterisk_ami_username').value = config.asterisk?.ami_username || '';
+        document.getElementById('asterisk_ami_secret').value = config.asterisk?.ami_secret || '';
         populateNodes(config.asterisk?.nodes || []);
 
         // Audio & TTS
