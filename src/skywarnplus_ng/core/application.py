@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 
 from .config import AppConfig
 from .state import ApplicationState
-from .models import WeatherAlert
+from .models import WeatherAlert, AlertStatus
 from ..api.nws_client import NWSClient, NWSClientError
 from ..audio.manager import AudioManager, AudioManagerError
 from ..asterisk.manager import AsteriskManager, AsteriskError
@@ -786,11 +786,14 @@ class SkywarnPlusApplication:
     async def _announce_alert(self, alert: WeatherAlert) -> None:
         """
         Announce an alert using TTS and Asterisk.
+        
+        Works for both NWS alerts and test/injected alerts.
 
         Args:
-            alert: Alert to announce
+            alert: Alert to announce (can be NWS or test alert)
         """
-        logger.info(f"Announcing alert: {alert.event} - {alert.area_desc}")
+        alert_type = "TEST" if alert.status == AlertStatus.TEST else "NWS"
+        logger.info(f"Announcing {alert_type} alert: {alert.event} - {alert.area_desc}")
         logger.debug(f"Alert description: {alert.description[:100]}..." if alert.description and len(alert.description) > 100 else f"Alert description: {alert.description}")
         
         if not self.audio_manager:
@@ -799,6 +802,14 @@ class SkywarnPlusApplication:
         
         if not self.asterisk_manager:
             logger.warning("Asterisk manager not available - skipping announcement")
+            return
+        
+        if not self.config.asterisk.enabled:
+            logger.warning("Asterisk integration disabled - skipping announcement")
+            return
+        
+        if not self.config.asterisk.nodes:
+            logger.warning("No Asterisk nodes configured - skipping announcement")
             return
         
         try:
