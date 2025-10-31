@@ -142,9 +142,9 @@ class AsteriskManager:
         try:
             logger.debug(f"Running Asterisk command: {command}")
             
-            # Use asterisk -x to execute command and exit
+            # Execute via sudo as the asterisk user (requires sudoers configuration)
             process = await asyncio.create_subprocess_exec(
-                str(self.asterisk_path), "-x", command,
+                "sudo", "-n", "-u", "asterisk", str(self.asterisk_path), "-x", command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd="/tmp"  # Run from /tmp to avoid permission issues

@@ -56,6 +56,13 @@ if id "asterisk" &>/dev/null; then
     echo "✓ Added skywarnplus user to asterisk group"
 fi
 
+# Configure sudoers for Asterisk CLI access
+sudo tee /etc/sudoers.d/skywarnplus-ng > /dev/null <<'EOF'
+skywarnplus ALL=(asterisk) NOPASSWD:/usr/sbin/asterisk
+EOF
+sudo chmod 440 /etc/sudoers.d/skywarnplus-ng
+echo "✓ Sudoers entry created at /etc/sudoers.d/skywarnplus-ng"
+
 # Create directories
 echo "Creating application directories..."
 sudo mkdir -p /var/lib/skywarnplus-ng/{descriptions,audio,data,scripts}
