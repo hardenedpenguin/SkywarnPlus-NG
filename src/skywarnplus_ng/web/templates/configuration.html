@@ -147,12 +147,42 @@
                     <!-- Counties will be dynamically added here -->
                 </div>
                 
-                <button type="button" onclick="addCounty()" class="mt-4 btn-secondary">
+                <button type="button" onclick="showCountySearch()" class="mt-4 btn-primary">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                    </svg>
+                    Search & Add County
+                </button>
+                <button type="button" onclick="addCounty()" class="mt-4 ml-2 btn-secondary">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
                     </svg>
-                    Add County
+                    Manually Add County
                 </button>
+            </div>
+        </div>
+        
+        <!-- County Search Modal -->
+        <div id="county-search-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Search Counties</h3>
+                    <div class="mt-4">
+                        <input type="text" id="county-search-input" placeholder="Search by county name or state..." 
+                               class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                               oninput="filterCountySearch()">
+                    </div>
+                </div>
+                <div class="overflow-y-auto p-6 flex-1">
+                    <div id="county-search-results" class="space-y-2">
+                        <!-- Search results will be populated here -->
+                    </div>
+                </div>
+                <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+                    <button type="button" onclick="hideCountySearch()" class="btn-secondary">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1071,6 +1101,7 @@
 <script>
     let currentConfig = {};
     let currentTab = 'core';
+    let allCounties = []; // Will hold all county data
 
     // Tab management
     function showTab(tabName) {
@@ -1266,6 +1297,111 @@
     }
 
     // County management
+    function loadCountyData() {
+        // Load county data from JSON file
+        fetch('/static/county_codes.json')
+            .then(response => response.json())
+            .then(data => {
+                allCounties = data;
+                console.log(`Loaded ${allCounties.length} counties`);
+            })
+            .catch(error => {
+                console.error('Error loading county data:', error);
+            });
+    }
+    
+    function showCountySearch() {
+        const modal = document.getElementById('county-search-modal');
+        const searchInput = document.getElementById('county-search-input');
+        
+        // Load county data if not already loaded
+        if (allCounties.length === 0) {
+            loadCountyData();
+            // Wait a moment for data to load, then show modal
+            setTimeout(() => {
+                modal.classList.remove('hidden');
+                searchInput.focus();
+            }, 100);
+        } else {
+            modal.classList.remove('hidden');
+            searchInput.focus();
+        }
+    }
+    
+    function hideCountySearch() {
+        const modal = document.getElementById('county-search-modal');
+        modal.classList.add('hidden');
+    }
+    
+    function filterCountySearch() {
+        const searchTerm = document.getElementById('county-search-input').value.toLowerCase();
+        const resultsContainer = document.getElementById('county-search-results');
+        resultsContainer.innerHTML = '';
+        
+        if (!searchTerm.trim()) {
+            // Show all counties grouped by state when search is empty
+            showAllCountiesGrouped();
+            return;
+        }
+        
+        // Filter counties by search term
+        const filtered = allCounties.filter(county => {
+            return county.search_terms.includes(searchTerm) || 
+                   county.state_code.toLowerCase().includes(searchTerm) ||
+                   county.state.toLowerCase().includes(searchTerm);
+        });
+        
+        if (filtered.length === 0) {
+            resultsContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center">No counties found.</p>';
+            return;
+        }
+        
+        // Display filtered results (limit to first 200 for performance)
+        const displayCount = Math.min(filtered.length, 200);
+        for (let i = 0; i < displayCount; i++) {
+            const county = filtered[i];
+            const result = document.createElement('div');
+            result.className = 'p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer border border-gray-200 dark:border-gray-600';
+            result.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">${county.name}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">${county.state}, ${county.code}</div>
+                    </div>
+                    <button onclick="addCountyFromSearch('${county.code}', '${county.name.replace(/'/g, "\\'")}')" class="btn-primary text-sm px-3 py-1">
+                        Add
+                    </button>
+                </div>
+            `;
+            resultsContainer.appendChild(result);
+        }
+        
+        if (filtered.length > 200) {
+            const moreMsg = document.createElement('p');
+            moreMsg.className = 'text-center text-sm text-gray-500 dark:text-gray-400';
+            moreMsg.textContent = `${filtered.length - 200} more results. Please refine your search.`;
+            resultsContainer.appendChild(moreMsg);
+        }
+    }
+    
+    function showAllCountiesGrouped() {
+        const resultsContainer = document.getElementById('county-search-results');
+        resultsContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center">Type to search counties...</p>';
+    }
+    
+    function addCountyFromSearch(code, name) {
+        // Add the selected county to the list
+        const container = document.getElementById('counties-container');
+        const currentCounties = container.children.length;
+        addCountyRow(code, name, true, currentCounties);
+        
+        // Close the modal
+        hideCountySearch();
+        
+        // Clear search
+        document.getElementById('county-search-input').value = '';
+    }
+    
     function populateCounties(counties) {
         const container = document.getElementById('counties-container');
         container.innerHTML = '';
