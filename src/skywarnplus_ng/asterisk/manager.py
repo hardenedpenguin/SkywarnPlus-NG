@@ -288,12 +288,10 @@ class AsteriskManager:
         
         try:
             # Use full path for playback (Asterisk can play from /tmp or anywhere)
-            # Remove file extension for rpt playback command
+            # Keep the file extension when using full paths
             playback_path = str(audio_path)
-            if playback_path.endswith(('.wav', '.mp3', '.gsm')):
-                playback_path = playback_path.rsplit('.', 1)[0]
             
-            # Use rpt playback command with full path
+            # Use rpt playback command with full path including extension
             command = f"rpt playback {node_number} {playback_path}"
             logger.debug(f"Executing Asterisk command: {command}")
             return_code, stdout, stderr = await self._run_asterisk_command(command)
