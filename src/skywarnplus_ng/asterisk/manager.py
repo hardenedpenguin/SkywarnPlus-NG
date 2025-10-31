@@ -277,7 +277,7 @@ class AsteriskManager:
 
         Args:
             node_number: Node number to play audio on
-            audio_path: Path to audio file
+            audio_path: Path to audio file (can be anywhere, including /tmp)
 
         Returns:
             True if playback started successfully, False otherwise
@@ -287,32 +287,26 @@ class AsteriskManager:
             return False
         
         try:
-            # Convert absolute path to relative path for Asterisk
-            # Asterisk expects paths relative to /var/lib/asterisk/sounds/
-            if str(audio_path).startswith("/var/lib/asterisk/sounds/"):
-                relative_path = str(audio_path)[len("/var/lib/asterisk/sounds/"):]
-                # Remove file extension for rpt playback command
-                if relative_path.endswith(('.wav', '.mp3')):
-                    relative_path = relative_path.rsplit('.', 1)[0]
-            else:
-                # For files not in Asterisk sounds directory, use full path
-                relative_path = str(audio_path)
-                if relative_path.endswith(('.wav', '.mp3')):
-                    relative_path = relative_path.rsplit('.', 1)[0]
+            # Use full path for playback (Asterisk can play from /tmp or anywhere)
+            # Remove file extension for rpt playback command
+            playback_path = str(audio_path)
+            if playback_path.endswith(('.wav', '.mp3', '.gsm')):
+                playback_path = playback_path.rsplit('.', 1)[0]
             
-            # Use rpt playback command
-            command = f"rpt playback {node_number} {relative_path}"
+            # Use rpt playback command with full path
+            command = f"rpt playback {node_number} {playback_path}"
+            logger.debug(f"Executing Asterisk command: {command}")
             return_code, stdout, stderr = await self._run_asterisk_command(command)
             
             if return_code == 0:
-                logger.info(f"Started audio playback on node {node_number}: {relative_path}")
+                logger.info(f"Started audio playback on node {node_number}: {playback_path}")
                 return True
             else:
-                logger.error(f"Failed to play audio on node {node_number}: {stderr}")
+                logger.error(f"Failed to play audio on node {node_number}: stderr={stderr}, stdout={stdout}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error playing audio on node {node_number}: {e}")
+            logger.error(f"Error playing audio on node {node_number}: {e}", exc_info=True)
             return False
 
     async def play_audio_on_all_nodes(self, audio_path: Path) -> List[int]:
