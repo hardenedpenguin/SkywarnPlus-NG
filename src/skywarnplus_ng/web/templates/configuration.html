@@ -1447,6 +1447,21 @@
         const currentCounties = container.children.length;
         addCountyRow(code, name, true, currentCounties);
         
+        // Scroll to the newly added county
+        const newRow = container.lastElementChild;
+        if (newRow) {
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Highlight the newly added row briefly
+            newRow.style.transition = 'background-color 0.3s';
+            newRow.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            setTimeout(() => {
+                newRow.style.backgroundColor = '';
+            }, 2000);
+        }
+        
+        // Show notification
+        showNotification(`Added county: ${name}`, 'success');
+        
         // Close the modal
         hideCountySearch();
         
