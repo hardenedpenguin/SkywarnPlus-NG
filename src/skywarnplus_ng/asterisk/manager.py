@@ -5,6 +5,7 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 import asyncio
 import logging
 import subprocess
+import socket
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 
@@ -35,6 +36,12 @@ class AsteriskManager:
 
     def _validate_asterisk(self) -> None:
         """Validate that Asterisk is available."""
+        # If AMI credentials are configured, we don't need to check for asterisk binary
+        if self.config.ami_username and self.config.ami_secret:
+            logger.info("AMI credentials configured, will use AMI for connections")
+            return
+        
+        # Otherwise, check for asterisk binary for CLI access
         if not self.asterisk_path.exists():
             raise AsteriskError(f"Asterisk not found at {self.asterisk_path}")
         
@@ -45,6 +52,82 @@ class AsteriskManager:
             raise AsteriskError(f"Asterisk is not executable: {self.asterisk_path}")
         
         logger.info(f"Asterisk found at {self.asterisk_path}")
+
+    def _has_ami_credentials(self) -> bool:
+        """Check if AMI credentials are configured."""
+        return bool(self.config.ami_username and self.config.ami_secret)
+
+    async def _test_ami_connection(self) -> bool:
+        """
+        Test connection to Asterisk via AMI.
+        
+        Returns:
+            True if connection successful, False otherwise
+        """
+        if not self._has_ami_credentials():
+            return False
+            
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(self.config.ami_host, self.config.ami_port),
+                timeout=5.0
+            )
+            
+            # Wait for AMI greeting
+            greeting = await asyncio.wait_for(reader.readline(), timeout=2.0)
+            if not greeting.startswith(b'Asterisk Call Manager'):
+                logger.warning(f"Unexpected AMI greeting: {greeting}")
+                writer.close()
+                await writer.wait_closed()
+                return False
+            
+            # Read the rest of the greeting
+            while True:
+                try:
+                    line = await asyncio.wait_for(reader.readline(), timeout=1.0)
+                    if line.strip() == b'':
+                        break
+                except asyncio.TimeoutError:
+                    break
+            
+            # Send login
+            login = f"Action: Login\nUsername: {self.config.ami_username}\nSecret: {self.config.ami_secret}\n\n"
+            writer.write(login.encode())
+            await writer.drain()
+            
+            # Read response
+            response_lines = []
+            while True:
+                try:
+                    line = await asyncio.wait_for(reader.readline(), timeout=2.0)
+                    if not line:
+                        break
+                    response_lines.append(line.decode('utf-8', errors='replace').strip())
+                    if line.strip() == b'':
+                        break
+                except asyncio.TimeoutError:
+                    break
+            
+            response_text = '\n'.join(response_lines)
+            
+            # Check if login was successful
+            if 'Success' in response_text or 'Message: Authentication accepted' in response_text:
+                logger.debug("AMI authentication successful")
+                writer.close()
+                await writer.wait_closed()
+                return True
+            else:
+                logger.warning(f"AMI authentication failed: {response_text}")
+                writer.close()
+                await writer.wait_closed()
+                return False
+                
+        except asyncio.TimeoutError:
+            logger.error("AMI connection timeout")
+            return False
+        except Exception as e:
+            logger.error(f"AMI connection error: {e}")
+            return False
 
     async def _run_asterisk_command(self, command: str) -> Tuple[int, str, str]:
         """
@@ -87,22 +170,39 @@ class AsteriskManager:
     async def test_connection(self) -> bool:
         """
         Test connection to Asterisk.
+        
+        Uses AMI if credentials are configured, otherwise falls back to CLI.
 
         Returns:
             True if Asterisk is responding, False otherwise
         """
+        # Try AMI first if credentials are configured
+        if self._has_ami_credentials():
+            try:
+                connected = await self._test_ami_connection()
+                if connected:
+                    logger.info("Asterisk AMI connection test successful")
+                    return True
+                else:
+                    logger.warning("Asterisk AMI connection test failed")
+                    return False
+            except Exception as e:
+                logger.error(f"Asterisk AMI connection test error: {e}")
+                return False
+        
+        # Fall back to CLI
         try:
             return_code, stdout, stderr = await self._run_asterisk_command("core show version")
             
             if return_code == 0 and "Asterisk" in stdout:
-                logger.info("Asterisk connection test successful")
+                logger.info("Asterisk CLI connection test successful")
                 return True
             else:
-                logger.warning(f"Asterisk connection test failed: {stdout}")
+                logger.warning(f"Asterisk CLI connection test failed: {stdout}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Asterisk connection test error: {e}")
+            logger.error(f"Asterisk CLI connection test error: {e}")
             return False
 
     async def get_node_status(self, node_number: int) -> Dict[str, Any]:
