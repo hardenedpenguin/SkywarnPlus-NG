@@ -56,7 +56,7 @@ nano config/default.yaml
 
 # Configure your counties and Asterisk nodes
 # Restart to apply changes
-./scripts/restart.sh
+sudo systemctl restart skywarnplus-ng
 ```
 
 ## 📋 System Requirements
@@ -154,7 +154,6 @@ SkywarnPlus-NG/
 │   ├── generate_asterisk_config.py # Asterisk config generator
 │   ├── test_asterisk_integration.py # Integration testing
 │   ├── create_release.py        # Release tarball creator
-│   ├── restart.sh               # Server restart script
 │   └── README.md                # Scripts documentation
 ├── install.sh                   # Installation script
 └── README.md                    # This file
@@ -241,10 +240,15 @@ Create production-ready release tarballs:
 python3 scripts/create_release.py
 ```
 
-### `restart.sh`
-Safely restart the SkywarnPlus-NG server:
+### Service Management
+Restart the SkywarnPlus-NG service:
 ```bash
-./scripts/restart.sh
+sudo systemctl restart skywarnplus-ng
+```
+
+Check service status:
+```bash
+sudo systemctl status skywarnplus-ng
 ```
 
 ## 🔍 NWS API Integration

@@ -45,20 +45,7 @@ python3 scripts/create_release.py
 - Includes all necessary files for deployment
 - Sets proper permissions on scripts
 
-### `restart.sh`
-Safely restarts the SkywarnPlus-NG server with proper process management.
-
-**Usage:**
-```bash
-./scripts/restart.sh
-```
-
-**Features:**
-- Graceful process termination with fallback to force kill
-- Port availability checking
-- Server startup verification
-- Comprehensive logging and status reporting
-- Health endpoint testing
+**Note:** Service management is handled via systemd. Use `sudo systemctl restart skywarnplus-ng` to restart the service.
 
 ### `test_pushover.py`
 Tests PushOver notification functionality.

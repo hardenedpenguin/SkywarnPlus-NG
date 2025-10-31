@@ -56,8 +56,7 @@ def create_release():
         "SERVER_DEPLOYMENT.md",
         "SKYDESCRIBE.md",
         "NWS_CLIENT_README.md",
-        "install.sh",
-        "restart.sh"
+        "install.sh"
     ]
     
     for file in files_to_copy:
