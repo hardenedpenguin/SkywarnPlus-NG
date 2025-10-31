@@ -369,6 +369,99 @@ class NWSClient:
 
         return active_alerts
 
+    def generate_inject_alerts(
+        self, inject_config: List[Dict[str, Any]], available_counties: List[str]
+    ) -> List[WeatherAlert]:
+        """
+        Generate test alerts from injection configuration.
+        
+        Args:
+            inject_config: List of injection alert configurations
+            available_counties: List of available county codes to assign
+            
+        Returns:
+            List of generated WeatherAlert objects
+        """
+        if not inject_config:
+            return []
+            
+        alerts = []
+        current_time = datetime.now(timezone.utc)
+        
+        # Severity mapping based on last word in alert title
+        severity_words = {
+            "Warning": AlertSeverity.SEVERE,
+            "Watch": AlertSeverity.MODERATE,
+            "Advisory": AlertSeverity.MINOR,
+            "Statement": AlertSeverity.MINOR,
+        }
+        
+        for idx, alert_info in enumerate(inject_config):
+            if not isinstance(alert_info, dict):
+                continue
+                
+            title = alert_info.get("Title", "")
+            if not title:
+                continue
+                
+            # Determine severity from last word
+            last_word = title.split()[-1] if title else "Unknown"
+            severity = severity_words.get(last_word, AlertSeverity.UNKNOWN)
+            
+            # Parse end time or default to 1 hour from now
+            end_time_str = alert_info.get("EndTime")
+            if end_time_str:
+                try:
+                    end_time = parser.isoparse(end_time_str)
+                except Exception:
+                    end_time = current_time + timedelta(hours=1)
+            else:
+                end_time = current_time + timedelta(hours=1)
+            
+            # Get counties to assign
+            specified_counties = alert_info.get("CountyCodes", [])
+            if not specified_counties:
+                # Assign first X counties where X = alert index + 1
+                county_count = min(idx + 1, len(available_counties))
+                specified_counties = available_counties[:county_count]
+            
+            # Create one alert per county
+            for county in specified_counties:
+                if county not in available_counties:
+                    logger.warning(f"County {county} not in configured counties, skipping")
+                    continue
+                
+                # Generate unique ID
+                alert_id = f"TEST-{title.replace(' ', '_')}-{county}-{int(current_time.timestamp())}"
+                
+                alert = WeatherAlert(
+                    id=alert_id,
+                    event=title,
+                    headline=f"TEST: {title}",
+                    description="This alert was manually injected as a test.",
+                    instruction=None,
+                    severity=severity,
+                    urgency=AlertUrgency.IMMEDIATE,
+                    certainty=AlertCertainty.OBSERVED,
+                    status=AlertStatus.TEST,
+                    category=AlertCategory.OTHER,
+                    sent=current_time,
+                    effective=current_time,
+                    onset=current_time,
+                    expires=end_time,
+                    ends=end_time,
+                    area_desc=f"Test area for {county}",
+                    geocode=[],
+                    county_codes=[county],
+                    sender="SkywarnPlus-NG Test Mode",
+                    sender_name="Test Alert System",
+                )
+                
+                alerts.append(alert)
+                logger.info(f"Generated test alert: {title} for {county}")
+        
+        return alerts
+
     async def test_connection(self) -> bool:
         """
         Test connection to the NWS API.

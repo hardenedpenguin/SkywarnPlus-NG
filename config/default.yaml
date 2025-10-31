@@ -152,3 +152,22 @@ pushover:
   timeout_seconds: 30
   retry_count: 3
   retry_delay_seconds: 5
+
+# Development and testing configuration
+dev:
+  # Enable test alert injection (for testing without NWS API)
+  inject_enabled: false
+  
+  # List of test alerts to inject
+  # Optionally specify CountyCodes and/or EndTime for each alert
+  # Example:
+  # inject_alerts:
+  #   - Title: "Tornado Warning"
+  #     CountyCodes: ["TXC039", "TXC201"]
+  #   - Title: "Severe Thunderstorm Warning"
+  #     EndTime: "2024-01-15T12:00:00Z"
+  #   - Title: "Flood Watch"
+  inject_alerts: []
+  
+  # Clear all cached state on startup
+  cleanslate: false

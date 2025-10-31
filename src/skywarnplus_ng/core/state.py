@@ -275,3 +275,14 @@ class ApplicationState:
         """
         state['last_all_clear'] = datetime.now(timezone.utc).isoformat()
         logger.debug("Updated last all-clear time")
+
+    def clear_state(self) -> None:
+        """
+        Clear all cached state (for cleanslate mode).
+        """
+        if self.state_file.exists():
+            try:
+                self.state_file.unlink()
+                logger.info(f"Cleared state file: {self.state_file}")
+            except Exception as e:
+                logger.error(f"Failed to clear state file: {e}")

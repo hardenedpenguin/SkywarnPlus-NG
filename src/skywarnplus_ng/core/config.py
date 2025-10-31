@@ -183,6 +183,14 @@ class PushOverConfig(BaseModel):
     retry_delay_seconds: int = Field(5, description="Delay between retries in seconds")
 
 
+class DevConfig(BaseModel):
+    """Development and testing configuration."""
+
+    inject_enabled: bool = Field(False, description="Enable test alert injection (for testing)")
+    inject_alerts: List[Dict[str, Any]] = Field(default_factory=list, description="List of test alerts to inject")
+    cleanslate: bool = Field(False, description="Clear all cached state on startup")
+
+
 class AppConfig(BaseSettings):
     """Application configuration."""
 
@@ -213,6 +221,7 @@ class AppConfig(BaseSettings):
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     skydescribe: SkyDescribeConfig = Field(default_factory=SkyDescribeConfig)
     pushover: PushOverConfig = Field(default_factory=PushOverConfig)
+    dev: DevConfig = Field(default_factory=DevConfig)
 
     @classmethod
     def from_yaml(cls, config_path = None) -> "AppConfig":

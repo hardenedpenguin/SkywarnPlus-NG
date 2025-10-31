@@ -168,6 +168,11 @@ class SkywarnPlusApplication:
             logger.warning("Alert processing pipeline will be disabled")
             self.alert_pipeline = None
 
+        # Handle cleanslate mode
+        if self.config.dev.cleanslate:
+            logger.info("DEV: Cleanslate mode enabled, clearing cached state")
+            self.state_manager.clear_state()
+        
         # Load initial state
         self.state = self.state_manager.load_state()
         logger.info("Application initialized successfully")
@@ -481,7 +486,7 @@ class SkywarnPlusApplication:
 
     async def _fetch_alerts(self, county_codes: List[str]) -> List[WeatherAlert]:
         """
-        Fetch alerts from NWS API.
+        Fetch alerts from NWS API or generate test alerts.
 
         Args:
             county_codes: List of county codes to fetch alerts for
@@ -494,6 +499,16 @@ class SkywarnPlusApplication:
             return []
 
         try:
+            # Check for test injection mode
+            if self.config.dev.inject_enabled:
+                logger.info("DEV: Test alert injection enabled, generating test alerts")
+                injected_alerts = self.nws_client.generate_inject_alerts(
+                    self.config.dev.inject_alerts,
+                    county_codes
+                )
+                logger.info(f"Generated {len(injected_alerts)} test alerts")
+                return injected_alerts
+            
             # Fetch alerts for all counties concurrently
             alerts = await self.nws_client.fetch_alerts_for_zones(county_codes)
             
