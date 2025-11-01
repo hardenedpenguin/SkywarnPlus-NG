@@ -253,7 +253,9 @@
 
     async function playAlertAudio(alertId) {
         try {
-            const response = await fetch(`/api/alerts/${encodeURIComponent(alertId)}/audio`);
+            // Use getBasePath() from base.html if available, otherwise fallback
+            const basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
+            const response = await fetch(`${basePath}/api/alerts/${encodeURIComponent(alertId)}/audio`);
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
                 showNotification(err.error || 'Failed to generate audio', 'error');

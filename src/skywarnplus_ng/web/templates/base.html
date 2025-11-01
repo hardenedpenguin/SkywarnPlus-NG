@@ -463,7 +463,7 @@
 
             <ul class="space-y-2">
                 <li>
-                    <a href="{{ base_path }}/" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'dashboard' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'dashboard' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
                         </svg>
@@ -471,7 +471,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/alerts" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/alerts" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                         </svg>
@@ -479,7 +479,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/alerts/history" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts_history' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/alerts/history" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts_history' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
                         </svg>
@@ -487,7 +487,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/configuration" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'configuration' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/configuration" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'configuration' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
                         </svg>
@@ -495,7 +495,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/health" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'health' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/health" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'health' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path>
                         </svg>
@@ -503,7 +503,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/logs" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'logs' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/logs" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'logs' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                         </svg>
@@ -511,7 +511,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/database" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'database' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/database" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'database' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
                         </svg>
@@ -519,7 +519,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path }}/metrics" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'metrics' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
+                    <a href="{{ base_path|default('') }}/metrics" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'metrics' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
                         </svg>
@@ -656,11 +656,34 @@
             }
         }
 
+        // Detect base path from current URL if not set in template
+        function getBasePath() {
+            const templateBasePath = '{{ base_path|default("") }}' || '';
+            if (templateBasePath) {
+                return templateBasePath;
+            }
+            // Fallback: detect from current pathname
+            const pathname = window.location.pathname;
+            // If pathname is not '/', extract base path (e.g., '/skywarnplus-ng' from '/skywarnplus-ng/')
+            if (pathname !== '/' && pathname.length > 1) {
+                const parts = pathname.split('/').filter(p => p);
+                if (parts.length > 0) {
+                    return '/' + parts[0];
+                }
+            }
+            return '';
+        }
+
         // API helper
         async function apiCall(endpoint, options = {}) {
             try {
-                const basePath = '{{ base_path }}' || '';
-                const fullEndpoint = endpoint.startsWith('http') ? endpoint : `${basePath}${endpoint}`;
+                const basePath = getBasePath();
+                // Ensure endpoint starts with / if basePath is provided
+                const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+                const fullEndpoint = endpoint.startsWith('http') ? endpoint : `${basePath}${normalizedEndpoint}`;
+                
+                console.debug('API call:', { basePath, endpoint, fullEndpoint });
+                
                 const response = await fetch(fullEndpoint, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -684,13 +707,13 @@
         // Logout function
         async function logout() {
             try {
-                const basePath = '{{ base_path }}' || '';
+                const basePath = getBasePath();
                 await fetch(`${basePath}/api/auth/logout`, { method: 'POST' });
                 window.location.href = `${basePath}/`;
             } catch (error) {
                 console.error('Logout error:', error);
                 // Force redirect even if API call fails
-                const basePath = '{{ base_path }}' || '';
+                const basePath = getBasePath();
                 window.location.href = `${basePath}/`;
             }
         }
@@ -700,9 +723,11 @@
         let reconnectInterval = null;
 
         function connectWebSocket() {
-            const basePath = '{{ base_path }}' || '';
+            const basePath = getBasePath();
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
+            
+            console.debug('WebSocket connection:', { basePath, wsUrl });
             
             ws = new WebSocket(wsUrl);
             

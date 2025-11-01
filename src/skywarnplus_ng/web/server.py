@@ -69,7 +69,16 @@ class WebDashboard:
             autoescape=True
         )
         # Add base_path as a global variable available to all templates
-        self.template_env.globals['base_path'] = self.config.monitoring.http_server.base_path
+        # Ensure base_path is always a string (empty string if None)
+        # Normalize: ensure it starts with / and doesn't end with /
+        base_path = self.config.monitoring.http_server.base_path or ''
+        if base_path:
+            base_path = base_path.strip()
+            if not base_path.startswith('/'):
+                base_path = '/' + base_path
+            if base_path.endswith('/'):
+                base_path = base_path.rstrip('/')
+        self.template_env.globals['base_path'] = base_path
         
         # Generate secret key if not provided
         if not self.config.monitoring.http_server.auth.secret_key:
@@ -112,7 +121,10 @@ class WebDashboard:
                 return web.json_response({'error': 'Authentication required to access configuration'}, status=401)
             # For configuration page requests, redirect to login
             else:
-                base_path = self.config.monitoring.http_server.base_path
+                # Get base_path from app storage (normalized) or fallback to config
+                base_path = request.app.get('base_path', '') or self.config.monitoring.http_server.base_path or ''
+                if base_path and not base_path.startswith('/'):
+                    base_path = '/' + base_path
                 return web.Response(status=302, headers={'Location': f'{base_path}/login'})
         return None
 
@@ -127,10 +139,28 @@ class WebDashboard:
 
     def create_app(self) -> web.Application:
         """Create the web application."""
-        app = web.Application()
+        base_path = self.config.monitoring.http_server.base_path or ''
+        
+        # Normalize base_path: ensure it starts with / and doesn't end with /
+        if base_path:
+            base_path = base_path.strip()
+            if not base_path.startswith('/'):
+                base_path = '/' + base_path
+            if base_path.endswith('/'):
+                base_path = base_path.rstrip('/')
+        
+        # Create main app
+        main_app = web.Application()
+        
+        # Store base_path in app for use in handlers (for URL generation)
+        main_app['base_path'] = base_path
+        
+        # When reverse proxy strips base_path before forwarding, we mount at root
+        # The base_path is only used for generating URLs in templates/redirects
+        app = main_app
         
         # Setup CORS
-        cors = cors_setup(app, defaults={
+        cors = cors_setup(main_app, defaults={
             "*": ResourceOptions(
                 allow_credentials=True,
                 expose_headers="*",
@@ -146,14 +176,15 @@ class WebDashboard:
         # Add authentication middleware AFTER session setup
         app.middlewares.append(self._auth_middleware)
         
-        # Add routes
+        # Add routes to the main app
         self._add_routes(app)
         
-        # Add CORS to all routes
-        for route in list(app.router.routes()):
-            cors.add(route)
+        if base_path:
+            logger.info(f"Application configured with base_path: {base_path} (reverse proxy should strip prefix)")
+        else:
+            logger.info("Application configured without base_path")
         
-        return app
+        return main_app
 
     @web.middleware
     async def _auth_middleware(self, request: Request, handler):
@@ -1015,6 +1046,18 @@ class WebDashboard:
             
             # Validate the configuration data by creating a new AppConfig instance
             try:
+                # Preserve base_path if not in incoming data (form doesn't include it)
+                if ('monitoring' not in data or 
+                    'http_server' not in data['monitoring'] or 
+                    'base_path' not in data['monitoring']['http_server']):
+                    # Preserve current base_path value
+                    if 'monitoring' not in data:
+                        data['monitoring'] = {}
+                    if 'http_server' not in data['monitoring']:
+                        data['monitoring']['http_server'] = {}
+                    data['monitoring']['http_server']['base_path'] = self.config.monitoring.http_server.base_path or ''
+                    logger.info(f"Preserving base_path: {data['monitoring']['http_server']['base_path']}")
+                
                 # Handle password updates - if password is empty, keep the current password
                 if ('monitoring' in data and 
                     'http_server' in data['monitoring'] and 
@@ -1574,7 +1617,10 @@ class WebDashboard:
         """Handle login page."""
         # If already authenticated, redirect to configuration page
         if await self._is_authenticated(request):
-            base_path = self.config.monitoring.http_server.base_path
+            # Get base_path from app storage (normalized) or fallback to config
+            base_path = request.app.get('base_path', '') or self.config.monitoring.http_server.base_path or ''
+            if base_path and not base_path.startswith('/'):
+                base_path = '/' + base_path
             return web.Response(status=302, headers={'Location': f'{base_path}/configuration'})
             
         template = self.template_env.get_template('login.html')
@@ -1717,16 +1763,27 @@ class WebDashboard:
             self.site = web.TCPSite(self.runner, host, port)
             await self.site.start()
             
-            logger.info(f"Web dashboard started on http://{host}:{port}")
+            # Normalize base_path for logging (same as in create_app)
+            base_path = self.config.monitoring.http_server.base_path or ''
+            if base_path:
+                base_path = base_path.strip()
+                if not base_path.startswith('/'):
+                    base_path = '/' + base_path
+                if base_path.endswith('/'):
+                    base_path = base_path.rstrip('/')
+            
+            base_url = f"http://{host}:{port}{base_path}"
+            
+            logger.info(f"Web dashboard started on {base_url}")
             logger.info("Available pages:")
-            logger.info(f"  http://{host}:{port}/ - Dashboard")
-            logger.info(f"  http://{host}:{port}/alerts - Active Alerts")
-            logger.info(f"  http://{host}:{port}/alerts/history - Alert History")
-            logger.info(f"  http://{host}:{port}/configuration - Configuration")
-            logger.info(f"  http://{host}:{port}/health - System Health")
-            logger.info(f"  http://{host}:{port}/logs - Application Logs")
-            logger.info(f"  http://{host}:{port}/database - Database")
-            logger.info(f"  http://{host}:{port}/metrics - Metrics")
+            logger.info(f"  {base_url}/ - Dashboard")
+            logger.info(f"  {base_url}/alerts - Active Alerts")
+            logger.info(f"  {base_url}/alerts/history - Alert History")
+            logger.info(f"  {base_url}/configuration - Configuration")
+            logger.info(f"  {base_url}/health - System Health")
+            logger.info(f"  {base_url}/logs - Application Logs")
+            logger.info(f"  {base_url}/database - Database")
+            logger.info(f"  {base_url}/metrics - Metrics")
             
         except Exception as e:
             logger.error(f"Failed to start web dashboard: {e}")
