@@ -99,7 +99,7 @@ class ApplicationState:
             'alertscript_alerts': [],  # Alerts that triggered scripts
             'last_poll': None,  # Last poll timestamp
             'last_all_clear': None,  # Last all-clear timestamp
-            'ct': None,  # Current courtesy tone
+            'ct': None,  # Current courtesy tone mode ('normal' or 'wx')
             'id': None,  # Current identifier
             'version': '3.0.0',  # State file version
         }
@@ -202,6 +202,39 @@ class ApplicationState:
         
         logger.debug(f"Found {len(expired_ids)} expired alerts")
         return expired_ids
+
+    def detect_county_changes(
+        self, state: Dict[str, Any], current_alerts: List[WeatherAlert]
+    ) -> List[WeatherAlert]:
+        """
+        Detect alerts where county lists have changed.
+
+        Args:
+            state: Current state dictionary
+            current_alerts: List of current alerts
+
+        Returns:
+            List of alerts with changed county lists
+        """
+        alerts_with_changes = []
+        last_alerts = state.get('last_alerts', {})
+        
+        for alert in current_alerts:
+            if alert.id not in last_alerts:
+                continue  # Skip new alerts (handled separately)
+            
+            old_alert_data = last_alerts[alert.id]
+            old_county_codes = set(old_alert_data.get('county_codes', []))
+            new_county_codes = set(alert.county_codes)
+            
+            if old_county_codes != new_county_codes:
+                logger.debug(
+                    f"County list changed for alert {alert.id} ({alert.event}): "
+                    f"old={old_county_codes}, new={new_county_codes}"
+                )
+                alerts_with_changes.append(alert)
+        
+        return alerts_with_changes
 
     def cleanup_old_alerts(self, state: Dict[str, Any], max_age_hours: int = 24) -> None:
         """

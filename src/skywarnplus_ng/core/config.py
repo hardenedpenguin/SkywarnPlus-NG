@@ -23,6 +23,36 @@ class CountyConfig(BaseModel):
     code: str = Field(..., description="County code (e.g., TXC039)")
     name: Optional[str] = Field(None, description="County name")
     enabled: bool = Field(True, description="Enable alerts for this county")
+    audio_file: Optional[str] = Field(None, description="Audio file for county name (e.g., 'Galveston.wav')")
+
+
+class CourtesyToneConfig(BaseModel):
+    """Courtesy tone configuration."""
+
+    enabled: bool = Field(False, description="Enable automatic courtesy tone switching")
+    tone_dir: Path = Field(Path("SOUNDS/TONES"), description="Directory where tone files are stored")
+    tones: Dict[str, Dict[str, str]] = Field(
+        default_factory=dict,
+        description="Mapping of CT keys to Normal/WX tone files (e.g., {'ct1': {'Normal': 'Boop.ulaw', 'WX': 'Stardust.ulaw'}})"
+    )
+    ct_alerts: List[str] = Field(
+        default_factory=list,
+        description="List of alert events that trigger WX mode (glob patterns supported)"
+    )
+
+
+class IDChangeConfig(BaseModel):
+    """ID change configuration."""
+
+    enabled: bool = Field(False, description="Enable automatic ID changing")
+    id_dir: Path = Field(Path("SOUNDS/ID"), description="Directory where ID files are stored")
+    normal_id: str = Field("NORMALID.ulaw", description="Audio file for normal mode ID")
+    wx_id: str = Field("WXID.ulaw", description="Audio file for WX mode ID")
+    rpt_id: str = Field("RPTID.ulaw", description="Audio file that Asterisk uses as ID")
+    id_alerts: List[str] = Field(
+        default_factory=list,
+        description="List of alert events that trigger WX mode (glob patterns supported)"
+    )
 
 
 class AsteriskConfig(BaseModel):
@@ -35,6 +65,8 @@ class AsteriskConfig(BaseModel):
     ami_port: int = Field(5038, description="Asterisk AMI port")
     ami_username: str = Field("", description="Asterisk AMI username")
     ami_secret: str = Field("", description="Asterisk AMI secret/password")
+    courtesy_tones: CourtesyToneConfig = Field(default_factory=CourtesyToneConfig, description="Courtesy tone configuration")
+    id_change: IDChangeConfig = Field(default_factory=IDChangeConfig, description="ID change configuration")
 
 
 class TTSConfig(BaseModel):
@@ -75,8 +107,16 @@ class AlertConfig(BaseModel):
     say_alert: bool = Field(True, description="Enable voice announcements")
     say_all_clear: bool = Field(True, description="Enable all-clear announcements")
     tail_message: bool = Field(True, description="Enable tail messages")
+    tail_message_path: Optional[Path] = Field(None, description="Path for tail message file (default: /tmp/SkywarnPlus-NG/wx-tail.wav)")
+    tail_message_suffix: Optional[str] = Field(None, description="Optional suffix audio file to append to tail message")
+    tail_message_counties: bool = Field(False, description="Include county names in tail message")
     with_county_names: bool = Field(False, description="Include county names in announcements")
     time_type: str = Field("onset", description="Time type: 'onset' or 'effective'")
+    say_alert_suffix: Optional[str] = Field(None, description="Optional suffix audio file to append to alert announcements")
+    say_all_clear_suffix: Optional[str] = Field(None, description="Optional suffix audio file to append to all-clear announcements")
+    say_alerts_changed: bool = Field(True, description="Announce alerts when county list changes")
+    say_alert_all: bool = Field(False, description="Say all alerts when one changes (requires SayAlertsChanged)")
+    with_multiples: bool = Field(False, description="Tag alerts with 'with multiples' if multiple instances exist")
 
 
 class ScriptConfig(BaseModel):
@@ -90,6 +130,17 @@ class ScriptConfig(BaseModel):
     env_vars: Dict[str, str] = Field(default_factory=dict, description="Environment variables")
 
 
+class AlertScriptMappingConfig(BaseModel):
+    """AlertScript mapping configuration."""
+
+    type: str = Field("BASH", description="Command type: BASH or DTMF")
+    commands: List[str] = Field(default_factory=list, description="Commands to execute")
+    triggers: List[str] = Field(default_factory=list, description="Alert event patterns that trigger this mapping")
+    match: str = Field("ANY", description="Match type: ANY (default) or ALL")
+    nodes: List[int] = Field(default_factory=list, description="Node numbers for DTMF commands")
+    clear_commands: Optional[List[str]] = Field(None, description="Commands to execute when alerts clear")
+
+
 class ScriptsConfig(BaseModel):
     """Scripts configuration."""
 
@@ -97,6 +148,20 @@ class ScriptsConfig(BaseModel):
     alert_scripts: Dict[str, ScriptConfig] = Field(default_factory=dict, description="Scripts for specific alert types")
     all_clear_script: Optional[ScriptConfig] = Field(None, description="Script for all-clear events")
     default_timeout: int = Field(30, description="Default script timeout in seconds")
+    # Enhanced AlertScript configuration (mapping-based)
+    alertscript_enabled: bool = Field(False, description="Enable enhanced AlertScript (mapping-based)")
+    alertscript_mappings: List[AlertScriptMappingConfig] = Field(
+        default_factory=list,
+        description="AlertScript mappings (alert patterns to commands)"
+    )
+    alertscript_active_commands: Optional[List[AlertScriptMappingConfig]] = Field(
+        None,
+        description="Commands to execute when alerts go from 0 to non-zero"
+    )
+    alertscript_inactive_commands: Optional[List[AlertScriptMappingConfig]] = Field(
+        None,
+        description="Commands to execute when alerts go from non-zero to 0"
+    )
 
 
 class LoggingConfig(BaseModel):

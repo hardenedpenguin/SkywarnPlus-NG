@@ -58,6 +58,7 @@ dev = [
 
 [project.scripts]
 skywarnplus-ng = "skywarnplus_ng.cli:main"
+skycontrol = "skywarnplus_ng.cli.skycontrol:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

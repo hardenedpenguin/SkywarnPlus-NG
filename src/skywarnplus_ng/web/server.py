@@ -314,6 +314,25 @@ class WebDashboard:
         """Handle API status endpoint."""
         try:
             status = self.app.get_status()
+            
+            # Get active alerts for Supermon compatibility
+            active_alerts = self.app.state.get('active_alerts', [])
+            alerts_data = []
+            
+            for alert_id in active_alerts:
+                alert_data = self.app.state.get('last_alerts', {}).get(alert_id)
+                if alert_data:
+                    # Format alert for Supermon display
+                    alerts_data.append({
+                        'event': alert_data.get('event', 'Unknown'),
+                        'severity': alert_data.get('severity', 'Unknown'),
+                        'headline': alert_data.get('headline', alert_data.get('description', 'No headline'))[:100]  # Limit headline length
+                    })
+            
+            # Add Supermon-compatible fields
+            status['has_alerts'] = len(alerts_data) > 0
+            status['alerts'] = alerts_data
+            
             return web.json_response(status)
         except Exception as e:
             logger.error(f"Error getting status: {e}")
@@ -1015,6 +1034,15 @@ class WebDashboard:
                     if 'user_key' in data['pushover'] and (not data['pushover']['user_key'] or data['pushover']['user_key'].strip() == ''):
                         data['pushover']['user_key'] = self.config.pushover.user_key
                         logger.info("Keeping current PushOver user key (new key was empty)")
+                
+                # Handle empty optional Path/string fields - convert empty strings to None
+                if 'alerts' in data:
+                    if 'tail_message_path' in data['alerts']:
+                        if isinstance(data['alerts']['tail_message_path'], str) and data['alerts']['tail_message_path'].strip() == '':
+                            data['alerts']['tail_message_path'] = None
+                    if 'tail_message_suffix' in data['alerts']:
+                        if isinstance(data['alerts']['tail_message_suffix'], str) and data['alerts']['tail_message_suffix'].strip() == '':
+                            data['alerts']['tail_message_suffix'] = None
                 
                 # Create new config from the received data
                 from ..core.config import AppConfig

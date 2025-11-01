@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from ..core.config import AudioConfig
 from ..core.models import WeatherAlert
 from .tts_engine import GTTSEngine, TTSEngineError
+from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,21 @@ class AudioManager:
         if not self.tts_engine.is_available():
             raise AudioManagerError("TTS engine is not available")
 
-    def generate_alert_audio(self, alert: WeatherAlert) -> Optional[Path]:
+    def generate_alert_audio(
+        self,
+        alert: WeatherAlert,
+        suffix_file: Optional[str] = None,
+        county_audio_files: Optional[List[str]] = None,
+        with_multiples: bool = False
+    ) -> Optional[Path]:
         """
         Generate audio for a weather alert.
 
         Args:
             alert: Weather alert to generate audio for
+            suffix_file: Optional suffix audio file to append
+            county_audio_files: Optional list of county audio file names to append
+            with_multiples: Whether to add "with multiples" tag
 
         Returns:
             Path to generated audio file, or None if generation failed
@@ -55,6 +65,8 @@ class AudioManager:
         try:
             # Create alert text
             alert_text = self._create_alert_text(alert)
+            if with_multiples:
+                alert_text += ", with multiples"
             logger.info(f"Generating audio for alert: {alert.event}")
             
             # Generate unique filename
@@ -70,6 +82,28 @@ class AudioManager:
                 logger.error(f"Generated audio file is invalid: {audio_path}")
                 return None
             
+            # Append county audio files if provided
+            if county_audio_files:
+                audio_path = self._append_county_audio(audio_path, county_audio_files)
+                if not audio_path:
+                    logger.warning("Failed to append county audio, using original audio")
+                    # Regenerate original audio if county append fails
+                    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                    filename = f"alert_{alert.id}_{timestamp}.{self.config.tts.output_format}"
+                    output_path = self.config.temp_dir / filename
+                    audio_path = self.tts_engine.synthesize(alert_text, output_path)
+            
+            # Append suffix if provided
+            if suffix_file:
+                audio_path = self._append_suffix_audio(audio_path, suffix_file)
+                if not audio_path:
+                    logger.warning(f"Failed to append suffix {suffix_file}, using original audio")
+                    # Return original audio if suffix fails
+                    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                    filename = f"alert_{alert.id}_{timestamp}.{self.config.tts.output_format}"
+                    output_path = self.config.temp_dir / filename
+                    audio_path = self.tts_engine.synthesize(alert_text, output_path)
+            
             # Get audio duration
             duration = self.tts_engine.get_audio_duration(audio_path)
             logger.info(f"Generated alert audio: {audio_path} (duration: {duration:.1f}s)")
@@ -83,9 +117,12 @@ class AudioManager:
             logger.error(f"Unexpected error generating alert audio: {e}", exc_info=True)
             return None
 
-    def generate_all_clear_audio(self) -> Optional[Path]:
+    def generate_all_clear_audio(self, suffix_file: Optional[str] = None) -> Optional[Path]:
         """
         Generate all-clear audio message.
+
+        Args:
+            suffix_file: Optional suffix audio file to append
 
         Returns:
             Path to generated audio file, or None if generation failed
@@ -106,6 +143,17 @@ class AudioManager:
             if not self.tts_engine.validate_audio_file(audio_path):
                 logger.error(f"Generated all-clear audio file is invalid: {audio_path}")
                 return None
+            
+            # Append suffix if provided
+            if suffix_file:
+                audio_path = self._append_suffix_audio(audio_path, suffix_file)
+                if not audio_path:
+                    logger.warning(f"Failed to append suffix {suffix_file}, using original audio")
+                    # Return original audio if suffix fails
+                    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                    filename = f"allclear_{timestamp}.{self.config.tts.output_format}"
+                    output_path = self.config.temp_dir / filename
+                    audio_path = self.tts_engine.synthesize(all_clear_text, output_path)
             
             # Get audio duration
             duration = self.tts_engine.get_audio_duration(audio_path)
@@ -233,6 +281,110 @@ class AudioManager:
             info["valid"] = self.tts_engine.validate_audio_file(audio_path)
         
         return info
+
+    def _append_county_audio(self, main_audio_path: Path, county_audio_files: List[str]) -> Optional[Path]:
+        """
+        Append county audio files to the main audio file.
+
+        Args:
+            main_audio_path: Path to main audio file
+            county_audio_files: List of county audio filenames (in sounds_path)
+
+        Returns:
+            Path to new combined audio file, or None if failed
+        """
+        try:
+            # Load main audio
+            main_audio = AudioSegment.from_file(str(main_audio_path))
+            main_audio = main_audio.set_frame_rate(8000).set_channels(1)
+            
+            combined = main_audio
+            added_counties = set()
+            
+            for i, county_file in enumerate(county_audio_files):
+                county_path = self.config.sounds_path / county_file
+                
+                if not county_path.exists():
+                    logger.warning(f"County audio file not found: {county_path}")
+                    continue
+                
+                # Skip duplicates
+                if county_file in added_counties:
+                    continue
+                added_counties.add(county_file)
+                
+                # Load county audio
+                county_audio = AudioSegment.from_file(str(county_path))
+                county_audio = county_audio.set_frame_rate(8000).set_channels(1)
+                
+                # Add spacing: 600ms before first county, 400ms before others
+                spacing = AudioSegment.silent(duration=600 if i == 0 else 400)
+                combined = combined + spacing + county_audio
+            
+            # Add final spacing after last county
+            if county_audio_files:
+                combined = combined + AudioSegment.silent(duration=600)
+            
+            # Create new filename for combined audio
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            base_name = main_audio_path.stem
+            combined_filename = f"{base_name}_with_counties_{timestamp}.{self.config.tts.output_format}"
+            combined_path = self.config.temp_dir / combined_filename
+            
+            # Export combined audio
+            combined.export(str(combined_path), format=self.config.tts.output_format)
+            
+            logger.debug(f"Appended {len(added_counties)} county audio files to audio: {combined_path}")
+            return combined_path
+            
+        except Exception as e:
+            logger.error(f"Failed to append county audio: {e}")
+            return None
+
+    def _append_suffix_audio(self, main_audio_path: Path, suffix_filename: str) -> Optional[Path]:
+        """
+        Append a suffix audio file to the main audio file.
+
+        Args:
+            main_audio_path: Path to main audio file
+            suffix_filename: Filename of suffix audio file (in sounds_path)
+
+        Returns:
+            Path to new combined audio file, or None if failed
+        """
+        try:
+            suffix_path = self.config.sounds_path / suffix_filename
+            
+            if not suffix_path.exists():
+                logger.warning(f"Suffix audio file not found: {suffix_path}")
+                return None
+            
+            # Load both audio files
+            main_audio = AudioSegment.from_file(str(main_audio_path))
+            suffix_audio = AudioSegment.from_file(str(suffix_path))
+            
+            # Convert to same format (8000Hz mono for Asterisk compatibility)
+            main_audio = main_audio.set_frame_rate(8000).set_channels(1)
+            suffix_audio = suffix_audio.set_frame_rate(8000).set_channels(1)
+            
+            # Combine: main audio + 500ms silence + suffix
+            combined = main_audio + AudioSegment.silent(duration=500) + suffix_audio
+            
+            # Create new filename for combined audio
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            base_name = main_audio_path.stem
+            combined_filename = f"{base_name}_with_suffix_{timestamp}.{self.config.tts.output_format}"
+            combined_path = self.config.temp_dir / combined_filename
+            
+            # Export combined audio
+            combined.export(str(combined_path), format=self.config.tts.output_format)
+            
+            logger.debug(f"Appended suffix {suffix_filename} to audio: {combined_path}")
+            return combined_path
+            
+        except Exception as e:
+            logger.error(f"Failed to append suffix audio: {e}")
+            return None
 
     def copy_audio_to_sounds(self, source_path: Path, filename: str) -> Optional[Path]:
         """

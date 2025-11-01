@@ -247,6 +247,160 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Courtesy Tones Section -->
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Courtesy Tones</h3>
+                
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Note:</strong> Courtesy tones are audio files that play after transmissions. When enabled, the system will automatically switch between "normal" and "wx" (weather alert) mode tones based on active weather alerts.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="ct_enabled" name="asterisk.courtesy_tones.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="ct_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Automatic Courtesy Tone Switching
+                        </label>
+                    </div>
+
+                    <div>
+                        <label for="ct_tone_dir" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Tone Directory
+                        </label>
+                        <input type="text" id="ct_tone_dir" name="asterisk.courtesy_tones.tone_dir" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="SOUNDS/TONES">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Directory where tone files are stored (relative to installation or absolute path)
+                        </p>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            CT Alerts (Triggers WX Mode)
+                        </label>
+                        <div id="ct-alerts-container">
+                            <!-- CT alerts will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addCTAlert()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Alert Type
+                        </button>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Alert events that trigger WX mode. Supports glob patterns (e.g., "*Warning", "Tornado*").
+                        </p>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Tone Mappings
+                        </label>
+                        <div id="ct-tones-container">
+                            <!-- CT tone mappings will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addCTTone()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Tone Mapping
+                        </button>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Configure which tone files to use for each CT key in Normal and WX modes. Example: ct1 uses "Boop.ulaw" in Normal mode and "Stardust.ulaw" in WX mode.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ID Change Section -->
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">ID Change</h3>
+                
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Note:</strong> ID changes allow dynamically switching the node identifier audio file between "normal" and "wx" (weather alert) mode based on active weather alerts. Requires initial setup in rpt.conf and manual creation of audio files.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="id_change_enabled" name="asterisk.id_change.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="id_change_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable Automatic ID Changing
+                        </label>
+                    </div>
+
+                    <div>
+                        <label for="id_change_id_dir" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            ID Directory
+                        </label>
+                        <input type="text" id="id_change_id_dir" name="asterisk.id_change.id_dir" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="SOUNDS/ID">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Directory where ID files are stored (relative to installation or absolute path)
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="id_change_normal_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Normal Mode ID File
+                        </label>
+                        <input type="text" id="id_change_normal_id" name="asterisk.id_change.normal_id" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="NORMALID.ulaw">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Audio file for normal mode ID
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="id_change_wx_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            WX Mode ID File
+                        </label>
+                        <input type="text" id="id_change_wx_id" name="asterisk.id_change.wx_id" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="WXID.ulaw">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Audio file for WX mode ID
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="id_change_rpt_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            RPT ID File (Target)
+                        </label>
+                        <input type="text" id="id_change_rpt_id" name="asterisk.id_change.rpt_id" 
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="RPTID.ulaw">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Audio file that Asterisk uses as ID (this file gets replaced)
+                        </p>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            ID Alerts (Triggers WX Mode)
+                        </label>
+                        <div id="id-alerts-container">
+                            <!-- ID alerts will be dynamically added here -->
+                        </div>
+                        <button type="button" onclick="addIDAlert()" class="mt-2 btn-secondary text-sm">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
+                            </svg>
+                            Add Alert Type
+                        </button>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Alert events that trigger WX mode. Supports glob patterns (e.g., "*Warning", "Tornado*").
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Audio & TTS Tab -->
@@ -391,6 +545,42 @@
                         </label>
                     </div>
                     
+                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Tail Message Configuration
+                        </label>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="alerts_tail_message_path" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Tail Message File Path (leave empty for default)
+                                </label>
+                                <input type="text" id="alerts_tail_message_path" name="alerts.tail_message_path" 
+                                       placeholder="/tmp/SkywarnPlus-NG/wx-tail.wav"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Default: /tmp/SkywarnPlus-NG/wx-tail.wav
+                                </p>
+                            </div>
+                            <div>
+                                <label for="alerts_tail_message_suffix" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Tail Message Suffix Audio File (optional)
+                                </label>
+                                <input type="text" id="alerts_tail_message_suffix" name="alerts.tail_message_suffix" 
+                                       placeholder="suffix.wav"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Audio file from SOUNDS directory to append to tail message
+                                </p>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="alerts_tail_message_counties" name="alerts.tail_message_counties" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="alerts_tail_message_counties" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Include County Names in Tail Message
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="flex items-center">
                         <input type="checkbox" id="alerts_with_county_names" name="alerts.with_county_names" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                         <label for="alerts_with_county_names" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -407,6 +597,75 @@
                             <option value="onset">Onset Time</option>
                             <option value="effective">Effective Time</option>
                         </select>
+                    </div>
+                    
+                    <!-- Alert Suffixes Section -->
+                    <div class="md:col-span-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                            Alert Suffixes
+                        </label>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="alerts_say_alert_suffix" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Alert Announcement Suffix Audio File (optional)
+                                </label>
+                                <input type="text" id="alerts_say_alert_suffix" name="alerts.say_alert_suffix" 
+                                       placeholder="alert_suffix.wav"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Audio file from SOUNDS directory to append to alert announcements
+                                </p>
+                            </div>
+                            <div>
+                                <label for="alerts_say_all_clear_suffix" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    All-Clear Announcement Suffix Audio File (optional)
+                                </label>
+                                <input type="text" id="alerts_say_all_clear_suffix" name="alerts.say_all_clear_suffix" 
+                                       placeholder="allclear_suffix.wav"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Audio file from SOUNDS directory to append to all-clear announcements
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- County Audio Features Section -->
+                    <div class="md:col-span-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                            County Audio Features
+                        </label>
+                        <div class="space-y-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="alerts_say_alerts_changed" name="alerts.say_alerts_changed" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="alerts_say_alerts_changed" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Announce Alerts When County List Changes
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 ml-6">
+                                When enabled, alerts will be re-announced if their county list changes
+                            </p>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" id="alerts_say_alert_all" name="alerts.say_alert_all" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="alerts_say_alert_all" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Say All Alerts When One Changes
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 ml-6">
+                                When enabled, all active alerts will be announced when any alert's county list changes (requires "Announce Alerts When County List Changes")
+                            </p>
+                            
+                            <div class="flex items-center">
+                                <input type="checkbox" id="alerts_with_multiples" name="alerts.with_multiples" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="alerts_with_multiples" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Tag Alerts With "With Multiples"
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 ml-6">
+                                When enabled, alerts with multiple unique instances will be tagged with ", with multiples" in announcements
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1209,6 +1468,20 @@
         document.getElementById('asterisk_ami_secret').value = config.asterisk?.ami_secret || '';
         populateNodes(config.asterisk?.nodes || []);
 
+        // Courtesy tones
+        document.getElementById('ct_enabled').checked = config.asterisk?.courtesy_tones?.enabled || false;
+        document.getElementById('ct_tone_dir').value = config.asterisk?.courtesy_tones?.tone_dir || 'SOUNDS/TONES';
+        populateCTAlerts(config.asterisk?.courtesy_tones?.ct_alerts || []);
+        populateCTTones(config.asterisk?.courtesy_tones?.tones || {});
+
+        // ID Change
+        document.getElementById('id_change_enabled').checked = config.asterisk?.id_change?.enabled || false;
+        document.getElementById('id_change_id_dir').value = config.asterisk?.id_change?.id_dir || 'SOUNDS/ID';
+        document.getElementById('id_change_normal_id').value = config.asterisk?.id_change?.normal_id || 'NORMALID.ulaw';
+        document.getElementById('id_change_wx_id').value = config.asterisk?.id_change?.wx_id || 'WXID.ulaw';
+        document.getElementById('id_change_rpt_id').value = config.asterisk?.id_change?.rpt_id || 'RPTID.ulaw';
+        populateIDAlerts(config.asterisk?.id_change?.id_alerts || []);
+
         // Audio & TTS
         document.getElementById('audio_sounds_path').value = config.audio?.sounds_path || '';
         document.getElementById('audio_alert_sound').value = config.audio?.alert_sound || '';
@@ -1228,8 +1501,16 @@
         document.getElementById('alerts_say_alert').checked = config.alerts?.say_alert || false;
         document.getElementById('alerts_say_all_clear').checked = config.alerts?.say_all_clear || false;
         document.getElementById('alerts_tail_message').checked = config.alerts?.tail_message || false;
+        document.getElementById('alerts_tail_message_path').value = config.alerts?.tail_message_path || '';
+        document.getElementById('alerts_tail_message_suffix').value = config.alerts?.tail_message_suffix || '';
+        document.getElementById('alerts_tail_message_counties').checked = config.alerts?.tail_message_counties || false;
         document.getElementById('alerts_with_county_names').checked = config.alerts?.with_county_names || false;
         document.getElementById('alerts_time_type').value = config.alerts?.time_type || 'onset';
+        document.getElementById('alerts_say_alert_suffix').value = config.alerts?.say_alert_suffix || '';
+        document.getElementById('alerts_say_all_clear_suffix').value = config.alerts?.say_all_clear_suffix || '';
+        document.getElementById('alerts_say_alerts_changed').checked = config.alerts?.say_alerts_changed !== false; // Default true
+        document.getElementById('alerts_say_alert_all').checked = config.alerts?.say_alert_all || false;
+        document.getElementById('alerts_with_multiples').checked = config.alerts?.with_multiples || false;
 
         // Filtering
         document.getElementById('filtering_max_alerts').value = config.filtering?.max_alerts || 99;
@@ -1441,7 +1722,7 @@
         // Add the selected county to the list
         const container = document.getElementById('counties-container');
         const currentCounties = container.children.length;
-        addCountyRow(code, name, true, currentCounties);
+        addCountyRow(code, name, true, currentCounties, '');
         
         // Scroll to the newly added county
         const newRow = container.lastElementChild;
@@ -1470,20 +1751,20 @@
         container.innerHTML = '';
         
         counties.forEach((county, index) => {
-            addCountyRow(county.code, county.name, county.enabled, index);
+            addCountyRow(county.code, county.name, county.enabled, index, county.audio_file || '');
         });
     }
 
     function addCounty() {
         const container = document.getElementById('counties-container');
         const currentCounties = container.children.length;
-        addCountyRow('', '', true, currentCounties);
+        addCountyRow('', '', true, currentCounties, '');
     }
 
-    function addCountyRow(code, name, enabled, index) {
+    function addCountyRow(code, name, enabled, index, audio_file) {
         const container = document.getElementById('counties-container');
         const row = document.createElement('div');
-        row.className = 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg';
+        row.className = 'grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg';
         row.innerHTML = `
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Code</label>
@@ -1493,6 +1774,12 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Name</label>
                 <input type="text" name="counties[${index}].name" value="${name}" 
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Audio File (optional)</label>
+                <input type="text" name="counties[${index}].audio_file" value="${audio_file || ''}" 
+                       placeholder="CountyName.wav"
                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
             </div>
             <div class="flex items-center">
@@ -1549,6 +1836,135 @@
     }
 
     function removeNodeRow(button) {
+        button.closest('.flex').remove();
+    }
+
+    // Courtesy tone alerts management
+    function populateCTAlerts(alerts) {
+        const container = document.getElementById('ct-alerts-container');
+        container.innerHTML = '';
+        
+        alerts.forEach((alert, index) => {
+            addCTAlertRow(alert, index);
+        });
+    }
+
+    function addCTAlert() {
+        const container = document.getElementById('ct-alerts-container');
+        const currentAlerts = container.children.length;
+        addCTAlertRow('', currentAlerts);
+    }
+
+    function addCTAlertRow(alert, index) {
+        const container = document.getElementById('ct-alerts-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 mb-2';
+        row.innerHTML = `
+            <input type="text" name="asterisk.courtesy_tones.ct_alerts[${index}]" value="${alert}" 
+                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                   placeholder="e.g., Tornado Warning, *Warning">
+            <button type="button" onclick="removeCTAlertRow(this)" class="btn-secondary text-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeCTAlertRow(button) {
+        button.closest('.flex').remove();
+    }
+
+    // Courtesy tone mappings management
+    function populateCTTones(tones) {
+        const container = document.getElementById('ct-tones-container');
+        container.innerHTML = '';
+        
+        if (tones && Object.keys(tones).length > 0) {
+            Object.entries(tones).forEach(([ctKey, toneConfig]) => {
+                addCTToneRow(ctKey, toneConfig.Normal || '', toneConfig.WX || '');
+            });
+        }
+    }
+
+    function addCTTone() {
+        const container = document.getElementById('ct-tones-container');
+        const ctKey = prompt('Enter CT key (e.g., ct1, ct2):');
+        if (ctKey) {
+            addCTToneRow(ctKey, '', '');
+        }
+    }
+
+    function addCTToneRow(ctKey, normalTone, wxTone) {
+        const container = document.getElementById('ct-tones-container');
+        const row = document.createElement('div');
+        row.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4';
+        row.innerHTML = `
+            <div class="flex items-center justify-between mb-3">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">${ctKey}</label>
+                <button type="button" onclick="removeCTToneRow(this)" class="btn-secondary text-sm">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Normal Mode Tone</label>
+                    <input type="text" name="asterisk.courtesy_tones.tones.${ctKey}.Normal" value="${normalTone}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                           placeholder="e.g., Boop.ulaw">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">WX Mode Tone</label>
+                    <input type="text" name="asterisk.courtesy_tones.tones.${ctKey}.WX" value="${wxTone}" 
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                           placeholder="e.g., Stardust.ulaw">
+                </div>
+            </div>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeCTToneRow(button) {
+        button.closest('.border').remove();
+    }
+
+    // ID change alerts management
+    function populateIDAlerts(alerts) {
+        const container = document.getElementById('id-alerts-container');
+        container.innerHTML = '';
+        
+        alerts.forEach((alert, index) => {
+            addIDAlertRow(alert, index);
+        });
+    }
+
+    function addIDAlert() {
+        const container = document.getElementById('id-alerts-container');
+        const currentAlerts = container.children.length;
+        addIDAlertRow('', currentAlerts);
+    }
+
+    function addIDAlertRow(alert, index) {
+        const container = document.getElementById('id-alerts-container');
+        const row = document.createElement('div');
+        row.className = 'flex items-center space-x-2 mb-2';
+        row.innerHTML = `
+            <input type="text" name="asterisk.id_change.id_alerts[${index}]" value="${alert}" 
+                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                   placeholder="e.g., Tornado Warning, *Warning">
+            <button type="button" onclick="removeIDAlertRow(this)" class="btn-secondary text-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        `;
+        container.appendChild(row);
+    }
+
+    function removeIDAlertRow(button) {
         button.closest('.flex').remove();
     }
 

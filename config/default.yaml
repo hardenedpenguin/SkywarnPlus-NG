@@ -16,9 +16,11 @@ counties:
   - code: "TXC039"  # Brazoria County, TX
     name: "Brazoria County"
     enabled: true
+    audio_file: null  # Optional: Audio file for county name (e.g., "Brazoria.wav")
   - code: "TXC201"  # Galveston County, TX
     name: "Galveston County"
     enabled: true
+    audio_file: null  # Optional: Audio file for county name (e.g., "Galveston.wav")
 
 # Asterisk configuration
 asterisk:
@@ -29,6 +31,18 @@ asterisk:
   ami_port: 5038  # Asterisk AMI port
   ami_username: ""  # Asterisk AMI username
   ami_secret: ""  # Asterisk AMI secret/password
+  courtesy_tones:
+    enabled: false  # Enable automatic courtesy tone switching
+    tone_dir: "SOUNDS/TONES"  # Directory where tone files are stored
+    tones: {}  # Configure CT mappings: {"ct1": {"Normal": "Boop.ulaw", "WX": "Stardust.ulaw"}}
+    ct_alerts: []  # Alert events that trigger WX mode (e.g., ["Tornado Warning", "Severe Thunderstorm Warning"])
+  id_change:
+    enabled: false  # Enable automatic ID changing
+    id_dir: "SOUNDS/ID"  # Directory where ID files are stored
+    normal_id: "NORMALID.ulaw"  # Audio file for normal mode ID
+    wx_id: "WXID.ulaw"  # Audio file for WX mode ID
+    rpt_id: "RPTID.ulaw"  # Audio file that Asterisk uses as ID
+    id_alerts: []  # Alert events that trigger WX mode (e.g., ["Tornado Warning", "Severe Thunderstorm Warning"])
 
 # Audio configuration
 audio:
@@ -58,8 +72,16 @@ alerts:
   say_alert: true
   say_all_clear: true
   tail_message: true
+  tail_message_path: null  # Path for tail message file (default: /tmp/SkywarnPlus-NG/wx-tail.wav)
+  tail_message_suffix: null  # Optional suffix audio file to append to tail message
+  tail_message_counties: false  # Include county names in tail message
   with_county_names: false
   time_type: "onset"  # "onset" or "effective"
+  say_alert_suffix: null  # Optional suffix audio file to append to alert announcements
+  say_all_clear_suffix: null  # Optional suffix audio file to append to all-clear announcements
+  say_alerts_changed: true  # Announce alerts when county list changes
+  say_alert_all: false  # Say all alerts when one changes (requires say_alerts_changed)
+  with_multiples: false  # Tag alerts with "with multiples" if multiple instances exist
 
 # Script execution
 scripts:

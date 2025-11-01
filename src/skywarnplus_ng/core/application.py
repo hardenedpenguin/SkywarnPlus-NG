@@ -8,15 +8,19 @@ import signal
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 
 from .config import AppConfig
 from .state import ApplicationState
 from .models import WeatherAlert, AlertStatus
 from ..api.nws_client import NWSClient, NWSClientError
 from ..audio.manager import AudioManager, AudioManagerError
+from ..audio.tail_message import TailMessageManager, TailMessageError
 from ..asterisk.manager import AsteriskManager, AsteriskError
+from ..asterisk.courtesy_tone import CourtesyToneManager, CourtesyToneError
+from ..asterisk.id_change import IDChangeManager, IDChangeError
 from ..utils.script_manager import ScriptManager, ScriptExecutionError
+from ..utils.alertscript import AlertScriptManager
 from ..utils.logging import setup_logging, PerformanceLogger, AlertLogger
 from ..monitoring.health import HealthMonitor
 from ..database.manager import DatabaseManager, DatabaseError
@@ -48,8 +52,13 @@ class SkywarnPlusApplication:
         )
         self.nws_client: Optional[NWSClient] = None
         self.audio_manager: Optional[AudioManager] = None
+        self.tail_message_manager: Optional[TailMessageManager] = None
         self.asterisk_manager: Optional[AsteriskManager] = None
+        self.courtesy_tone_manager: Optional[CourtesyToneManager] = None
+        self.id_change_manager: Optional[IDChangeManager] = None
         self.script_manager: Optional[ScriptManager] = None
+        self.alertscript_manager: Optional[AlertScriptManager] = None
+        self._previous_alert_events: Set[str] = set()  # Track previous alert events for transitions
         self.health_monitor: Optional[HealthMonitor] = None
         self.database_manager: Optional[DatabaseManager] = None
         self.performance_logger: Optional[PerformanceLogger] = None
@@ -90,6 +99,32 @@ class SkywarnPlusApplication:
             logger.warning("Audio features will be disabled")
             self.audio_manager = None
 
+        # Initialize tail message manager
+        if self.audio_manager and self.config.alerts.tail_message:
+            try:
+                # Determine tail message file path
+                if self.config.alerts.tail_message_path:
+                    tail_message_path = self.config.alerts.tail_message_path
+                else:
+                    tail_message_path = self.config.data_dir / "wx-tail.wav"
+                
+                self.tail_message_manager = TailMessageManager(
+                    audio_config=self.config.audio,
+                    alert_config=self.config.alerts,
+                    filtering_config=self.config.filtering,
+                    tail_message_path=tail_message_path,
+                    audio_delay_ms=self.config.asterisk.audio_delay,
+                    with_county_names=self.config.alerts.tail_message_counties,
+                    suffix_file=self.config.alerts.tail_message_suffix
+                )
+                logger.info(f"Tail message manager initialized (path: {tail_message_path})")
+            except Exception as e:
+                logger.error(f"Failed to initialize tail message manager: {e}")
+                logger.warning("Tail message features will be disabled")
+                self.tail_message_manager = None
+        else:
+            logger.info("Tail messages disabled in configuration")
+
         # Initialize Asterisk manager
         if self.config.asterisk.enabled:
             try:
@@ -107,6 +142,44 @@ class SkywarnPlusApplication:
         else:
             logger.info("Asterisk integration disabled in configuration")
 
+        # Initialize courtesy tone manager
+        if self.config.asterisk.courtesy_tones.enabled:
+            try:
+                self.courtesy_tone_manager = CourtesyToneManager(
+                    enabled=self.config.asterisk.courtesy_tones.enabled,
+                    tone_dir=self.config.asterisk.courtesy_tones.tone_dir,
+                    tones_config=self.config.asterisk.courtesy_tones.tones,
+                    ct_alerts=self.config.asterisk.courtesy_tones.ct_alerts,
+                    state_manager=self.state_manager
+                )
+                logger.info("Courtesy tone manager initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize courtesy tone manager: {e}")
+                logger.warning("Courtesy tone features will be disabled")
+                self.courtesy_tone_manager = None
+        else:
+            logger.info("Courtesy tone switching disabled in configuration")
+
+        # Initialize ID change manager
+        if self.config.asterisk.id_change.enabled:
+            try:
+                self.id_change_manager = IDChangeManager(
+                    enabled=self.config.asterisk.id_change.enabled,
+                    id_dir=self.config.asterisk.id_change.id_dir,
+                    normal_id=self.config.asterisk.id_change.normal_id,
+                    wx_id=self.config.asterisk.id_change.wx_id,
+                    rpt_id=self.config.asterisk.id_change.rpt_id,
+                    id_alerts=self.config.asterisk.id_change.id_alerts,
+                    state_manager=self.state_manager
+                )
+                logger.info("ID change manager initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize ID change manager: {e}")
+                logger.warning("ID change features will be disabled")
+                self.id_change_manager = None
+        else:
+            logger.info("ID changing disabled in configuration")
+
         # Initialize script manager
         if self.config.scripts.enabled:
             try:
@@ -118,6 +191,34 @@ class SkywarnPlusApplication:
                 self.script_manager = None
         else:
             logger.info("Script execution disabled in configuration")
+
+        # Initialize enhanced AlertScript manager
+        if self.config.scripts.alertscript_enabled:
+            try:
+                # Convert mapping configs to dict format
+                mappings = [mapping.model_dump() for mapping in self.config.scripts.alertscript_mappings]
+                active_commands = None
+                inactive_commands = None
+                
+                if self.config.scripts.alertscript_active_commands:
+                    active_commands = [cmd.model_dump() for cmd in self.config.scripts.alertscript_active_commands]
+                if self.config.scripts.alertscript_inactive_commands:
+                    inactive_commands = [cmd.model_dump() for cmd in self.config.scripts.alertscript_inactive_commands]
+                
+                self.alertscript_manager = AlertScriptManager(
+                    enabled=True,
+                    mappings=mappings,
+                    active_commands=active_commands,
+                    inactive_commands=inactive_commands,
+                    asterisk_path=Path("/usr/sbin/asterisk")
+                )
+                logger.info("Enhanced AlertScript manager initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize AlertScript manager: {e}")
+                logger.warning("AlertScript features will be disabled")
+                self.alertscript_manager = None
+        else:
+            logger.info("Enhanced AlertScript disabled in configuration")
 
         # Initialize database manager
         if self.config.database.enabled:
@@ -471,6 +572,38 @@ class SkywarnPlusApplication:
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
             
+            # Update tail message if enabled
+            if self.tail_message_manager:
+                try:
+                    self.tail_message_manager.update_tail_message(current_alerts)
+                except Exception as e:
+                    logger.error(f"Error updating tail message: {e}")
+            
+            # Update courtesy tones if enabled
+            if self.courtesy_tone_manager:
+                try:
+                    self.courtesy_tone_manager.update_courtesy_tones(current_alerts)
+                except Exception as e:
+                    logger.error(f"Error updating courtesy tones: {e}")
+            
+            # Update ID if enabled
+            if self.id_change_manager:
+                try:
+                    self.id_change_manager.update_id(current_alerts)
+                except Exception as e:
+                    logger.error(f"Error updating ID: {e}")
+            
+            # Process enhanced AlertScript mappings
+            if self.alertscript_manager:
+                try:
+                    processed_events = await self.alertscript_manager.process_alerts(
+                        current_alerts,
+                        self._previous_alert_events
+                    )
+                    self._previous_alert_events = processed_events
+                except Exception as e:
+                    logger.error(f"Error processing AlertScript mappings: {e}")
+            
             # Clean up old audio files
             if self.audio_manager:
                 self.audio_manager.cleanup_old_audio()
@@ -576,6 +709,13 @@ class SkywarnPlusApplication:
         new_alerts = self.state_manager.get_new_alerts(self.state, processed_alerts)
         expired_alerts = self.state_manager.get_expired_alerts(self.state, processed_alerts)
         
+        # Detect county changes (for SayAlertsChanged)
+        alerts_with_county_changes = []
+        if self.config.alerts.say_alerts_changed:
+            alerts_with_county_changes = self.state_manager.detect_county_changes(
+                self.state, processed_alerts
+            )
+        
         # Update active alerts
         current_alert_ids = [alert.id for alert in processed_alerts]
         self.state_manager.update_active_alerts(self.state, current_alert_ids)
@@ -583,6 +723,15 @@ class SkywarnPlusApplication:
         # Process new alerts
         if new_alerts:
             await self._handle_new_alerts(new_alerts)
+        
+        # Process alerts with county changes (SayAlertsChanged)
+        if alerts_with_county_changes:
+            if self.config.alerts.say_alert_all:
+                # Say all alerts when one changes
+                await self._handle_alerts_with_changes(processed_alerts)
+            else:
+                # Only say the alerts that changed
+                await self._handle_alerts_with_changes(alerts_with_county_changes)
         
         # Process expired alerts
         if expired_alerts:
@@ -592,12 +741,13 @@ class SkywarnPlusApplication:
         if not processed_alerts and self.state.get('active_alerts'):
             await self._handle_all_clear()
 
-    async def _handle_new_alerts(self, new_alerts: List[WeatherAlert]) -> None:
+    async def _handle_new_alerts(self, new_alerts: List[WeatherAlert], all_current_alerts: Optional[List[WeatherAlert]] = None) -> None:
         """
         Handle newly discovered alerts.
 
         Args:
             new_alerts: List of new alerts
+            all_current_alerts: Optional list of all current alerts (for multiples detection)
         """
         logger.info(f"Processing {len(new_alerts)} new alerts")
         
@@ -788,6 +938,83 @@ class SkywarnPlusApplication:
         import fnmatch
         return fnmatch.fnmatch(text, pattern)
 
+    def _get_county_audio_files(self, county_codes: List[str]) -> List[str]:
+        """
+        Get county audio file names for given county codes.
+
+        Args:
+            county_codes: List of county codes
+
+        Returns:
+            List of county audio file names (filtered to only those configured)
+        """
+        county_audio_files = []
+        county_code_map = {county.code: county for county in self.config.counties}
+        
+        for county_code in county_codes:
+            if county_code in county_code_map:
+                county_config = county_code_map[county_code]
+                if county_config.audio_file:
+                    county_audio_files.append(county_config.audio_file)
+        
+        return county_audio_files
+
+    def _has_multiple_instances(self, alert: WeatherAlert) -> bool:
+        """
+        Check if there are multiple instances of the same alert type.
+
+        Args:
+            alert: Alert to check
+
+        Returns:
+            True if multiple instances exist
+        """
+        # Check current alerts in state for same event type
+        alerts_by_event = {}
+        for alert_data in self.state.get('last_alerts', {}).values():
+            event = alert_data.get('event')
+            if event == alert.event:
+                if event not in alerts_by_event:
+                    alerts_by_event[event] = []
+                alerts_by_event[event].append(alert_data)
+        
+        # Also check active alerts
+        current_alerts = self.state.get('active_alerts', [])
+        for alert_id in current_alerts:
+            if alert_id in self.state.get('last_alerts', {}):
+                alert_data = self.state['last_alerts'][alert_id]
+                event = alert_data.get('event')
+                if event == alert.event and alert_id != alert.id:
+                    if event not in alerts_by_event:
+                        alerts_by_event[event] = []
+                    alerts_by_event[event].append(alert_data)
+        
+        # Check if we have multiple unique instances (different descriptions or end times)
+        if alert.event in alerts_by_event:
+            instances = alerts_by_event[alert.event]
+            descriptions = {inst.get('description', '') for inst in instances}
+            expires = {inst.get('expires', '') for inst in instances}
+            
+            # Multiple instances if different descriptions or end times
+            return len(descriptions) > 1 or len(expires) > 1
+        
+        return False
+
+    async def _handle_alerts_with_changes(self, alerts: List[WeatherAlert]) -> None:
+        """
+        Handle alerts where county lists have changed (SayAlertsChanged).
+
+        Args:
+            alerts: List of alerts to announce
+        """
+        logger.info(f"Processing {len(alerts)} alerts with county changes")
+        
+        for alert in alerts:
+            if self._should_announce_alert(alert):
+                announcement_nodes = await self._announce_alert(alert)
+                if announcement_nodes:
+                    self.state_manager.mark_alert_announced(self.state, alert.id)
+
     async def _announce_alert(self, alert: WeatherAlert) -> List[int]:
         """
         Announce an alert using TTS and Asterisk.
@@ -821,8 +1048,48 @@ class SkywarnPlusApplication:
             return []
         
         try:
+            # Get county audio files if enabled
+            county_audio_files = None
+            if self.config.alerts.with_county_names and alert.county_codes:
+                county_audio_files = self._get_county_audio_files(alert.county_codes)
+            
+            # Check for "with multiples" - multiple instances of same alert type
+            # Note: We'll check against current alerts from the poll cycle
+            with_multiples = False
+            if self.config.alerts.with_multiples:
+                # Get current alerts from state for comparison
+                current_alert_objs = []
+                for alert_id in self.state.get('active_alerts', []):
+                    if alert_id in self.state.get('last_alerts', {}):
+                        alert_data = self.state['last_alerts'][alert_id]
+                        # Reconstruct minimal alert for comparison
+                        from datetime import datetime
+                        current_alert_objs.append({
+                            'event': alert_data.get('event'),
+                            'description': alert_data.get('description', ''),
+                            'expires': alert_data.get('expires', '')
+                        })
+                # Add current alert to the list
+                current_alert_objs.append({
+                    'event': alert.event,
+                    'description': alert.description,
+                    'expires': alert.expires.isoformat()
+                })
+                
+                # Check for multiple unique instances
+                same_event = [a for a in current_alert_objs if a['event'] == alert.event]
+                if len(same_event) > 1:
+                    descriptions = {a['description'] for a in same_event}
+                    expires = {a['expires'] for a in same_event}
+                    with_multiples = len(descriptions) > 1 or len(expires) > 1
+            
             # Generate TTS audio for the alert
-            audio_path = self.audio_manager.generate_alert_audio(alert)
+            audio_path = self.audio_manager.generate_alert_audio(
+                alert,
+                suffix_file=self.config.alerts.say_alert_suffix,
+                county_audio_files=county_audio_files,
+                with_multiples=with_multiples
+            )
             if not audio_path:
                 logger.error(f"Failed to generate audio for alert: {alert.event}")
                 return []
@@ -861,7 +1128,9 @@ class SkywarnPlusApplication:
         
         try:
             # Generate TTS audio for all-clear message
-            audio_path = self.audio_manager.generate_all_clear_audio()
+            audio_path = self.audio_manager.generate_all_clear_audio(
+                suffix_file=self.config.alerts.say_all_clear_suffix
+            )
             if not audio_path:
                 logger.error("Failed to generate all-clear audio")
                 return
