@@ -1288,7 +1288,7 @@
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Subscribers</h3>
-                        <button onclick="addSubscriber()" class="btn-primary">
+                        <button type="button" onclick="addSubscriber()" class="btn-primary">
                             <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
                             </svg>
@@ -1323,7 +1323,7 @@
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Notification Templates</h3>
-                        <button onclick="addTemplate()" class="btn-primary">
+                        <button type="button" onclick="addTemplate()" class="btn-primary">
                             <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
                             </svg>
@@ -2468,8 +2468,8 @@
                         ${subscriber.preferences?.counties?.join(', ') || 'None'}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                        <button onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button>
+                        <button type="button" onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                        <button type="button" onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
