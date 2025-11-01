@@ -212,6 +212,9 @@ class WebDashboard:
         app.router.add_post('/api/config', self.api_config_update_handler)
         app.router.add_post('/api/config/reset', self.api_config_reset_handler)
         app.router.add_post('/api/config/backup', self.api_config_backup_handler)
+        
+        # County audio generation API
+        app.router.add_post('/api/counties/{county_code}/generate-audio', self.api_county_generate_audio_handler)
         app.router.add_post('/api/config/restore', self.api_config_restore_handler)
 
         # Notification API routes
@@ -1128,6 +1131,77 @@ class WebDashboard:
             })
         except Exception as e:
             logger.error(f"Error backing up config: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_county_generate_audio_handler(self, request: Request) -> Response:
+        """Handle API county audio generation endpoint."""
+        try:
+            county_code = request.match_info.get('county_code')
+            if not county_code:
+                return web.json_response({"error": "county_code is required"}, status=400)
+            
+            # Find the county in config
+            county = None
+            for c in self.config.counties:
+                if c.code == county_code:
+                    county = c
+                    break
+            
+            if not county:
+                return web.json_response({"error": f"County {county_code} not found"}, status=404)
+            
+            if not county.name:
+                return web.json_response({"error": "County name is required"}, status=400)
+            
+            # Check if audio manager is available
+            if not self.app.audio_manager:
+                return web.json_response({"error": "Audio manager not available"}, status=503)
+            
+            # Generate audio file
+            filename = self.app.audio_manager.generate_county_audio(county.name)
+            
+            if not filename:
+                return web.json_response({
+                    "success": False,
+                    "error": "Failed to generate county audio file"
+                }, status=500)
+            
+            # Update county config with generated filename
+            county.audio_file = filename
+            
+            # Save config
+            try:
+                from ruamel.yaml import YAML
+                yaml = YAML()
+                yaml.preserve_quotes = True
+                config_path = Path("/etc/skywarnplus-ng/config.yaml")
+                
+                with open(config_path, "r") as f:
+                    config_data = yaml.load(f)
+                
+                # Update the county in config
+                if 'counties' in config_data:
+                    for i, c in enumerate(config_data['counties']):
+                        if c.get('code') == county_code:
+                            config_data['counties'][i]['audio_file'] = filename
+                            break
+                
+                with open(config_path, "w") as f:
+                    yaml.dump(config_data, f)
+                
+                logger.info(f"Updated config with generated audio file for {county_code}: {filename}")
+            except Exception as e:
+                logger.warning(f"Failed to update config file: {e}")
+                # Continue anyway - the file was generated
+            
+            return web.json_response({
+                "success": True,
+                "filename": filename,
+                "message": f"Generated audio file: {filename}"
+            })
+            
+        except Exception as e:
+            logger.error(f"Error generating county audio: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_config_restore_handler(self, request: Request) -> Response:

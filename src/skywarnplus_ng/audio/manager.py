@@ -3,6 +3,7 @@ Audio management for SkywarnPlus-NG.
 """
 
 import logging
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -384,6 +385,61 @@ class AudioManager:
             
         except Exception as e:
             logger.error(f"Failed to append suffix audio: {e}")
+            return None
+
+    def generate_county_audio(self, county_name: str) -> Optional[str]:
+        """
+        Generate audio file for a county name using TTS.
+
+        Args:
+            county_name: Full county name (e.g., "Brazoria County")
+
+        Returns:
+            Filename of generated audio file (relative to sounds_path), or None if failed
+        """
+        try:
+            # Sanitize filename: remove special chars, replace spaces with underscores
+            sanitized = re.sub(r'[^\w\s-]', '', county_name)  # Remove special chars
+            sanitized = re.sub(r'[-\s]+', '_', sanitized)  # Replace spaces/hyphens with underscore
+            sanitized = sanitized.strip('_')  # Remove leading/trailing underscores
+            
+            # Determine file extension based on output format
+            ext = self.config.tts.output_format
+            if ext == 'wav':
+                filename = f"{sanitized}.wav"
+            elif ext == 'mp3':
+                filename = f"{sanitized}.mp3"
+            else:
+                filename = f"{sanitized}.{ext}"
+            
+            output_path = self.config.sounds_path / filename
+            
+            # Check if file already exists
+            if output_path.exists():
+                logger.info(f"County audio file already exists: {filename}")
+                return filename
+            
+            logger.info(f"Generating county audio for: {county_name} -> {filename}")
+            
+            # Generate audio using TTS (says full county name)
+            audio_path = self.tts_engine.synthesize(county_name, output_path)
+            
+            # Validate generated audio
+            if not self.tts_engine.validate_audio_file(audio_path):
+                logger.error(f"Generated county audio file is invalid: {audio_path}")
+                return None
+            
+            # Get audio duration
+            duration = self.tts_engine.get_audio_duration(audio_path)
+            logger.info(f"Generated county audio: {filename} (duration: {duration:.1f}s)")
+            
+            return filename
+            
+        except TTSEngineError as e:
+            logger.error(f"TTS engine error generating county audio: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error generating county audio: {e}", exc_info=True)
             return None
 
     def copy_audio_to_sounds(self, source_path: Path, filename: str) -> Optional[Path]:
