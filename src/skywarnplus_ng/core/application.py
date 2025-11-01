@@ -69,7 +69,7 @@ class SkywarnPlusApplication:
     async def initialize(self) -> None:
         """Initialize the application components."""
         # Setup enhanced logging first
-        main_logger, self.performance_logger, self.alert_logger = setup_logging(self.config.logging)
+        _, self.performance_logger, self.alert_logger = setup_logging(self.config.logging)
         logger.info("Initializing SkywarnPlus-NG application")
 
         # Initialize NWS client
@@ -440,7 +440,10 @@ class SkywarnPlusApplication:
         """Set up signal handlers for graceful shutdown."""
         def signal_handler(signum, frame):
             logger.info(f"Received signal {signum}, initiating shutdown")
-            asyncio.create_task(self.shutdown())
+            # Signal the shutdown event instead of creating a task from signal handler
+            # Signal handlers run in a different thread context, so we use an Event
+            # that the main loop is already waiting on
+            self._shutdown_event.set()
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -616,9 +619,11 @@ class SkywarnPlusApplication:
                 self.state_manager.add_alert(self.state, alert)
                 
                 # Check if alert should be announced
+                announcement_nodes = []
                 if self._should_announce_alert(alert):
-                    await self._announce_alert(alert)
-                    self.state_manager.mark_alert_announced(self.state, alert.id)
+                    announcement_nodes = await self._announce_alert(alert)
+                    if announcement_nodes:
+                        self.state_manager.mark_alert_announced(self.state, alert.id)
                 
                 # Execute alert script
                 if self.script_manager:
@@ -632,7 +637,7 @@ class SkywarnPlusApplication:
                 # Send PushOver notification if enabled
                 if self.config.pushover.enabled and self.config.pushover.api_token and self.config.pushover.user_key:
                     try:
-                        from ..notifications.pushover import PushOverNotifier, PushOverConfig, PushOverNotifier as PONotifier
+                        from ..notifications.pushover import PushOverNotifier, PushOverConfig
                         pushover_config = PushOverConfig(
                             api_token=self.config.pushover.api_token,
                             user_key=self.config.pushover.user_key,
@@ -643,7 +648,7 @@ class SkywarnPlusApplication:
                             retry_count=self.config.pushover.retry_count,
                             retry_delay_seconds=self.config.pushover.retry_delay_seconds
                         )
-                        async with PONotifier(pushover_config) as pushover:
+                        async with PushOverNotifier(pushover_config) as pushover:
                             result = await pushover.send_alert_push(alert)
                             if result.get("success", False):
                                 logger.info(f"PushOver notification sent for alert: {alert.event}")
@@ -667,7 +672,7 @@ class SkywarnPlusApplication:
                             alert=alert,
                             announced=self._should_announce_alert(alert),
                             script_executed=script_success if self.script_manager else False,
-                            announcement_nodes=[]  # TODO: Get actual nodes from announcement
+                            announcement_nodes=announcement_nodes
                         )
                     except DatabaseError as e:
                         logger.error(f"Failed to store alert in database: {e}")
@@ -720,7 +725,7 @@ class SkywarnPlusApplication:
         # Send PushOver all-clear notification if enabled
         if self.config.pushover.enabled and self.config.pushover.api_token and self.config.pushover.user_key:
             try:
-                from ..notifications.pushover import PushOverNotifier, PushOverConfig, PushOverNotifier as PONotifier
+                from ..notifications.pushover import PushOverNotifier, PushOverConfig
                 pushover_config = PushOverConfig(
                     api_token=self.config.pushover.api_token,
                     user_key=self.config.pushover.user_key,
@@ -731,7 +736,7 @@ class SkywarnPlusApplication:
                     retry_count=self.config.pushover.retry_count,
                     retry_delay_seconds=self.config.pushover.retry_delay_seconds
                 )
-                async with PONotifier(pushover_config) as pushover:
+                async with PushOverNotifier(pushover_config) as pushover:
                     county_names = [county.name for county in self.config.counties]
                     result = await pushover.send_all_clear(county_names)
                     if result.get("success", False):
@@ -783,7 +788,7 @@ class SkywarnPlusApplication:
         import fnmatch
         return fnmatch.fnmatch(text, pattern)
 
-    async def _announce_alert(self, alert: WeatherAlert) -> None:
+    async def _announce_alert(self, alert: WeatherAlert) -> List[int]:
         """
         Announce an alert using TTS and Asterisk.
         
@@ -791,6 +796,9 @@ class SkywarnPlusApplication:
 
         Args:
             alert: Alert to announce (can be NWS or test alert)
+            
+        Returns:
+            List of node numbers where announcement was successful (empty if failed)
         """
         alert_type = "TEST" if alert.status == AlertStatus.TEST else "NWS"
         logger.info(f"Announcing {alert_type} alert: {alert.event} - {alert.area_desc}")
@@ -798,26 +806,26 @@ class SkywarnPlusApplication:
         
         if not self.audio_manager:
             logger.warning("Audio manager not available - skipping announcement")
-            return
+            return []
         
         if not self.asterisk_manager:
             logger.warning("Asterisk manager not available - skipping announcement")
-            return
+            return []
         
         if not self.config.asterisk.enabled:
             logger.warning("Asterisk integration disabled - skipping announcement")
-            return
+            return []
         
         if not self.config.asterisk.nodes:
             logger.warning("No Asterisk nodes configured - skipping announcement")
-            return
+            return []
         
         try:
             # Generate TTS audio for the alert
             audio_path = self.audio_manager.generate_alert_audio(alert)
             if not audio_path:
                 logger.error(f"Failed to generate audio for alert: {alert.event}")
-                return
+                return []
             
             logger.info(f"Generated alert audio: {audio_path}")
             
@@ -830,11 +838,14 @@ class SkywarnPlusApplication:
                 # Add audio delay if configured
                 if self.config.asterisk.audio_delay > 0:
                     await asyncio.sleep(self.config.asterisk.audio_delay / 1000.0)
+                return successful_nodes
             else:
                 logger.error(f"Failed to play alert audio on any nodes: {alert.event}")
+                return []
             
         except Exception as e:
             logger.error(f"Error announcing alert {alert.event}: {e}", exc_info=True)
+            return []
 
     async def _announce_all_clear(self) -> None:
         """Announce all-clear message using TTS and Asterisk."""

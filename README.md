@@ -271,7 +271,7 @@ client = NWSClient(config.nws)
 await client.test_connection()
 
 # Get alerts for county
-alerts = await client.get_alerts_for_county("TXC039")
+alerts = await client.fetch_alerts_for_zone("TXC039")
 
 # Get all active alerts (use with caution)
 all_alerts = await client.get_active_alerts()

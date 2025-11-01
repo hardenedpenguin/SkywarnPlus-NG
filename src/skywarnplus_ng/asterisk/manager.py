@@ -4,7 +4,6 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 
 import asyncio
 import logging
-import subprocess
 import socket
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple

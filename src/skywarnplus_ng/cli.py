@@ -25,32 +25,6 @@ def setup_logging():
     )
 
 
-async def run_application():
-    """Run the main application."""
-    console.print("[bold green]Starting SkywarnPlus-NG[/bold green]")
-    
-    # Load configuration from YAML
-    config = AppConfig.from_yaml()
-    
-    # Show web dashboard info if enabled
-    if config.monitoring.enabled and config.monitoring.http_server.enabled:
-        console.print(f"[bold blue]Web Dashboard:[/bold blue] http://{config.monitoring.http_server.host}:{config.monitoring.http_server.port}")
-        console.print("[dim]Available pages: Dashboard, Alerts, Configuration, Health, Logs, Database, Metrics[/dim]")
-        console.print()
-    
-    # Create and run application
-    app = SkywarnPlusApplication(config)
-    
-    try:
-        await app.run()
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Shutdown requested by user[/yellow]")
-    except Exception as e:
-        console.print(f"[red]Application error: {e}[/red]")
-        logger.exception("Unhandled exception")
-        raise
-
-
 async def test_nws_client():
     """Test the NWS client (legacy function)."""
     from .api.nws_client import NWSClient
@@ -225,7 +199,7 @@ async def test_nws_client_with_config(config_path=None):
                 if county.enabled:
                     console.print(f"  Testing {county.name} ({county.code})...")
                     try:
-                        alerts = await nws_client.get_alerts_for_county(county.code)
+                        alerts = await nws_client.fetch_alerts_for_zone(county.code)
                         console.print(f"    [green]✓ Found {len(alerts)} alerts[/green]")
                     except Exception as e:
                         console.print(f"    [red]✗ Error: {e}[/red]")
@@ -246,7 +220,7 @@ async def handle_dtmf_command_with_config(config_path=None, command=None, alert_
         sys.exit(1)
     
     try:
-        from .dtmf.handler import DTMFHandler
+        from .skydescribe.dtmf_handler import DTMFHandler
         
         # Load configuration from YAML
         config = AppConfig.from_yaml(config_path)

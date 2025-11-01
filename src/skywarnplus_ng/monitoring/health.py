@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
+from importlib.metadata import version, PackageNotFoundError
 
 from ..core.config import AppConfig
 from ..api.nws_client import NWSClient
@@ -384,11 +385,17 @@ class HealthMonitor:
             "audio_enabled": True,  # Always enabled if audio_manager exists
         }
         
+        # Get version from package metadata
+        try:
+            app_version = version("skywarnplus-ng")
+        except PackageNotFoundError:
+            app_version = "unknown"
+        
         health_status = HealthStatus(
             overall_status=overall_status,
             timestamp=start_time,
             uptime_seconds=uptime,
-            version="3.0.0",  # TODO: Get from package version
+            version=app_version,
             components=components,
             metrics=metrics
         )
