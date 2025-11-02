@@ -656,22 +656,13 @@
             }
         }
 
-        // Detect base path from current URL if not set in template
+        // Get base path from template (set by server configuration)
+        // When running directly (not behind reverse proxy), this will be empty
         function getBasePath() {
             const templateBasePath = '{{ base_path|default("") }}' || '';
-            if (templateBasePath) {
-                return templateBasePath;
-            }
-            // Fallback: detect from current pathname
-            const pathname = window.location.pathname;
-            // If pathname is not '/', extract base path (e.g., '/skywarnplus-ng' from '/skywarnplus-ng/')
-            if (pathname !== '/' && pathname.length > 1) {
-                const parts = pathname.split('/').filter(p => p);
-                if (parts.length > 0) {
-                    return '/' + parts[0];
-                }
-            }
-            return '';
+            // Only use the template base_path - no auto-detection to avoid false positives
+            // If base_path is empty, we're running directly and don't need a prefix
+            return templateBasePath;
         }
 
         // API helper
