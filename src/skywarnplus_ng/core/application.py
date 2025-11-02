@@ -983,7 +983,7 @@ class SkywarnPlusApplication:
             county_codes: List of county codes
 
         Returns:
-            List of county audio file names (filtered to only those configured)
+            List of county audio file names (filtered to only those configured and enabled)
         """
         county_audio_files = []
         county_code_map = {county.code: county for county in self.config.counties}
@@ -991,7 +991,8 @@ class SkywarnPlusApplication:
         for county_code in county_codes:
             if county_code in county_code_map:
                 county_config = county_code_map[county_code]
-                if county_config.audio_file:
+                # Only include county audio if the county is enabled and has an audio file
+                if county_config.enabled and county_config.audio_file:
                     county_audio_files.append(county_config.audio_file)
         
         return county_audio_files
