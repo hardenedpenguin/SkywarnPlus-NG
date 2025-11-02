@@ -93,6 +93,7 @@ class AudioManager:
             
             # Append county audio files if provided
             if county_audio_files:
+                logger.debug(f"Appending {len(county_audio_files)} county audio file(s): {county_audio_files} (sounds_path: {self.config.sounds_path})")
                 new_audio_path = self._append_county_audio(audio_path, county_audio_files)
                 if new_audio_path:
                     # County audio append succeeded, use the combined file
@@ -394,9 +395,10 @@ class AudioManager:
             
             for i, county_file in enumerate(county_audio_files):
                 county_path = self.config.sounds_path / county_file
+                logger.debug(f"Looking for county audio file: {county_path} (resolved from sounds_path: {self.config.sounds_path}, filename: {county_file})")
                 
                 if not county_path.exists():
-                    logger.warning(f"County audio file not found: {county_path}")
+                    logger.warning(f"County audio file not found: {county_path} (sounds_path: {self.config.sounds_path})")
                     continue
                 
                 # Skip duplicates

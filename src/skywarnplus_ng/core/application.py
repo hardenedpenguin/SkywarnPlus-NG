@@ -988,13 +988,19 @@ class SkywarnPlusApplication:
         county_audio_files = []
         county_code_map = {county.code: county for county in self.config.counties}
         
+        logger.debug(f"Getting county audio files for codes: {county_codes}")
         for county_code in county_codes:
             if county_code in county_code_map:
                 county_config = county_code_map[county_code]
+                logger.debug(f"County {county_code}: enabled={county_config.enabled}, audio_file={county_config.audio_file}")
                 # Only include county audio if the county is enabled and has an audio file
                 if county_config.enabled and county_config.audio_file:
                     county_audio_files.append(county_config.audio_file)
+                    logger.debug(f"Added county audio file for {county_code}: {county_config.audio_file}")
+            else:
+                logger.debug(f"County code {county_code} not found in configuration")
         
+        logger.debug(f"Returning {len(county_audio_files)} county audio files: {county_audio_files}")
         return county_audio_files
 
     def _has_multiple_instances(self, alert: WeatherAlert) -> bool:
