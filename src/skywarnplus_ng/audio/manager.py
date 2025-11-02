@@ -311,6 +311,42 @@ class AudioManager:
         
         return cleaned_count
 
+    def cleanup_alert_audio(self, alert_id: str) -> int:
+        """
+        Clean up audio files for a specific alert ID.
+        
+        Args:
+            alert_id: Alert ID to clean up files for
+            
+        Returns:
+            Number of files cleaned up
+        """
+        if not self.config.temp_dir.exists():
+            return 0
+        
+        cleaned_count = 0
+        
+        # Check for files matching patterns: alert_{alert_id}_*.ulaw, tail_alert_{alert_id}.ulaw
+        # Also handles variations (ulaw, wav, etc.)
+        import fnmatch
+        for file_path in self.config.temp_dir.iterdir():
+            if file_path.is_file():
+                try:
+                    filename = file_path.name
+                    # Check if file matches any pattern
+                    if (fnmatch.fnmatch(filename, f"alert_{alert_id}_*") or 
+                        fnmatch.fnmatch(filename, f"tail_alert_{alert_id}.*")):
+                        file_path.unlink()
+                        cleaned_count += 1
+                        logger.debug(f"Cleaned up audio file for alert {alert_id}: {file_path}")
+                except OSError as e:
+                    logger.warning(f"Failed to clean up file {file_path}: {e}")
+        
+        if cleaned_count > 0:
+            logger.info(f"Cleaned up {cleaned_count} audio file(s) for alert {alert_id}")
+        
+        return cleaned_count
+
     def get_audio_info(self, audio_path: Path) -> Dict[str, Any]:
         """
         Get information about an audio file.

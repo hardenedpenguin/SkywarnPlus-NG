@@ -854,6 +854,42 @@ class SkywarnPlusApplication:
         logger.info(f"Processing {len(expired_alert_ids)} expired alerts")
         
         for alert_id in expired_alert_ids:
+            # Clean up audio files for this alert
+            if self.audio_manager:
+                try:
+                    audio_cleaned = self.audio_manager.cleanup_alert_audio(alert_id)
+                    if audio_cleaned > 0:
+                        logger.debug(f"Cleaned up {audio_cleaned} audio file(s) for expired alert {alert_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to clean up audio files for alert {alert_id}: {e}")
+            
+            # Clean up description files for this alert
+            # Note: SkyDescribeManager may not always be initialized, so we clean up files directly
+            try:
+                from ..skydescribe.manager import SkyDescribeManager
+                descriptions_dir = self.config.descriptions_dir
+                if descriptions_dir.exists():
+                    # Use the cleanup method if we have access to SkyDescribeManager
+                    # Otherwise, we'll clean up files directly via glob pattern matching
+                    import fnmatch
+                    cleaned_desc_count = 0
+                    for file_path in descriptions_dir.iterdir():
+                        if file_path.is_file():
+                            try:
+                                filename = file_path.name
+                                # Match pattern: desc_{alert_id}_*
+                                if fnmatch.fnmatch(filename, f"desc_{alert_id}_*"):
+                                    file_path.unlink()
+                                    cleaned_desc_count += 1
+                                    logger.debug(f"Cleaned up description file for alert {alert_id}: {file_path}")
+                            except OSError as e:
+                                logger.warning(f"Failed to clean up description file {file_path}: {e}")
+                    if cleaned_desc_count > 0:
+                        logger.debug(f"Cleaned up {cleaned_desc_count} description file(s) for expired alert {alert_id}")
+            except Exception as e:
+                logger.debug(f"Could not clean up description files (SkyDescribe may not be enabled): {e}")
+            
+            # Remove alert from state
             self.state_manager.remove_alert(self.state, alert_id)
             logger.debug(f"Removed expired alert: {alert_id}")
 

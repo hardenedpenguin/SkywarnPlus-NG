@@ -285,6 +285,52 @@ class SkyDescribeManager:
             logger.error(f"Error generating system status description: {e}")
             return None
     
+    def cleanup_alert_description(self, alert_id: str) -> int:
+        """
+        Clean up description audio files for a specific alert ID.
+        
+        Args:
+            alert_id: Alert ID to clean up description files for
+            
+        Returns:
+            Number of files cleaned up
+        """
+        if not self.descriptions_dir.exists():
+            return 0
+        
+        cleaned_count = 0
+        
+        # Remove from cache
+        if alert_id in self._description_cache:
+            cached = self._description_cache[alert_id]
+            if cached.file_path.exists():
+                try:
+                    cached.file_path.unlink()
+                    cleaned_count += 1
+                    logger.debug(f"Cleaned up cached description file for alert {alert_id}: {cached.file_path}")
+                except OSError as e:
+                    logger.warning(f"Failed to clean up cached description file {cached.file_path}: {e}")
+            del self._description_cache[alert_id]
+        
+        # Also check for any files matching the pattern (in case cache was cleared)
+        import fnmatch
+        for file_path in self.descriptions_dir.iterdir():
+            if file_path.is_file():
+                try:
+                    filename = file_path.name
+                    # Match pattern: desc_{alert_id}_*
+                    if fnmatch.fnmatch(filename, f"desc_{alert_id}_*"):
+                        file_path.unlink()
+                        cleaned_count += 1
+                        logger.debug(f"Cleaned up description file for alert {alert_id}: {file_path}")
+                except OSError as e:
+                    logger.warning(f"Failed to clean up description file {file_path}: {e}")
+        
+        if cleaned_count > 0:
+            logger.info(f"Cleaned up {cleaned_count} description file(s) for alert {alert_id}")
+        
+        return cleaned_count
+    
     def _format_uptime(self, uptime_seconds: int) -> str:
         """Format uptime in a human-readable way."""
         hours = uptime_seconds // 3600
