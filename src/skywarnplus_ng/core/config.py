@@ -107,7 +107,7 @@ class AlertConfig(BaseModel):
     say_alert: bool = Field(True, description="Enable voice announcements")
     say_all_clear: bool = Field(True, description="Enable all-clear announcements")
     tail_message: bool = Field(True, description="Enable tail messages")
-    tail_message_path: Optional[Path] = Field(None, description="Path for tail message file (default: /tmp/SkywarnPlus-NG/wx-tail.wav)")
+    tail_message_path: Optional[Path] = Field(None, description="Path for tail message file (default: /var/lib/skywarnplus-ng/data/wx-tail.wav)")
     tail_message_suffix: Optional[str] = Field(None, description="Optional suffix audio file to append to tail message")
     tail_message_counties: bool = Field(False, description="Include county names in tail message")
     with_county_names: bool = Field(False, description="Include county names in announcements")
@@ -274,7 +274,7 @@ class AppConfig(BaseSettings):
     # Application settings
     enabled: bool = Field(True, description="Enable SkywarnPlus-NG")
     config_file: Path = Field(Path("config.yaml"), description="Configuration file path")
-    data_dir: Path = Field(Path("/tmp/SkywarnPlus-NG"), description="Data directory")
+    data_dir: Path = Field(Path("/var/lib/skywarnplus-ng/data"), description="Data directory")
     poll_interval: int = Field(60, description="Poll interval in seconds")
 
     # Component configurations

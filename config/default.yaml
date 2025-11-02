@@ -3,7 +3,7 @@
 # Application settings
 enabled: true
 poll_interval: 60  # seconds
-data_dir: "/tmp/SkywarnPlus-NG"
+data_dir: "/var/lib/skywarnplus-ng/data"
 
 # NWS API configuration
 nws:
@@ -72,7 +72,7 @@ alerts:
   say_alert: true
   say_all_clear: true
   tail_message: true
-  tail_message_path: null  # Path for tail message file (default: /tmp/SkywarnPlus-NG/wx-tail.wav)
+  tail_message_path: null  # Path for tail message file (default: /var/lib/skywarnplus-ng/data/wx-tail.wav)
   tail_message_suffix: null  # Optional suffix audio file to append to tail message
   tail_message_counties: false  # Include county names in tail message
   with_county_names: false
