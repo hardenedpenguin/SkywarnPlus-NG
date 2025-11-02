@@ -142,8 +142,9 @@ class AsteriskManager:
             logger.debug(f"Running Asterisk command: {command}")
             
             # Execute via sudo as the asterisk user (requires sudoers configuration)
+            # Note: command is passed as a single string to asterisk -rx
             process = await asyncio.create_subprocess_exec(
-                "sudo", "-n", "-u", "asterisk", str(self.asterisk_path), "-x", command,
+                "sudo", "-n", "-u", "asterisk", str(self.asterisk_path), "-rx", command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd="/tmp"  # Run from /tmp to avoid permission issues
@@ -155,10 +156,15 @@ class AsteriskManager:
             stdout_str = stdout.decode('utf-8', errors='replace')
             stderr_str = stderr.decode('utf-8', errors='replace')
             
-            logger.debug(f"Asterisk command result: code={return_code}, stdout={stdout_str[:100]}...")
+            logger.debug(f"Asterisk command result: code={return_code}")
+            if stderr_str and return_code != 0:
+                logger.warning(f"Asterisk stderr: {stderr_str}")
             
             if return_code != 0:
-                logger.warning(f"Asterisk command failed: {command}, code={return_code}, stderr={stderr_str}")
+                logger.error(f"Asterisk command failed: {command}")
+                logger.error(f"Return code: {return_code}")
+                logger.error(f"Stdout: {stdout_str}")
+                logger.error(f"Stderr: {stderr_str}")
             
             return return_code, stdout_str, stderr_str
             
@@ -285,23 +291,61 @@ class AsteriskManager:
             logger.error(f"Audio file does not exist: {audio_path}")
             return False
         
+        # Verify file is not empty
+        if audio_path.stat().st_size == 0:
+            logger.error(f"Audio file is empty: {audio_path}")
+            return False
+        
+        # Log file extension for debugging
+        file_ext = audio_path.suffix.lower()
+        if file_ext not in ['.ulaw', '.ul', '.wav', '.gsm']:
+            logger.warning(f"Audio file has unexpected extension {file_ext}, may cause playback issues")
+        
         try:
             # Use full path for playback (Asterisk can play from /tmp or anywhere)
             # Remove file extension for rpt playback command (Asterisk doesn't need it)
-            playback_path = str(audio_path)
-            if playback_path.endswith(('.wav', '.mp3', '.gsm')):
+            playback_path = str(audio_path.resolve())  # Use resolve() to get absolute path
+            
+            # Remove extension - Asterisk auto-detects format from the file
+            if playback_path.endswith(('.wav', '.mp3', '.gsm', '.ulaw', '.ul')):
                 playback_path = playback_path.rsplit('.', 1)[0]
             
-            # Use rpt playback command with full path (without extension)
+            # Log what we're doing
+            file_extension = audio_path.suffix.lower() if audio_path.suffix else None
+            logger.debug(f"Audio file extension: {file_extension}, playback path (no ext): {playback_path}")
+            
+            # Build the rpt playback command
+            # Format: rpt playback <node> <filename> (without extension)
             command = f"rpt playback {node_number} {playback_path}"
-            logger.debug(f"Executing Asterisk command: {command}")
+            
+            # Verify the actual file (with extension) is accessible (as asterisk user)
+            # Try to stat the file to ensure asterisk user can read it
+            try:
+                import subprocess
+                actual_file_path = str(audio_path.resolve())
+                check_result = subprocess.run(
+                    ["sudo", "-n", "-u", "asterisk", "test", "-r", actual_file_path],
+                    capture_output=True,
+                    timeout=5
+                )
+                if check_result.returncode != 0:
+                    logger.warning(f"Asterisk user may not be able to read file: {actual_file_path}")
+            except Exception as e:
+                logger.debug(f"Could not verify file accessibility: {e}")
+            
+            # Log command for debugging
+            logger.debug(f"Playing audio on node {node_number}: {playback_path}")
+            
             return_code, stdout, stderr = await self._run_asterisk_command(command)
             
             if return_code == 0:
                 logger.info(f"Started audio playback on node {node_number}: {playback_path}")
                 return True
             else:
-                logger.error(f"Failed to play audio on node {node_number}: stderr={stderr}, stdout={stdout}")
+                logger.error(f"Failed to play audio on node {node_number}")
+                logger.error(f"Return code: {return_code}")
+                logger.error(f"Stdout: {stdout}")
+                logger.error(f"Stderr: {stderr}")
                 return False
                 
         except Exception as e:

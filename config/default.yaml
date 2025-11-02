@@ -56,8 +56,8 @@ audio:
     language: "en"
     tld: "com"
     slow: false
-    output_format: "wav"
-    sample_rate: 22050
+    output_format: "ulaw"  # ulaw format for Asterisk compatibility
+    sample_rate: 8000  # 8kHz required for ulaw format
     bit_rate: 128
 
 # Alert filtering

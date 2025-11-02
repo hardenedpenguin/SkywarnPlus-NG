@@ -493,9 +493,13 @@
                             </label>
                             <select id="tts_output_format" name="audio.tts.output_format" 
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <option value="ulaw" selected>μ-law (ulaw) - Recommended for Asterisk</option>
                                 <option value="wav">WAV</option>
                                 <option value="mp3">MP3</option>
                             </select>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                μ-law format is recommended for Asterisk/app_rpt compatibility and requires 8kHz sample rate.
+                            </p>
                         </div>
                         
                         <div>
@@ -503,7 +507,11 @@
                                 Sample Rate (Hz)
                             </label>
                             <input type="number" id="tts_sample_rate" name="audio.tts.sample_rate" min="8000" max="48000" 
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                   placeholder="8000">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Required: 8000 Hz for μ-law format. Default: 8000 Hz.
+                            </p>
                         </div>
                         
                         <div>
@@ -1493,8 +1501,8 @@
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
         document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
-        document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'wav';
-        document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 22050;
+        document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'ulaw';
+        document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 8000;
         document.getElementById('tts_bit_rate').value = config.audio?.tts?.bit_rate || 128;
 
         // Alert behavior
@@ -1781,7 +1789,7 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Audio File (optional)</label>
                 <div class="flex gap-2">
                     <input type="text" name="counties[${index}].audio_file" id="county_audio_${index}" value="${audio_file || ''}" 
-                           placeholder="CountyName.wav"
+                           placeholder="CountyName.ulaw"
                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     <button type="button" onclick="generateCountyAudio('${code}', '${name}', ${index}, event)" 
                             class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -1792,7 +1800,7 @@
                     </button>
                 </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Audio file for county name (e.g., "Brazoria_County.wav") - Click button to generate
+                    Audio file for county name (e.g., "Brazoria_County.ulaw") - Click button to generate
                 </p>
             </div>
             <div class="flex items-center">

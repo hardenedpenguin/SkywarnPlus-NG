@@ -829,7 +829,8 @@ class SkywarnPlusApplication:
                 
                 # Broadcast alert update via WebSocket
                 if self.web_dashboard:
-                    await self.web_dashboard.broadcast_update('alerts_update', [alert.model_dump()])
+                    # Use mode='json' to ensure datetime objects are serialized as ISO strings
+                    await self.web_dashboard.broadcast_update('alerts_update', [alert.model_dump(mode='json')])
                 
             except Exception as e:
                 processing_time = (datetime.now(timezone.utc) - alert_start_time).total_seconds() * 1000
@@ -1095,6 +1096,15 @@ class SkywarnPlusApplication:
                 return []
             
             logger.info(f"Generated alert audio: {audio_path}")
+            
+            # Verify file exists and is readable before attempting playback
+            if not audio_path.exists():
+                logger.error(f"Audio file does not exist: {audio_path}")
+                return []
+            
+            if audio_path.stat().st_size == 0:
+                logger.error(f"Audio file is empty: {audio_path}")
+                return []
             
             # Play audio on all configured Asterisk nodes
             successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)

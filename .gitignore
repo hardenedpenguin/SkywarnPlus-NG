@@ -68,3 +68,4 @@ config/development.yaml
 # Application data
 /tmp/
 /var/
+.patch files

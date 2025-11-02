@@ -1244,8 +1244,17 @@ class WebDashboard:
             })
             
         except Exception as e:
-            logger.error(f"Error generating county audio: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            logger.error(f"Error generating county audio for {request.match_info.get('county_code', 'unknown')}: {e}", exc_info=True)
+            error_msg = str(e)
+            # Provide more helpful error messages
+            if "ffmpeg" in error_msg.lower() or "FFmpeg" in error_msg:
+                error_msg = "FFmpeg is required for ulaw format conversion. Please install ffmpeg."
+            elif "TTS" in error_msg or "synthesize" in error_msg.lower():
+                error_msg = "Failed to generate TTS audio. Check TTS configuration."
+            return web.json_response({
+                "success": False,
+                "error": error_msg
+            }, status=500)
 
     async def api_config_restore_handler(self, request: Request) -> Response:
         """Handle API config restore endpoint."""
@@ -1736,11 +1745,22 @@ class WebDashboard:
         if not self.websocket_clients:
             return
         
-        message = json.dumps({
-            'type': update_type,
-            'data': data,
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        })
+        # Helper function to serialize datetime objects
+        def json_serializer(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            raise TypeError(f"Type {type(obj)} not serializable")
+        
+        try:
+            message = json.dumps({
+                'type': update_type,
+                'data': data,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }, default=json_serializer)
+        except (TypeError, ValueError) as e:
+            logger.error(f"Failed to serialize WebSocket message: {e}")
+            logger.debug(f"Data type: {type(data)}, Data: {data}")
+            return  # Skip sending if we can't serialize
         
         # Send to all connected clients
         disconnected = set()
