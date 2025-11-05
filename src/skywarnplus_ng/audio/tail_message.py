@@ -16,7 +16,8 @@ from pydub import AudioSegment
 
 from ..core.config import AudioConfig, AlertConfig, FilteringConfig
 from ..core.models import WeatherAlert
-from .tts_engine import GTTSEngine
+from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
+from .manager import AudioManager
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class TailMessageManager:
         self.audio_delay_ms = audio_delay_ms
         self.with_county_names = with_county_names
         self.suffix_file = suffix_file
-        self.tts_engine = GTTSEngine(audio_config.tts)
+        self.tts_engine = AudioManager._create_tts_engine(audio_config.tts)
         
         # Ensure output directory exists
         self.tail_message_path.parent.mkdir(parents=True, exist_ok=True)

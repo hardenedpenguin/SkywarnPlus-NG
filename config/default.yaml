@@ -53,10 +53,15 @@ audio:
   separator_sound: "Woodblock.wav"
   temp_dir: "/tmp/skywarnplus-ng-audio"
   tts:
-    engine: "gtts"
+    engine: "gtts"  # Options: "gtts" or "piper"
+    # gTTS settings
     language: "en"
     tld: "com"
     slow: false
+    # Piper TTS settings (only used when engine is "piper")
+    model_path: null  # Path to Piper TTS model file (.onnx), e.g., "/path/to/en_US-lessac-medium.onnx"
+    speed: 1.0  # Speech speed for Piper (1.0 = normal, >1.0 = faster, <1.0 = slower)
+    # Common settings
     output_format: "ulaw"  # ulaw format for Asterisk compatibility
     sample_rate: 8000  # 8kHz required for ulaw format
     bit_rate: 128

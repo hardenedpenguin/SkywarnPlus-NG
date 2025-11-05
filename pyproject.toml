@@ -33,6 +33,7 @@ dependencies = [
     "click>=8.1.0",
     "rich>=13.7.0",
     "gtts>=2.4.0",
+    "piper-tts>=1.0.0",
     "pydub>=0.25.1",
     "sqlalchemy>=2.0.0",
     "alembic>=1.12.0",

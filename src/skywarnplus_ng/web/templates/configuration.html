@@ -473,12 +473,15 @@
                                 TTS Engine
                             </label>
                             <select id="tts_engine" name="audio.tts.engine" 
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                    onchange="updateTTSEngineFields()">
                                 <option value="gtts">Google Text-to-Speech (gTTS)</option>
+                                <option value="piper">Piper TTS (Local)</option>
                             </select>
                         </div>
                         
-                        <div>
+                        <!-- gTTS-specific fields -->
+                        <div id="tts_gtts_language" class="tts-gtts-field">
                             <label for="tts_language" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Language
                             </label>
@@ -486,7 +489,7 @@
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                         </div>
                         
-                        <div>
+                        <div id="tts_gtts_tld" class="tts-gtts-field">
                             <label for="tts_tld" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Top-Level Domain
                             </label>
@@ -494,11 +497,36 @@
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                         </div>
                         
-                        <div class="flex items-center">
+                        <div id="tts_gtts_slow" class="tts-gtts-field flex items-center">
                             <input type="checkbox" id="tts_slow" name="audio.tts.slow" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                             <label for="tts_slow" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Slow Speech
                             </label>
+                        </div>
+                        
+                        <!-- Piper-specific fields -->
+                        <div id="tts_piper_model_path" class="tts-piper-field">
+                            <label for="tts_model_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Model Path (.onnx file)
+                            </label>
+                            <input type="text" id="tts_model_path" name="audio.tts.model_path" 
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                   placeholder="/path/to/model.onnx">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Path to Piper TTS model file (.onnx). The corresponding .onnx.json file should be in the same directory.
+                            </p>
+                        </div>
+                        
+                        <div id="tts_piper_speed" class="tts-piper-field">
+                            <label for="tts_speed" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Speech Speed
+                            </label>
+                            <input type="number" id="tts_speed" name="audio.tts.speed" min="0.5" max="2.0" step="0.1"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                   placeholder="1.0">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                1.0 = normal speed, &gt;1.0 = faster, &lt;1.0 = slower
+                            </p>
                         </div>
                         
                         <div>
@@ -1481,6 +1509,30 @@
     let allCounties = []; // Will hold all county data
 
     // Tab management
+    function updateTTSEngineFields() {
+        const engine = document.getElementById('tts_engine').value;
+        const gttsFields = document.querySelectorAll('.tts-gtts-field');
+        const piperFields = document.querySelectorAll('.tts-piper-field');
+        
+        if (engine === 'gtts') {
+            // Show gTTS fields, hide Piper fields
+            gttsFields.forEach(field => {
+                field.style.display = 'block';
+            });
+            piperFields.forEach(field => {
+                field.style.display = 'none';
+            });
+        } else if (engine === 'piper') {
+            // Show Piper fields, hide gTTS fields
+            gttsFields.forEach(field => {
+                field.style.display = 'none';
+            });
+            piperFields.forEach(field => {
+                field.style.display = 'block';
+            });
+        }
+    }
+    
     function showTab(tabName) {
         // Hide all tab contents
         document.querySelectorAll('.tab-content').forEach(tab => {
@@ -1567,9 +1619,14 @@
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
         document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
+        document.getElementById('tts_model_path').value = config.audio?.tts?.model_path || '';
+        document.getElementById('tts_speed').value = config.audio?.tts?.speed || 1.0;
         document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'ulaw';
         document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 8000;
         document.getElementById('tts_bit_rate').value = config.audio?.tts?.bit_rate || 128;
+        
+        // Update field visibility based on selected engine
+        updateTTSEngineFields();
 
         // Alert behavior
         document.getElementById('alerts_say_alert').checked = config.alerts?.say_alert || false;

@@ -73,10 +73,13 @@ class AsteriskConfig(BaseModel):
 class TTSConfig(BaseModel):
     """Text-to-Speech configuration."""
 
-    engine: str = Field("gtts", description="TTS engine to use")
-    language: str = Field("en", description="Language code")
+    engine: str = Field("gtts", description="TTS engine to use: 'gtts' or 'piper'")
+    language: str = Field("en", description="Language code (for gTTS)")
     tld: str = Field("com", description="Top-level domain for gTTS")
-    slow: bool = Field(False, description="Slow down speech")
+    slow: bool = Field(False, description="Slow down speech (for gTTS)")
+    # Piper-specific settings
+    model_path: Optional[str] = Field(None, description="Path to Piper TTS model file (.onnx)")
+    speed: float = Field(1.0, description="Speech speed/rate for Piper TTS (1.0 = normal, >1.0 = faster, <1.0 = slower)")
     output_format: str = Field("wav", description="Output audio format")
     sample_rate: int = Field(22050, description="Sample rate in Hz")
     bit_rate: int = Field(128, description="Bit rate in kbps")

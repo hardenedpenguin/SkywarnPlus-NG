@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 
 from ..core.config import AudioConfig
 from ..core.models import WeatherAlert
-from .tts_engine import GTTSEngine, TTSEngineError
+from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
 from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class AudioManager:
             config: Audio configuration
         """
         self.config = config
-        self.tts_engine = GTTSEngine(config.tts)
+        self.tts_engine = self._create_tts_engine(config.tts)
         
         # Ensure directories exist
         self.config.sounds_path.mkdir(parents=True, exist_ok=True)
@@ -51,6 +51,29 @@ class AudioManager:
         # Validate TTS engine
         if not self.tts_engine.is_available():
             raise AudioManagerError("TTS engine is not available")
+
+    @staticmethod
+    def _create_tts_engine(tts_config):
+        """
+        Create appropriate TTS engine based on configuration.
+
+        Args:
+            tts_config: TTS configuration
+
+        Returns:
+            TTS engine instance (GTTSEngine or PiperTSEngine)
+
+        Raises:
+            AudioManagerError: If engine type is unsupported
+        """
+        engine_type = tts_config.engine.lower()
+        
+        if engine_type == "gtts":
+            return GTTSEngine(tts_config)
+        elif engine_type == "piper":
+            return PiperTSEngine(tts_config)
+        else:
+            raise AudioManagerError(f"Unsupported TTS engine: {engine_type}. Supported engines: 'gtts', 'piper'")
 
     def generate_alert_audio(
         self,
