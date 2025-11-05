@@ -93,16 +93,18 @@ class AudioManager:
             
             # Append county audio files if provided
             if county_audio_files:
-                logger.debug(f"Appending {len(county_audio_files)} county audio file(s): {county_audio_files} (sounds_path: {self.config.sounds_path})")
+                logger.info(f"Appending {len(county_audio_files)} county audio file(s): {county_audio_files} (sounds_path: {self.config.sounds_path})")
                 new_audio_path = self._append_county_audio(audio_path, county_audio_files)
                 if new_audio_path:
                     # County audio append succeeded, use the combined file
                     audio_path = new_audio_path
-                    logger.debug(f"Using combined audio with counties: {audio_path}")
+                    logger.info(f"Using combined audio with counties: {audio_path}")
                 else:
                     logger.warning("Failed to append county audio, using original audio")
                     # Keep using the original audio_path (don't regenerate)
-                    logger.debug(f"Using original audio without counties: {audio_path}")
+                    logger.info(f"Using original audio without counties: {audio_path}")
+            else:
+                logger.info(f"No county audio files provided for alert {alert.id} (county_audio_files is {county_audio_files})")
             
             # Append suffix if provided
             if suffix_file:
@@ -373,6 +375,66 @@ class AudioManager:
         
         return info
 
+    def _load_audio_file_for_append(self, audio_path: Path) -> Optional[AudioSegment]:
+        """
+        Load an audio file for appending, handling ulaw format conversion.
+        
+        Args:
+            audio_path: Path to audio file (may be ulaw, wav, etc.)
+            
+        Returns:
+            AudioSegment or None if failed
+        """
+        try:
+            ext = audio_path.suffix.lower()
+            if ext in ['.ulaw', '.ul']:
+                # For ulaw files, convert to WAV first using ffmpeg
+                import tempfile
+                import subprocess
+                
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
+                    temp_wav_path = Path(temp_wav.name)
+                
+                # Convert ulaw to WAV using ffmpeg
+                result = subprocess.run(
+                    [
+                        "ffmpeg", "-y",
+                        "-f", "mulaw",  # Input format: mulaw
+                        "-ar", "8000",  # Sample rate: 8kHz (standard for ulaw)
+                        "-ac", "1",     # Channels: mono
+                        "-i", str(audio_path),
+                        str(temp_wav_path)
+                    ],
+                    check=True,
+                    capture_output=True,
+                    timeout=30,
+                    text=True
+                )
+                
+                # Load the converted WAV file
+                audio = AudioSegment.from_wav(str(temp_wav_path))
+                
+                # Clean up temporary file
+                try:
+                    temp_wav_path.unlink()
+                except Exception:
+                    pass
+                
+                return audio
+            else:
+                # For other formats, use pydub directly
+                return AudioSegment.from_file(str(audio_path))
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
+            logger.error(f"Failed to convert ulaw file {audio_path} to WAV: {error_msg}")
+            return None
+        except FileNotFoundError:
+            logger.error("FFmpeg not found - cannot load ulaw files")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to load audio file {audio_path}: {e}")
+            return None
+
     def _append_county_audio(self, main_audio_path: Path, county_audio_files: List[str]) -> Optional[Path]:
         """
         Append county audio files to the main audio file.
@@ -385,8 +447,12 @@ class AudioManager:
             Path to new combined audio file, or None if failed
         """
         try:
-            # Load main audio
-            main_audio = AudioSegment.from_file(str(main_audio_path))
+            # Load main audio (handles ulaw conversion if needed)
+            logger.info(f"Loading main audio file: {main_audio_path}")
+            main_audio = self._load_audio_file_for_append(main_audio_path)
+            if not main_audio:
+                logger.error(f"Failed to load main audio file: {main_audio_path}")
+                return None
             # Ensure 8kHz mono for Asterisk compatibility (required for ulaw)
             main_audio = main_audio.set_frame_rate(8000).set_channels(1)
             
@@ -395,7 +461,7 @@ class AudioManager:
             
             for i, county_file in enumerate(county_audio_files):
                 county_path = self.config.sounds_path / county_file
-                logger.debug(f"Looking for county audio file: {county_path} (resolved from sounds_path: {self.config.sounds_path}, filename: {county_file})")
+                logger.info(f"Looking for county audio file: {county_path} (resolved from sounds_path: {self.config.sounds_path}, filename: {county_file})")
                 
                 if not county_path.exists():
                     logger.warning(f"County audio file not found: {county_path} (sounds_path: {self.config.sounds_path})")
@@ -406,9 +472,14 @@ class AudioManager:
                     continue
                 added_counties.add(county_file)
                 
-                # Load county audio
-                county_audio = AudioSegment.from_file(str(county_path))
+                # Load county audio (handles ulaw conversion if needed)
+                logger.info(f"Loading county audio file: {county_path}")
+                county_audio = self._load_audio_file_for_append(county_path)
+                if not county_audio:
+                    logger.warning(f"Failed to load county audio file: {county_path}")
+                    continue
                 county_audio = county_audio.set_frame_rate(8000).set_channels(1)
+                logger.info(f"Successfully loaded county audio file: {county_file} (duration: {len(county_audio)/1000:.2f}s)")
                 
                 # Add spacing: 600ms before first county, 400ms before others
                 spacing = AudioSegment.silent(duration=600 if i == 0 else 400)
@@ -446,7 +517,7 @@ class AudioManager:
                 logger.error(f"Combined audio file is empty after creation: {combined_path}")
                 return None
             
-            logger.debug(f"Appended {len(added_counties)} county audio files to audio: {combined_path}")
+            logger.info(f"Appended {len(added_counties)} county audio files to audio: {combined_path}")
             return combined_path
             
         except Exception as e:

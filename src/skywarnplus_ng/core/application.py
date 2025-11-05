@@ -1075,6 +1075,20 @@ class SkywarnPlusApplication:
         logger.info(f"Announcing {alert_type} alert: {alert.event} - {alert.area_desc}")
         logger.debug(f"Alert description: {alert.description[:100]}..." if alert.description and len(alert.description) > 100 else f"Alert description: {alert.description}")
         
+        # Check county audio files first (before Asterisk checks) so we can see if they would be loaded
+        county_audio_files = None
+        county_codes_list = getattr(alert, 'county_codes', []) or []
+        logger.info(f"Checking county audio for alert {alert.id}: with_county_names={self.config.alerts.with_county_names}, county_codes={county_codes_list}, county_codes_length={len(county_codes_list)}")
+        if self.config.alerts.with_county_names:
+            if county_codes_list:
+                logger.info(f"Getting county audio files for alert {alert.id} with county codes: {county_codes_list}")
+                county_audio_files = self._get_county_audio_files(county_codes_list)
+                logger.info(f"Retrieved {len(county_audio_files) if county_audio_files else 0} county audio files: {county_audio_files}")
+            else:
+                logger.warning(f"County names enabled but alert {alert.id} has no county codes")
+        else:
+            logger.info(f"County names disabled in configuration (with_county_names=False)")
+        
         if not self.audio_manager:
             logger.warning("Audio manager not available - skipping announcement")
             return []
@@ -1092,19 +1106,6 @@ class SkywarnPlusApplication:
             return []
         
         try:
-            # Get county audio files if enabled
-            county_audio_files = None
-            county_codes_list = getattr(alert, 'county_codes', []) or []
-            logger.info(f"Checking county audio for alert {alert.id}: with_county_names={self.config.alerts.with_county_names}, county_codes={county_codes_list}, county_codes_length={len(county_codes_list)}")
-            if self.config.alerts.with_county_names:
-                if county_codes_list:
-                    logger.info(f"Getting county audio files for alert {alert.id} with county codes: {county_codes_list}")
-                    county_audio_files = self._get_county_audio_files(county_codes_list)
-                    logger.info(f"Retrieved {len(county_audio_files) if county_audio_files else 0} county audio files: {county_audio_files}")
-                else:
-                    logger.warning(f"County names enabled but alert {alert.id} has no county codes")
-            else:
-                logger.debug(f"County names disabled in configuration")
             
             # Check for "with multiples" - multiple instances of same alert type
             # Note: We'll check against current alerts from the poll cycle
