@@ -902,6 +902,57 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Database Operations Section -->
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Database Operations</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="cleanupDatabase()" class="btn-secondary w-full">
+                        <svg class="w-4 h-4 mr-2 inline" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clip-rule="evenodd"></path>
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                        Cleanup Old Data
+                    </button>
+                    
+                    <button onclick="backupDatabase()" class="btn-secondary w-full">
+                        <svg class="w-4 h-4 mr-2 inline" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
+                        </svg>
+                        Backup Database
+                    </button>
+                    
+                    <button onclick="optimizeDatabase()" class="btn-secondary w-full">
+                        <svg class="w-4 h-4 mr-2 inline" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.532 1.532 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                        </svg>
+                        Optimize Database
+                    </button>
+                </div>
+
+                <div id="database-stats" class="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Database Statistics</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Total Alerts:</span>
+                            <span id="db-total-alerts" class="ml-2 font-semibold text-gray-900 dark:text-white">-</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Database Size:</span>
+                            <span id="db-size" class="ml-2 font-semibold text-gray-900 dark:text-white">-</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Metrics:</span>
+                            <span id="db-metrics" class="ml-2 font-semibold text-gray-900 dark:text-white">-</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500 dark:text-gray-400">Health Checks:</span>
+                            <span id="db-health-checks" class="ml-2 font-semibold text-gray-900 dark:text-white">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Monitoring Tab -->
@@ -2623,6 +2674,112 @@
         }
     }
 
+    // Database operations
+    async function loadDatabaseStats() {
+        try {
+            const stats = await apiCall('/api/database/stats');
+            updateDatabaseStatsDisplay(stats);
+        } catch (error) {
+            console.error('Failed to load database stats:', error);
+            // Don't show error notification here, just log it
+        }
+    }
+
+    function updateDatabaseStatsDisplay(stats) {
+        if (stats.connected) {
+            document.getElementById('db-total-alerts').textContent = stats.total_alerts || 0;
+            
+            // Format database size
+            const sizeBytes = stats.database_size_bytes || 0;
+            let sizeText = '-';
+            if (sizeBytes > 0) {
+                if (sizeBytes < 1024) {
+                    sizeText = `${sizeBytes} B`;
+                } else if (sizeBytes < 1024 * 1024) {
+                    sizeText = `${(sizeBytes / 1024).toFixed(2)} KB`;
+                } else {
+                    sizeText = `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
+                }
+            }
+            document.getElementById('db-size').textContent = sizeText;
+            document.getElementById('db-metrics').textContent = stats.metrics_count || 0;
+            document.getElementById('db-health-checks').textContent = stats.health_checks_count || 0;
+        } else {
+            document.getElementById('db-total-alerts').textContent = '-';
+            document.getElementById('db-size').textContent = '-';
+            document.getElementById('db-metrics').textContent = '-';
+            document.getElementById('db-health-checks').textContent = '-';
+        }
+    }
+
+    async function cleanupDatabase() {
+        const days = prompt('Enter number of days of data to keep (default: 30):', '30');
+        if (days === null) return; // User cancelled
+        
+        const daysNum = parseInt(days) || 30;
+        if (confirm(`Are you sure you want to cleanup data older than ${daysNum} days? This action cannot be undone.`)) {
+            try {
+                const result = await apiCall('/api/database/cleanup', {
+                    method: 'POST',
+                    body: JSON.stringify({ days: daysNum })
+                });
+                
+                if (result.success) {
+                    const stats = result.stats || {};
+                    const deleted = Object.values(stats).reduce((sum, val) => sum + (val || 0), 0);
+                    showNotification(`Database cleanup completed: ${deleted} records deleted`, 'success');
+                    loadDatabaseStats();
+                } else {
+                    showNotification('Database cleanup failed', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to cleanup database:', error);
+                showNotification('Failed to cleanup database', 'error');
+            }
+        }
+    }
+
+    async function backupDatabase() {
+        try {
+            showNotification('Creating database backup...', 'info');
+            const result = await apiCall('/api/database/backup', { method: 'POST' });
+            
+            if (result.success) {
+                showNotification(`Database backup completed: ${result.backup_path}`, 'success');
+            } else {
+                showNotification('Database backup failed', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to backup database:', error);
+            showNotification('Failed to backup database', 'error');
+        }
+    }
+
+    async function optimizeDatabase() {
+        if (confirm('Are you sure you want to optimize the database? This may take a few moments.')) {
+            try {
+                showNotification('Optimizing database...', 'info');
+                const result = await apiCall('/api/database/optimize', { method: 'POST' });
+                
+                if (result.success) {
+                    const stats = result.stats || {};
+                    let message = 'Database optimization completed successfully';
+                    if (stats.space_saved_bytes) {
+                        const savedMB = (stats.space_saved_bytes / (1024 * 1024)).toFixed(2);
+                        message += ` (saved ${savedMB} MB)`;
+                    }
+                    showNotification(message, 'success');
+                    loadDatabaseStats();
+                } else {
+                    showNotification('Database optimization failed', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to optimize database:', error);
+                showNotification('Failed to optimize database', 'error');
+            }
+        }
+    }
+
     // Update showTab function to load data for new tabs
     const originalShowTab = showTab;
     showTab = function(tabName) {
@@ -2633,6 +2790,8 @@
             loadSubscribers();
         } else if (tabName === 'templates') {
             loadTemplates();
+        } else if (tabName === 'database') {
+            loadDatabaseStats();
         }
     };
 

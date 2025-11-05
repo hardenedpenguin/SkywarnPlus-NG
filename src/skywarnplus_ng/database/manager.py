@@ -508,3 +508,48 @@ class DatabaseManager:
         except SQLAlchemyError as e:
             logger.error(f"Failed to get database stats: {e}")
             raise DatabaseError(f"Failed to get database stats: {e}") from e
+
+    async def backup_database(self, backup_path: Optional[Path] = None) -> Path:
+        """
+        Create a backup of the database.
+        
+        Args:
+            backup_path: Optional path for backup file (defaults to data_dir/backups/)
+            
+        Returns:
+            Path to the backup file
+        """
+        try:
+            import shutil
+            from datetime import datetime
+            
+            # Determine backup path
+            if not backup_path:
+                backup_dir = self.config.data_dir / "backups"
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                backup_path = backup_dir / f"skywarnplus_ng_backup_{timestamp}.db"
+            
+            # Get the database file path
+            if "sqlite" in str(self.engine.url):
+                # Extract file path from SQLite URL
+                db_url = str(self.engine.url)
+                # Handle both sqlite:/// and sqlite+aiosqlite:/// URLs
+                db_path = db_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+                db_file = Path(db_path)
+                
+                if not db_file.exists():
+                    raise DatabaseError(f"Database file not found: {db_file}")
+                
+                # Copy the database file
+                shutil.copy2(db_file, backup_path)
+                logger.info(f"Database backup created: {backup_path}")
+                
+                return backup_path
+            else:
+                # For non-SQLite databases, we'd need to use database-specific backup tools
+                raise DatabaseError(f"Backup not supported for database type: {self.engine.url.drivername}")
+                
+        except Exception as e:
+            logger.error(f"Failed to backup database: {e}")
+            raise DatabaseError(f"Failed to backup database: {e}") from e

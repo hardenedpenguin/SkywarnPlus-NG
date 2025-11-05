@@ -237,6 +237,7 @@ class WebDashboard:
         app.router.add_get('/api/database/stats', self.api_database_stats_handler)
         app.router.add_post('/api/database/cleanup', self.api_database_cleanup_handler)
         app.router.add_post('/api/database/optimize', self.api_database_optimize_handler)
+        app.router.add_post('/api/database/backup', self.api_database_backup_handler)
         
         # Configuration API
         app.router.add_get('/api/config', self.api_config_get_handler)
@@ -941,7 +942,7 @@ class WebDashboard:
                     "error": "Database not available",
                     "total_alerts": 0,
                     "active_alerts": 0,
-                    "database_size": 0
+                    "database_size_bytes": 0
                 }, status=503)
             
             stats = await self.app.database_manager.get_database_stats()
@@ -951,7 +952,7 @@ class WebDashboard:
                 "connected": True,
                 "total_alerts": stats.get("alerts_count", 0),
                 "active_alerts": stats.get("alerts_count", 0),  # For now, assume all alerts are active
-                "database_size": stats.get("database_size_bytes", 0),
+                "database_size_bytes": stats.get("database_size_bytes", 0),
                 "metrics_count": stats.get("metrics_count", 0),
                 "health_checks_count": stats.get("health_checks_count", 0),
                 "script_executions_count": stats.get("script_executions_count", 0),
@@ -966,7 +967,7 @@ class WebDashboard:
                 "error": str(e),
                 "total_alerts": 0,
                 "active_alerts": 0,
-                "database_size": 0
+                "database_size_bytes": 0
             }, status=500)
 
     async def api_database_cleanup_handler(self, request: Request) -> Response:
@@ -1009,6 +1010,22 @@ class WebDashboard:
             })
         except Exception as e:
             logger.error(f"Error optimizing database: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_database_backup_handler(self, request: Request) -> Response:
+        """Handle API database backup endpoint."""
+        try:
+            if not self.app.database_manager:
+                return web.json_response({"error": "Database not available"}, status=503)
+            
+            backup_path = await self.app.database_manager.backup_database()
+            return web.json_response({
+                "success": True,
+                "message": "Database backup completed successfully",
+                "backup_path": str(backup_path)
+            })
+        except Exception as e:
+            logger.error(f"Error backing up database: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     # Configuration API
