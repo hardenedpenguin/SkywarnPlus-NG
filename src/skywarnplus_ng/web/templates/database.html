@@ -64,43 +64,30 @@
     </div>
 
     <!-- Database Statistics -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="card">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Statistics</h2>
-            
-            <div id="stats-container">
-                <div class="text-center py-4">
-                    <div class="loading-spinner mx-auto mb-2"></div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading statistics...</p>
-                </div>
+    <div class="card">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Statistics</h2>
+        
+        <div id="stats-container">
+            <div class="text-center py-4">
+                <div class="loading-spinner mx-auto mb-2"></div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Loading statistics...</p>
             </div>
         </div>
-
-        <div class="card">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Database Operations</h2>
-            
-            <div class="space-y-4">
-                <button onclick="cleanupDatabase()" class="btn-secondary w-full">
-                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clip-rule="evenodd"></path>
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    Cleanup Old Data
-                </button>
-                
-                <button onclick="backupDatabase()" class="btn-secondary w-full">
-                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
-                    </svg>
-                    Backup Database
-                </button>
-                
-                <button onclick="optimizeDatabase()" class="btn-secondary w-full">
-                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.532 1.532 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
-                    </svg>
-                    Optimize Database
-                </button>
+    </div>
+    
+    <!-- Note about database operations -->
+    <div class="card mt-6">
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                </svg>
+                <div>
+                    <h3 class="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">Database Operations</h3>
+                    <p class="text-sm text-blue-700 dark:text-blue-300">
+                        Database operations (cleanup, backup, optimize) are now available on the <a href="{{ base_path|default('') }}/configuration" class="underline font-medium">Configuration</a> page.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -127,7 +114,7 @@
         document.getElementById('db-status-indicator').className = `status-indicator ${stats.connected ? 'status-healthy' : 'status-unhealthy'}`;
         document.getElementById('total-alerts').textContent = stats.total_alerts || 0;
         document.getElementById('active-alerts').textContent = stats.active_alerts || 0;
-        document.getElementById('db-size').textContent = formatBytes(stats.database_size || 0);
+        document.getElementById('db-size').textContent = formatBytes(stats.database_size_bytes || 0);
     }
 
     // Render statistics
@@ -154,7 +141,7 @@
                 </div>
                 <div class="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
                     <span class="text-sm font-medium text-gray-900 dark:text-white">Database Size</span>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">${formatBytes(stats.database_size || 0)}</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">${formatBytes(stats.database_size_bytes || 0)}</span>
                 </div>
                 <div class="flex justify-between items-center py-2">
                     <span class="text-sm font-medium text-gray-900 dark:text-white">Last Cleanup</span>
@@ -180,41 +167,6 @@
         if (!timestamp) return 'Never';
         const date = new Date(timestamp);
         return date.toLocaleString();
-    }
-
-    // Database operations
-    async function cleanupDatabase() {
-        if (confirm('Are you sure you want to cleanup old data? This action cannot be undone.')) {
-            try {
-                await apiCall('/api/database/cleanup', { method: 'POST' });
-                showNotification('Database cleanup completed', 'success');
-                loadDatabaseStats();
-            } catch (error) {
-                console.error('Failed to cleanup database:', error);
-                showNotification('Failed to cleanup database', 'error');
-            }
-        }
-    }
-
-    async function backupDatabase() {
-        try {
-            await apiCall('/api/database/backup', { method: 'POST' });
-            showNotification('Database backup completed', 'success');
-        } catch (error) {
-            console.error('Failed to backup database:', error);
-            showNotification('Failed to backup database', 'error');
-        }
-    }
-
-    async function optimizeDatabase() {
-        try {
-            await apiCall('/api/database/optimize', { method: 'POST' });
-            showNotification('Database optimization completed', 'success');
-            loadDatabaseStats();
-        } catch (error) {
-            console.error('Failed to optimize database:', error);
-            showNotification('Failed to optimize database', 'error');
-        }
     }
 
     // Initialize
