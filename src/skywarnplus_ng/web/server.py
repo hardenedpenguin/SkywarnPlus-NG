@@ -431,8 +431,18 @@ class WebDashboard:
                 }
                 alert_model = WeatherAlert(**minimal)
 
-            # Generate audio file
-            audio_path = self.app.audio_manager.generate_alert_audio(alert_model)
+            # Get county audio files if county names are enabled (same logic as _announce_alert)
+            county_audio_files = None
+            if self.app.config.alerts.with_county_names:
+                county_codes_list = getattr(alert_model, 'county_codes', []) or []
+                if county_codes_list:
+                    county_audio_files = self.app._get_county_audio_files(county_codes_list)
+
+            # Generate audio file with county audio if enabled
+            audio_path = self.app.audio_manager.generate_alert_audio(
+                alert_model,
+                county_audio_files=county_audio_files
+            )
             if not audio_path or not audio_path.exists():
                 return web.json_response({"error": "Failed to generate audio"}, status=500)
 
