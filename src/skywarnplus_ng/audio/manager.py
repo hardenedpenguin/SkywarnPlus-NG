@@ -684,8 +684,14 @@ class AudioManager:
             
             logger.info(f"Generating county audio for: {county_name} -> {filename}")
             
-            # Generate audio using TTS (says full county name)
-            audio_path = self.tts_engine.synthesize(county_name, output_path)
+            # Ensure "County" is included in TTS text (even if not in county_name)
+            # This ensures the audio says "Brazoria County" instead of just "Brazoria"
+            tts_text = county_name.strip()
+            if not tts_text.lower().endswith("county"):
+                tts_text = f"{tts_text} County"
+            
+            # Generate audio using TTS (says full county name with "County" suffix)
+            audio_path = self.tts_engine.synthesize(tts_text, output_path)
             
             # Validate generated audio
             if not self.tts_engine.validate_audio_file(audio_path):
