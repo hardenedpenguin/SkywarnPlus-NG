@@ -8,6 +8,8 @@ current weather conditions.
 
 import logging
 import fnmatch
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pydub import AudioSegment
@@ -104,10 +106,47 @@ class TailMessageManager:
                 return AudioSegment.from_wav(str(file_path))
             elif ext == '.mp3':
                 return AudioSegment.from_mp3(str(file_path))
-            elif ext == '.ulaw':
-                # For ulaw files, need to handle differently
-                # This is a simplified approach - may need adjustment
-                return AudioSegment.from_file(str(file_path), format="ulaw")
+            elif ext in ['.ulaw', '.ul']:
+                # For ulaw files, pydub doesn't support them directly
+                # Convert to WAV using ffmpeg first, then load
+                try:
+                    # Create temporary WAV file
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
+                        temp_wav_path = Path(temp_wav.name)
+                    
+                    # Convert ulaw to WAV using ffmpeg
+                    result = subprocess.run(
+                        [
+                            "ffmpeg", "-y",
+                            "-f", "mulaw",  # Input format: mulaw
+                            "-ar", "8000",  # Sample rate: 8kHz (standard for ulaw)
+                            "-ac", "1",     # Channels: mono
+                            "-i", str(file_path),
+                            str(temp_wav_path)
+                        ],
+                        check=True,
+                        capture_output=True,
+                        timeout=30,
+                        text=True
+                    )
+                    
+                    # Load the converted WAV file
+                    audio = AudioSegment.from_wav(str(temp_wav_path))
+                    
+                    # Clean up temporary file
+                    try:
+                        temp_wav_path.unlink()
+                    except Exception:
+                        pass
+                    
+                    return audio
+                except subprocess.CalledProcessError as e:
+                    error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
+                    logger.error(f"Failed to convert ulaw file {file_path} to WAV: {error_msg}")
+                    return None
+                except FileNotFoundError:
+                    logger.error("FFmpeg not found - cannot load ulaw files")
+                    return None
             else:
                 # Try to auto-detect
                 return AudioSegment.from_file(str(file_path))
