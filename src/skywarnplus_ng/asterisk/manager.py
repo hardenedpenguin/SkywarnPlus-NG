@@ -315,8 +315,13 @@ class AsteriskManager:
             logger.debug(f"Audio file extension: {file_extension}, playback path (no ext): {playback_path}")
             
             # Build the rpt playback command
-            # Format: rpt playback <node> <filename> (without extension)
-            command = f"rpt playback {node_number} {playback_path}"
+            # Format: rpt localplay <node> <filename> for local playback
+            # Format: rpt playback <node> <filename> for global playback
+            playback_mode = getattr(self.config, 'playback_mode', 'local').lower()
+            if playback_mode == "global":
+                command = f"rpt playback {node_number} {playback_path}"
+            else:
+                command = f"rpt localplay {node_number} {playback_path}"
             
             # Verify the actual file (with extension) is accessible (as asterisk user)
             # Try to stat the file to ensure asterisk user can read it
@@ -334,7 +339,7 @@ class AsteriskManager:
                 logger.debug(f"Could not verify file accessibility: {e}")
             
             # Log command for debugging
-            logger.debug(f"Playing audio on node {node_number}: {playback_path}")
+            logger.debug(f"Playing audio on node {node_number} (mode: {playback_mode}): {playback_path}")
             
             return_code, stdout, stderr = await self._run_asterisk_command(command)
             

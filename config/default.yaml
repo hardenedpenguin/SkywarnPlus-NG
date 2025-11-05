@@ -27,6 +27,7 @@ asterisk:
   enabled: true
   nodes: [546050]  # Add your node numbers here (example: 546050)
   audio_delay: 0  # Delay in milliseconds before playing audio
+  playback_mode: "local"  # Playback mode: "local" (default) or "global" for rpt playback
   ami_host: "127.0.0.1"  # Asterisk AMI host
   ami_port: 5038  # Asterisk AMI port
   ami_username: ""  # Asterisk AMI username

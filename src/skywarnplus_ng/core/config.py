@@ -61,6 +61,7 @@ class AsteriskConfig(BaseModel):
     enabled: bool = Field(True, description="Enable Asterisk integration")
     nodes: List[int] = Field(default_factory=list, description="Target node numbers")
     audio_delay: int = Field(0, description="Audio delay in milliseconds")
+    playback_mode: str = Field("local", description="Playback mode: 'local' (default) or 'global' for rpt playback")
     ami_host: str = Field("127.0.0.1", description="Asterisk AMI host")
     ami_port: int = Field(5038, description="Asterisk AMI port")
     ami_username: str = Field("", description="Asterisk AMI username")
