@@ -4,6 +4,7 @@ Core application logic for SkywarnPlus-NG.
 
 import asyncio
 import logging
+import re
 import signal
 import sys
 from datetime import datetime, timezone
@@ -975,33 +976,175 @@ class SkywarnPlusApplication:
         import fnmatch
         return fnmatch.fnmatch(text, pattern)
 
-    def _get_county_audio_files(self, county_codes: List[str]) -> List[str]:
+    def _get_county_audio_files(self, county_codes: List[str], area_desc: Optional[str] = None) -> List[str]:
         """
         Get county audio file names for given county codes.
+        Also tries to match by county name from area_desc if codes don't match.
 
         Args:
             county_codes: List of county codes
+            area_desc: Optional area description (e.g., "Onondaga; Madison") for name-based matching
 
         Returns:
             List of county audio file names (filtered to only those configured and enabled)
         """
         county_audio_files = []
         county_code_map = {county.code: county for county in self.config.counties}
+        # Create a map of county names (case-insensitive) for fallback matching
+        county_name_map = {}
+        for county in self.config.counties:
+            if county.name:
+                # Store both full name and name without "County" suffix
+                name_key = county.name.lower().strip()
+                county_name_map[name_key] = county
+                # Also store without "County" suffix
+                name_without_county = re.sub(r'\s+County\s*$', '', name_key, flags=re.IGNORECASE)
+                if name_without_county != name_key:
+                    county_name_map[name_without_county] = county
         
-        logger.debug(f"Getting county audio files for codes: {county_codes}")
+        logger.info(f"Getting county audio files for codes: {county_codes}, area_desc: {area_desc}")
+        
+        # Track which counties we've already added to avoid duplicates
+        added_counties = set()
+        
         for county_code in county_codes:
             if county_code in county_code_map:
                 county_config = county_code_map[county_code]
-                logger.debug(f"County {county_code}: enabled={county_config.enabled}, audio_file={county_config.audio_file}")
-                # Only include county audio if the county is enabled and has an audio file
-                if county_config.enabled and county_config.audio_file:
+                
+                if not county_config.enabled:
+                    logger.debug(f"County {county_code} is disabled, skipping")
+                    continue
+                
+                # Check if we've already added this county (by name)
+                if county_config.name and county_config.name.lower() in added_counties:
+                    logger.debug(f"County {county_code} ({county_config.name}) already added, skipping duplicate")
+                    continue
+                
+                # If audio_file is explicitly set, use it
+                if county_config.audio_file:
                     county_audio_files.append(county_config.audio_file)
-                    logger.debug(f"Added county audio file for {county_code}: {county_config.audio_file}")
+                    if county_config.name:
+                        added_counties.add(county_config.name.lower())
+                    logger.info(f"Using explicit audio file for {county_code}: {county_config.audio_file}")
+                elif county_config.name:
+                    # Auto-detect audio file based on county name
+                    found_file = self._find_county_audio_file(county_config.name)
+                    if found_file:
+                        county_audio_files.append(found_file)
+                        added_counties.add(county_config.name.lower())
+                        logger.info(f"Auto-detected county audio file for {county_code}: {found_file} (from county name: {county_config.name})")
+                    else:
+                        logger.debug(f"County audio file not found for {county_code} in {self.config.audio.sounds_path} (from county name: {county_config.name})")
+                else:
+                    logger.debug(f"County {county_code} has no audio_file and no name, skipping")
             else:
-                logger.debug(f"County code {county_code} not found in configuration")
+                logger.debug(f"County code {county_code} not found in configuration, will try name-based matching from area_desc")
         
-        logger.debug(f"Returning {len(county_audio_files)} county audio files: {county_audio_files}")
+        # If area_desc is provided and we didn't find all counties, try matching by name from area_desc
+        if area_desc and len(county_audio_files) < len(county_codes):
+            # Parse area_desc (typically "Onondaga; Madison" or "Onondaga County; Madison County")
+            area_names = [name.strip() for name in re.split(r'[;,]', area_desc)]
+            logger.info(f"Trying name-based matching from area_desc: {area_names}")
+            
+            for area_name in area_names:
+                if not area_name:
+                    continue
+                
+                # Try to find matching county by name (case-insensitive)
+                area_name_lower = area_name.lower().strip()
+                
+                # Check if we've already added this county
+                if area_name_lower in added_counties:
+                    continue
+                
+                # Try exact match first
+                matched_county = None
+                if area_name_lower in county_name_map:
+                    matched_county = county_name_map[area_name_lower]
+                else:
+                    # Try without "County" suffix
+                    area_name_no_county = re.sub(r'\s+County\s*$', '', area_name_lower, flags=re.IGNORECASE)
+                    if area_name_no_county in county_name_map:
+                        matched_county = county_name_map[area_name_no_county]
+                
+                if matched_county and matched_county.enabled:
+                    logger.info(f"Matched area name '{area_name}' to configured county '{matched_county.name}' (code: {matched_county.code})")
+                    
+                    # If audio_file is explicitly set, use it
+                    if matched_county.audio_file:
+                        county_audio_files.append(matched_county.audio_file)
+                        added_counties.add(area_name_lower)
+                        logger.info(f"Using explicit audio file for area '{area_name}': {matched_county.audio_file}")
+                    else:
+                        # Auto-detect audio file based on county name
+                        found_file = self._find_county_audio_file(matched_county.name)
+                        if found_file:
+                            county_audio_files.append(found_file)
+                            added_counties.add(area_name_lower)
+                            logger.info(f"Auto-detected county audio file for area '{area_name}': {found_file} (from county name: {matched_county.name})")
+                        else:
+                            # Also try using the area_name directly as-is
+                            found_file = self._find_county_audio_file(area_name)
+                            if found_file:
+                                county_audio_files.append(found_file)
+                                added_counties.add(area_name_lower)
+                                logger.info(f"Auto-detected county audio file for area '{area_name}': {found_file} (using area name directly)")
+        
+        logger.info(f"Returning {len(county_audio_files)} county audio files: {county_audio_files}")
         return county_audio_files
+    
+    def _find_county_audio_file(self, county_name: str) -> Optional[str]:
+        """
+        Find county audio file by trying multiple filename variations.
+        
+        Args:
+            county_name: County name (e.g., "Onondaga County" or "Onondaga")
+            
+        Returns:
+            Filename if found, None otherwise
+        """
+        ext = self.config.audio.tts.output_format
+        if ext == 'wav':
+            ext_suffix = ".wav"
+        elif ext == 'mp3':
+            ext_suffix = ".mp3"
+        else:
+            ext_suffix = f".{ext}"
+        
+        # Generate possible filename variations
+        possible_filenames = []
+        
+        # 1. Sanitized full name (e.g., "Onondaga_County.ulaw")
+        sanitized = re.sub(r'[^\w\s-]', '', county_name)  # Remove special chars
+        sanitized = re.sub(r'[-\s]+', '_', sanitized)  # Replace spaces/hyphens with underscore
+        sanitized = sanitized.strip('_')  # Remove leading/trailing underscores
+        possible_filenames.append(f"{sanitized}{ext_suffix}")
+        
+        # 2. Without "County" suffix (e.g., "Onondaga.ulaw")
+        # Remove "County" or "county" from the end, case-insensitive
+        name_without_county = re.sub(r'\s+County\s*$', '', county_name, flags=re.IGNORECASE)
+        if name_without_county != county_name:
+            sanitized_no_county = re.sub(r'[^\w\s-]', '', name_without_county)
+            sanitized_no_county = re.sub(r'[-\s]+', '_', sanitized_no_county)
+            sanitized_no_county = sanitized_no_county.strip('_')
+            if sanitized_no_county:
+                possible_filenames.append(f"{sanitized_no_county}{ext_suffix}")
+        
+        # 3. Original name without underscores (e.g., "OnondagaCounty.ulaw")
+        name_no_spaces = re.sub(r'[^\w-]', '', county_name)
+        name_no_spaces = re.sub(r'[-\s]+', '', name_no_spaces)
+        if name_no_spaces and name_no_spaces != sanitized:
+            possible_filenames.append(f"{name_no_spaces}{ext_suffix}")
+        
+        # Try each variation until we find a match
+        for filename in possible_filenames:
+            audio_path = self.config.audio.sounds_path / filename
+            if audio_path.exists():
+                logger.debug(f"Found county audio file: {filename} (tried: {possible_filenames})")
+                return filename
+        
+        logger.debug(f"County audio file not found: tried {possible_filenames} in {self.config.audio.sounds_path} (from county name: {county_name})")
+        return None
 
     def _has_multiple_instances(self, alert: WeatherAlert) -> bool:
         """
@@ -1081,8 +1224,8 @@ class SkywarnPlusApplication:
         logger.info(f"Checking county audio for alert {alert.id}: with_county_names={self.config.alerts.with_county_names}, county_codes={county_codes_list}, county_codes_length={len(county_codes_list)}")
         if self.config.alerts.with_county_names:
             if county_codes_list:
-                logger.info(f"Getting county audio files for alert {alert.id} with county codes: {county_codes_list}")
-                county_audio_files = self._get_county_audio_files(county_codes_list)
+                logger.info(f"Getting county audio files for alert {alert.id} with county codes: {county_codes_list}, area_desc: {alert.area_desc}")
+                county_audio_files = self._get_county_audio_files(county_codes_list, area_desc=alert.area_desc)
                 logger.info(f"Retrieved {len(county_audio_files) if county_audio_files else 0} county audio files: {county_audio_files}")
             else:
                 logger.warning(f"County names enabled but alert {alert.id} has no county codes")

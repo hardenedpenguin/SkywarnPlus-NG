@@ -435,8 +435,9 @@ class WebDashboard:
             county_audio_files = None
             if self.app.config.alerts.with_county_names:
                 county_codes_list = getattr(alert_model, 'county_codes', []) or []
+                area_desc = getattr(alert_model, 'area_desc', None)
                 if county_codes_list:
-                    county_audio_files = self.app._get_county_audio_files(county_codes_list)
+                    county_audio_files = self.app._get_county_audio_files(county_codes_list, area_desc=area_desc)
 
             # Generate audio file with county audio if enabled
             audio_path = self.app.audio_manager.generate_alert_audio(
