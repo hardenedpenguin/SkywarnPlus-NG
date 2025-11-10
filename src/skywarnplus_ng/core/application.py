@@ -1020,23 +1020,26 @@ class SkywarnPlusApplication:
                     logger.debug(f"County {county_code} ({county_config.name}) already added, skipping duplicate")
                     continue
                 
-                # If audio_file is explicitly set, use it
+                resolved_file = None
                 if county_config.audio_file:
-                    county_audio_files.append(county_config.audio_file)
-                    if county_config.name:
-                        added_counties.add(county_config.name.lower())
+                    resolved_file = county_config.audio_file
                     logger.info(f"Using explicit audio file for {county_code}: {county_config.audio_file}")
                 elif county_config.name:
-                    # Auto-detect audio file based on county name
-                    found_file = self._find_county_audio_file(county_config.name)
-                    if found_file:
-                        county_audio_files.append(found_file)
-                        added_counties.add(county_config.name.lower())
-                        logger.info(f"Auto-detected county audio file for {county_code}: {found_file} (from county name: {county_config.name})")
-                    else:
-                        logger.debug(f"County audio file not found for {county_code} in {self.config.audio.sounds_path} (from county name: {county_config.name})")
+                    # Auto-detect or generate audio file based on county name
+                    resolved_file = self._find_county_audio_file(county_config.name)
+                    if not resolved_file:
+                        resolved_file = self._generate_county_audio_if_missing(county_config.name)
+                        if resolved_file:
+                            logger.info(f"Generated county audio on demand for {county_config.name}: {resolved_file}")
                 else:
                     logger.debug(f"County {county_code} has no audio_file and no name, skipping")
+
+                if resolved_file:
+                    county_audio_files.append(resolved_file)
+                    if county_config.name:
+                        added_counties.add(county_config.name.lower().strip())
+                elif county_config.name:
+                    logger.debug(f"County audio file not found for {county_code} in {self.config.audio.sounds_path} (from county name: {county_config.name})")
             else:
                 logger.debug(f"County code {county_code} not found in configuration, will try name-based matching from area_desc")
         
@@ -1070,29 +1073,56 @@ class SkywarnPlusApplication:
                 if matched_county and matched_county.enabled:
                     logger.info(f"Matched area name '{area_name}' to configured county '{matched_county.name}' (code: {matched_county.code})")
                     
-                    # If audio_file is explicitly set, use it
+                    resolved_file = None
                     if matched_county.audio_file:
-                        county_audio_files.append(matched_county.audio_file)
-                        added_counties.add(area_name_lower)
+                        resolved_file = matched_county.audio_file
                         logger.info(f"Using explicit audio file for area '{area_name}': {matched_county.audio_file}")
                     else:
-                        # Auto-detect audio file based on county name
-                        found_file = self._find_county_audio_file(matched_county.name)
-                        if found_file:
-                            county_audio_files.append(found_file)
-                            added_counties.add(area_name_lower)
-                            logger.info(f"Auto-detected county audio file for area '{area_name}': {found_file} (from county name: {matched_county.name})")
-                        else:
-                            # Also try using the area_name directly as-is
-                            found_file = self._find_county_audio_file(area_name)
-                            if found_file:
-                                county_audio_files.append(found_file)
-                                added_counties.add(area_name_lower)
-                                logger.info(f"Auto-detected county audio file for area '{area_name}': {found_file} (using area name directly)")
+                        # Auto-detect audio file based on county or area name
+                        if matched_county.name:
+                            resolved_file = self._find_county_audio_file(matched_county.name)
+                        if not resolved_file:
+                            resolved_file = self._find_county_audio_file(area_name)
+                        if not resolved_file:
+                            preferred_name = matched_county.name or area_name
+                            resolved_file = self._generate_county_audio_if_missing(preferred_name)
+                            if resolved_file:
+                                logger.info(f"Generated county audio on demand for area '{area_name}': {resolved_file} (using name '{preferred_name}')")
+
+                    if resolved_file:
+                        county_audio_files.append(resolved_file)
+                        added_counties.add(area_name_lower)
+                        if matched_county.name:
+                            added_counties.add(matched_county.name.lower().strip())
+                    else:
+                        logger.debug(f"Could not resolve county audio for area '{area_name}' (matched county: {matched_county.name})")
         
         logger.info(f"Returning {len(county_audio_files)} county audio files: {county_audio_files}")
         return county_audio_files
     
+    def _generate_county_audio_if_missing(self, county_name: Optional[str]) -> Optional[str]:
+        """
+        Ensure a county audio file exists by generating it via the audio manager if necessary.
+
+        Args:
+            county_name: Display name for the county
+
+        Returns:
+            Filename of the generated or existing audio, or None if creation failed.
+        """
+        if not county_name:
+            return None
+
+        if not self.audio_manager:
+            logger.debug(f"Cannot generate audio for '{county_name}' because audio manager is unavailable")
+            return None
+
+        try:
+            return self.audio_manager.generate_county_audio(county_name)
+        except Exception as exc:
+            logger.error(f"Failed to generate county audio for '{county_name}': {exc}", exc_info=True)
+            return None
+
     def _find_county_audio_file(self, county_name: str) -> Optional[str]:
         """
         Find county audio file by trying multiple filename variations.
