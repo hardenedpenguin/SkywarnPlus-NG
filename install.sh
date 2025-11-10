@@ -36,8 +36,12 @@ sudo apt-get install -y \
     libffi-dev \
     libssl-dev \
     libasound2-dev \
+    libgomp1 \
+    libopenblas0 \
+    libsndfile1 \
     portaudio19-dev \
-    ffmpeg
+    ffmpeg \
+    sox
 
 echo "✓ System dependencies installed"
 
@@ -110,7 +114,7 @@ if [ -f "pyproject.toml" ]; then
     # Install dependencies using venv's pip (from /var/lib/skywarnplus-ng directory)
     echo "Installing packages..."
     sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install --upgrade pip"
-    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install -e '.[dev]'"
+    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install ."
     echo "✓ Python dependencies installed"
 else
     echo "⚠️  Warning: pyproject.toml not found. Skipping Python dependencies installation."
@@ -197,7 +201,7 @@ sudo tee /etc/logrotate.d/skywarnplus-ng > /dev/null <<EOF
     notifempty
     create 644 skywarnplus skywarnplus
     postrotate
-        systemctl reload skywarnplus-ng > /dev/null 2>&1 || true
+        systemctl kill -s HUP skywarnplus-ng > /dev/null 2>&1 || true
     endscript
 }
 EOF

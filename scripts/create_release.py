@@ -1,112 +1,117 @@
 #!/usr/bin/env python3
 """
-Create a release tarball for SkywarnPlus-NG
+Create a release tarball for SkywarnPlus-NG.
 
-This script creates a production-ready tarball with all necessary files
-for deployment on target systems.
+The script assembles a reproducible release directory from the repository
+contents and bundles it into a gzip-compressed tarball.
 """
 
-import os
+from __future__ import annotations
+
+import shutil
 import sys
 import tarfile
-import shutil
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - fallback for older interpreters
+    tomllib = None  # type: ignore[assignment]
 
 
-def create_release():
-    """Create a release tarball."""
-    # Get version from pyproject.toml
-    version = "3.0.0"  # Default version
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+REQUIRED_DIRS = ("src", "config")
+OPTIONAL_DIRS = ("SOUNDS", "scripts")
+BASE_FILES = ("pyproject.toml", "README.md", "CountyCodes.md", "install.sh")
+
+
+def _read_version(pyproject_path: Path) -> str:
+    if not pyproject_path.exists():
+        return "0.0.0"
+
+    if tomllib is None:
+        # Fallback: best effort by scanning the file to avoid an extra dependency
+        for line in pyproject_path.read_text().splitlines():
+            clean = line.strip()
+            if clean.startswith("version ="):
+                return clean.split("=", maxsplit=1)[1].strip().strip('"').strip("'")
+        return "0.0.0"
+
     try:
-        with open("pyproject.toml", "r") as f:
-            for line in f:
-                if line.strip().startswith("version ="):
-                    version = line.split("=")[1].strip().strip('"')
-                    break
-    except Exception as e:
-        print(f"Warning: Could not read version from pyproject.toml: {e}")
-    
+        data = tomllib.loads(pyproject_path.read_text())
+        return data.get("project", {}).get("version", "0.0.0")
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Warning: could not parse version from {pyproject_path}: {exc}")
+        return "0.0.0"
+
+
+def _copy_tree(source: Path, destination: Path) -> None:
+    if not source.exists():
+        return
+    shutil.copytree(source, destination)
+
+
+def _copy_files(files: tuple[str, ...], destination: Path) -> None:
+    for name in files:
+        src = PROJECT_ROOT / name
+        if src.exists():
+            shutil.copy2(src, destination / name)
+            print(f"  ✅ {name}")
+
+
+def _set_script_permissions(release_dir: Path) -> None:
+    for path in release_dir.rglob("*"):
+        if path.is_file() and path.suffix in {".py", ".sh"}:
+            path.chmod(0o755)
+
+
+def create_release() -> None:
+    version = _read_version(PROJECT_ROOT / "pyproject.toml")
     release_name = f"skywarnplus-ng-{version}"
-    tarball_name = f"{release_name}.tar.gz"
-    
+    release_dir = PROJECT_ROOT / release_name
+    tarball_path = PROJECT_ROOT / f"{release_name}.tar.gz"
+
     print(f"Creating release: {release_name}")
     print("=" * 50)
-    
-    # Remove existing release directory and tarball
-    if os.path.exists(release_name):
-        shutil.rmtree(release_name)
-    if os.path.exists(tarball_name):
-        os.remove(tarball_name)
-    
-    # Create release directory
+
+    shutil.rmtree(release_dir, ignore_errors=True)
+    tarball_path.unlink(missing_ok=True)
+
     print("Creating release directory...")
-    os.makedirs(release_name, exist_ok=True)
-    
-    # Copy source files
-    print("Copying source files...")
-    shutil.copytree("src", f"{release_name}/src")
-    shutil.copytree("config", f"{release_name}/config")
-    shutil.copytree("SOUNDS", f"{release_name}/SOUNDS")
-    
-    # Copy configuration and documentation files
-    files_to_copy = [
-        "pyproject.toml",
-        "README.md",
-        "SERVER_DEPLOYMENT.md",
-        "SKYDESCRIBE.md",
-        "NWS_CLIENT_README.md",
-        "install.sh"
-    ]
-    
-    for file in files_to_copy:
-        if os.path.exists(file):
-            shutil.copy2(file, f"{release_name}/{file}")
-            print(f"  ✅ {file}")
-        else:
-            print(f"  ⚠️  {file} (not found)")
-    
-    # Copy scripts directory
-    if os.path.exists("scripts"):
-        shutil.copytree("scripts", f"{release_name}/scripts")
-        print("  ✅ scripts/")
-    
-    # Make scripts executable
+    release_dir.mkdir(parents=True, exist_ok=True)
+
+    print("Copying source directories...")
+    for directory in REQUIRED_DIRS:
+        _copy_tree(PROJECT_ROOT / directory, release_dir / directory)
+
+    for directory in OPTIONAL_DIRS:
+        _copy_tree(PROJECT_ROOT / directory, release_dir / directory)
+
+    print("Copying metadata files...")
+    _copy_files(BASE_FILES, release_dir)
+
     print("Setting script permissions...")
-    for root, dirs, files in os.walk(release_name):
-        for file in files:
-            if file.endswith(('.sh', '.py')):
-                file_path = os.path.join(root, file)
-                os.chmod(file_path, 0o755)
-                print(f"  ✅ {file}")
-    
-    # Create tarball
-    print(f"Creating tarball: {tarball_name}")
-    with tarfile.open(tarball_name, "w:gz") as tar:
-        tar.add(release_name, arcname=release_name)
-    
-    # Clean up release directory
-    print("Cleaning up...")
-    shutil.rmtree(release_name)
-    
-    # Show results
+    _set_script_permissions(release_dir)
+
+    print(f"Creating tarball: {tarball_path.name}")
+    with tarfile.open(tarball_path, "w:gz") as tar:
+        tar.add(release_dir, arcname=release_name)
+
+    print("Cleaning up staging directory...")
+    shutil.rmtree(release_dir)
+
     print("\nRelease created successfully!")
     print("=" * 30)
-    print(f"Tarball: {tarball_name}")
-    print(f"Size: {os.path.getsize(tarball_name) / 1024 / 1024:.1f} MB")
+    size_mb = tarball_path.stat().st_size / 1024 / 1024
+    print(f"Tarball: {tarball_path.name}")
+    print(f"Size: {size_mb:.1f} MB")
     print(f"Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     print("To install on target system:")
-    print(f"  tar -xzf {tarball_name}")
+    print(f"  tar -xzf {tarball_path.name}")
     print(f"  cd {release_name}")
     print("  ./install.sh")
-    print()
-    print("The installation script will:")
-    print("  - Install system dependencies")
-    print("  - Create Python virtual environment")
-    print("  - Install SkywarnPlus-NG and dependencies")
-    print("  - Set up required directories")
-    print("  - Start the web dashboard on port 8100")
 
 
 if __name__ == "__main__":
@@ -115,6 +120,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nRelease creation cancelled by user")
         sys.exit(1)
-    except Exception as e:
-        print(f"\nError creating release: {e}")
+    except Exception as exc:
+        print(f"\nError creating release: {exc}")
         sys.exit(1)
