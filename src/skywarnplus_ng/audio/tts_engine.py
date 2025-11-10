@@ -249,17 +249,28 @@ class GTTSEngine:
             if audio_path.suffix.lower() in ['.ulaw', '.ul']:
                 # For ulaw, use ffprobe to get duration
                 import subprocess
+                probe_cmd = [
+                    "ffprobe",
+                    "-v", "error",
+                    "-f", "mulaw",
+                    "-ar", "8000",
+                    "-ac", "1",
+                    "-show_entries", "stream=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path),
+                ]
                 try:
                     result = subprocess.run(
-                        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                         "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
+                        probe_cmd,
                         capture_output=True,
                         text=True,
                         timeout=10,
-                        check=True
+                        check=True,
                     )
-                    duration = float(result.stdout.strip())
-                    return duration
+                    output = result.stdout.strip()
+                    if output:
+                        duration = float(output)
+                        return duration
                 except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
                     logger.warning(f"Failed to get ulaw duration with ffprobe: {e}, using file size estimate")
                     # Fallback: estimate from file size (ulaw is 8000 bytes/second at 8kHz)
