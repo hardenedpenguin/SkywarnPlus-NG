@@ -2,11 +2,16 @@
 Configuration management for SkywarnPlus-NG.
 """
 
+import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
+
+logger = logging.getLogger(__name__)
 
 
 class NWSApiConfig(BaseModel):
@@ -306,11 +311,64 @@ class AppConfig(BaseSettings):
         
         if not config_path.exists():
             # Return default config if file doesn't exist
-            return cls()
+            config = cls()
+            config._normalize_paths(Path.cwd())
+            return config
         
         yaml = YAML(typ='safe')
         with open(config_path, 'r') as f:
             yaml_data = yaml.load(f)
         
         # Create config from YAML data
-        return cls(**yaml_data)
+        config = cls(**yaml_data)
+        config._normalize_paths(config_path.parent)
+        return config
+
+    def _normalize_paths(self, base_dir: Path) -> None:
+        """
+        Resolve relative filesystem paths so services started from other working
+        directories (e.g., systemd) can still find bundled assets.
+        """
+        candidate_roots = []
+        env_home = os.environ.get("SKYWARNPLUS_NG_HOME")
+        if env_home:
+            candidate_roots.append(Path(env_home))
+        if base_dir:
+            candidate_roots.append(base_dir.resolve())
+            parent = base_dir.parent
+            if parent and parent != base_dir:
+                candidate_roots.append(parent.resolve())
+        if getattr(self, "data_dir", None):
+            candidate_roots.append(self.data_dir.resolve())
+            data_parent = self.data_dir.parent
+            if data_parent and data_parent != self.data_dir:
+                candidate_roots.append(data_parent.resolve())
+        candidate_roots.append(Path.cwd())
+
+        def _resolve(path_value: Path) -> Path:
+            if not path_value:
+                return path_value
+            if path_value.is_absolute():
+                return path_value
+            for root in candidate_roots:
+                candidate = (root / path_value).resolve()
+                if candidate.exists():
+                    return candidate
+            # Fall back to the first candidate even if it doesn't exist yet
+            return (candidate_roots[0] / path_value).resolve() if candidate_roots else path_value
+
+        try:
+            resolved_sounds = _resolve(self.audio.sounds_path)
+            if resolved_sounds != self.audio.sounds_path:
+                logger.debug(f"Resolved audio.sounds_path to {resolved_sounds}")
+                self.audio.sounds_path = resolved_sounds
+        except Exception as exc:
+            logger.warning(f"Failed to resolve sounds_path '{self.audio.sounds_path}': {exc}")
+
+        try:
+            resolved_temp = _resolve(self.audio.temp_dir)
+            if resolved_temp != self.audio.temp_dir:
+                logger.debug(f"Resolved audio.temp_dir to {resolved_temp}")
+                self.audio.temp_dir = resolved_temp
+        except Exception as exc:
+            logger.warning(f"Failed to resolve temp_dir '{self.audio.temp_dir}': {exc}")

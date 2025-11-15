@@ -274,7 +274,7 @@ class SkywarnPlusApplication:
         if self.config.dev.cleanslate:
             logger.info("DEV: Cleanslate mode enabled, clearing cached state")
             self.state_manager.clear_state()
-        
+
         # Load initial state
         self.state = self.state_manager.load_state()
         logger.info("Application initialized successfully")
@@ -774,7 +774,7 @@ class SkywarnPlusApplication:
                 if self._should_announce_alert(alert):
                     announcement_nodes = await self._announce_alert(alert)
                     if announcement_nodes:
-                        self.state_manager.mark_alert_announced(self.state, alert.id)
+                    self.state_manager.mark_alert_announced(self.state, alert.id)
                 
                 # Execute alert script
                 if self.script_manager:
@@ -1006,6 +1006,7 @@ class SkywarnPlusApplication:
         
         # Track which counties we've already added to avoid duplicates
         added_counties = set()
+        missing_codes = []
         
         for county_code in county_codes:
             if county_code in county_code_map:
@@ -1038,13 +1039,16 @@ class SkywarnPlusApplication:
                     county_audio_files.append(resolved_file)
                     if county_config.name:
                         added_counties.add(county_config.name.lower().strip())
-                elif county_config.name:
-                    logger.debug(f"County audio file not found for {county_code} in {self.config.audio.sounds_path} (from county name: {county_config.name})")
+                else:
+                    missing_codes.append(county_code)
+                    if county_config.name:
+                        logger.debug(f"County audio file not found for {county_code} in {self.config.audio.sounds_path} (from county name: {county_config.name})")
             else:
                 logger.debug(f"County code {county_code} not found in configuration, will try name-based matching from area_desc")
         
         # If area_desc is provided and we didn't find all counties, try matching by name from area_desc
-        if area_desc and len(county_audio_files) < len(county_codes):
+        should_use_area_desc = bool(area_desc and (not county_codes or len(county_audio_files) < len(county_codes)))
+        if should_use_area_desc:
             # Parse area_desc (typically "Onondaga; Madison" or "Onondaga County; Madison County")
             area_names = [name.strip() for name in re.split(r'[;,]', area_desc)]
             logger.info(f"Trying name-based matching from area_desc: {area_names}")
@@ -1096,6 +1100,15 @@ class SkywarnPlusApplication:
                             added_counties.add(matched_county.name.lower().strip())
                     else:
                         logger.debug(f"Could not resolve county audio for area '{area_name}' (matched county: {matched_county.name})")
+                else:
+                    logger.debug(f"No configured county matched area name '{area_name}'")
+        
+        if missing_codes:
+            logger.warning(
+                "Missing county audio files for configured codes: %s (sounds_path=%s)",
+                missing_codes,
+                self.config.audio.sounds_path,
+            )
         
         logger.info(f"Returning {len(county_audio_files)} county audio files: {county_audio_files}")
         return county_audio_files
@@ -1251,14 +1264,27 @@ class SkywarnPlusApplication:
         # Check county audio files first (before Asterisk checks) so we can see if they would be loaded
         county_audio_files = None
         county_codes_list = getattr(alert, 'county_codes', []) or []
-        logger.info(f"Checking county audio for alert {alert.id}: with_county_names={self.config.alerts.with_county_names}, county_codes={county_codes_list}, county_codes_length={len(county_codes_list)}")
+        logger.info(
+            "Checking county audio for alert %s: with_county_names=%s, county_codes=%s, county_codes_length=%s",
+            alert.id,
+            self.config.alerts.with_county_names,
+            county_codes_list,
+            len(county_codes_list),
+        )
         if self.config.alerts.with_county_names:
-            if county_codes_list:
-                logger.info(f"Getting county audio files for alert {alert.id} with county codes: {county_codes_list}, area_desc: {alert.area_desc}")
-                county_audio_files = self._get_county_audio_files(county_codes_list, area_desc=alert.area_desc)
-                logger.info(f"Retrieved {len(county_audio_files) if county_audio_files else 0} county audio files: {county_audio_files}")
-            else:
-                logger.warning(f"County names enabled but alert {alert.id} has no county codes")
+            logger.info(
+                "Resolving county audio files for alert %s (codes=%s, area_desc=%s)",
+                alert.id,
+                county_codes_list,
+                alert.area_desc,
+            )
+            county_audio_files = self._get_county_audio_files(county_codes_list, area_desc=alert.area_desc)
+            logger.info(
+                "Retrieved %s county audio files for alert %s: %s",
+                len(county_audio_files) if county_audio_files else 0,
+                alert.id,
+                county_audio_files,
+            )
         else:
             logger.info(f"County names disabled in configuration (with_county_names=False)")
         

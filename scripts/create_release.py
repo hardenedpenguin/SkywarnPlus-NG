@@ -71,13 +71,13 @@ def create_release() -> None:
     release_name = f"skywarnplus-ng-{version}"
     release_dir = PROJECT_ROOT / release_name
     tarball_path = PROJECT_ROOT / f"{release_name}.tar.gz"
-
+    
     print(f"Creating release: {release_name}")
     print("=" * 50)
-
+    
     shutil.rmtree(release_dir, ignore_errors=True)
     tarball_path.unlink(missing_ok=True)
-
+    
     print("Creating release directory...")
     release_dir.mkdir(parents=True, exist_ok=True)
 
@@ -97,10 +97,10 @@ def create_release() -> None:
     print(f"Creating tarball: {tarball_path.name}")
     with tarfile.open(tarball_path, "w:gz") as tar:
         tar.add(release_dir, arcname=release_name)
-
+    
     print("Cleaning up staging directory...")
     shutil.rmtree(release_dir)
-
+    
     print("\nRelease created successfully!")
     print("=" * 30)
     size_mb = tarball_path.stat().st_size / 1024 / 1024

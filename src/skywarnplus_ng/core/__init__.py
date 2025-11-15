@@ -8,7 +8,7 @@ from .state import ApplicationState
 
 __all__ = [
     "AppConfig",
-    "NWSApiConfig",
+    "NWSApiConfig", 
     "CountyConfig",
     "AsteriskConfig",
     "CourtesyToneConfig",
@@ -27,7 +27,7 @@ __all__ = [
     "DevConfig",
     "WeatherAlert",
     "AlertSeverity",
-    "AlertUrgency",
+    "AlertUrgency", 
     "AlertCertainty",
     "AlertStatus",
     "AlertCategory",

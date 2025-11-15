@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from ..core.config import AudioConfig
+from ..core.config import AudioConfig, TTSConfig
 from ..core.models import WeatherAlert
 from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
 from pydub import AudioSegment
@@ -36,6 +36,7 @@ class AudioManager:
         """
         self.config = config
         self.tts_engine = self._create_tts_engine(config.tts)
+        self._fallback_tts_engine: Optional[GTTSEngine] = None
         
         # Ensure directories exist
         self.config.sounds_path.mkdir(parents=True, exist_ok=True)
@@ -48,9 +49,26 @@ class AudioManager:
         except Exception as e:
             logger.warning(f"Failed to set permissions on temp directory: {e}")
         
-        # Validate TTS engine
+        # Validate TTS engine with fallback to gTTS if Piper fails
         if not self.tts_engine.is_available():
-            raise AudioManagerError("TTS engine is not available")
+            if config.tts.engine.lower() == "piper":
+                logger.warning("Piper TTS is not available or failed to initialize. Falling back to gTTS.")
+                # Create a gTTS config from the existing config
+                from ..core.config import TTSConfig
+                gtts_config = TTSConfig(
+                    engine="gtts",
+                    language=config.tts.language or "en",
+                    tld=config.tts.tld or "com",
+                    slow=config.tts.slow or False,
+                    output_format=config.tts.output_format,
+                    sample_rate=config.tts.sample_rate,
+                    bit_rate=config.tts.bit_rate
+                )
+                self.tts_engine = GTTSEngine(gtts_config)
+                if not self.tts_engine.is_available():
+                    raise AudioManagerError("TTS engine is not available (tried Piper and gTTS)")
+            else:
+                raise AudioManagerError("TTS engine is not available")
 
     @staticmethod
     def _create_tts_engine(tts_config):
@@ -71,9 +89,66 @@ class AudioManager:
         if engine_type == "gtts":
             return GTTSEngine(tts_config)
         elif engine_type == "piper":
-            return PiperTSEngine(tts_config)
+            try:
+                return PiperTSEngine(tts_config)
+            except Exception as e:
+                logger.error(f"Failed to initialize Piper TTS engine: {e}")
+                logger.error("Piper TTS initialization failed. This may be due to:")
+                logger.error("  - Missing or corrupted model file")
+                logger.error("  - Incompatible Piper library version")
+                logger.error("  - Resource constraints (memory/CPU)")
+                logger.error("  - Incorrect model path configuration")
+                # Don't raise here - let the fallback mechanism handle it
+                raise
         else:
             raise AudioManagerError(f"Unsupported TTS engine: {engine_type}. Supported engines: 'gtts', 'piper'")
+
+    def _get_fallback_tts_engine(self) -> Optional[GTTSEngine]:
+        """
+        Lazily create a gTTS fallback so we can still generate county audio if
+        Piper becomes unavailable mid-run.
+        """
+        if self._fallback_tts_engine:
+            return self._fallback_tts_engine
+
+        try:
+            fallback_config = TTSConfig(
+                engine="gtts",
+                language=self.config.tts.language or "en",
+                tld=self.config.tts.tld or "com",
+                slow=self.config.tts.slow or False,
+                output_format=self.config.tts.output_format,
+                sample_rate=self.config.tts.sample_rate,
+                bit_rate=self.config.tts.bit_rate,
+            )
+            self._fallback_tts_engine = GTTSEngine(fallback_config)
+            return self._fallback_tts_engine
+        except Exception as exc:
+            logger.error(f"Unable to initialize gTTS fallback engine: {exc}")
+            return None
+
+    def _synthesize_with_optional_fallback(
+        self,
+        text: str,
+        output_path: Path,
+        allow_fallback: bool = False,
+    ):
+        """
+        Synthesize audio, optionally retrying with gTTS if the primary Piper
+        engine fails. Returns a tuple of (engine_used, generated_path).
+        """
+        try:
+            audio_path = self.tts_engine.synthesize(text, output_path)
+            return self.tts_engine, audio_path
+        except TTSEngineError as primary_error:
+            if allow_fallback and self.config.tts.engine.lower() == "piper":
+                logger.warning(f"Piper TTS failed ({primary_error}); attempting gTTS fallback")
+                fallback_engine = self._get_fallback_tts_engine()
+                if fallback_engine:
+                    audio_path = fallback_engine.synthesize(text, output_path)
+                    return fallback_engine, audio_path
+                logger.error("gTTS fallback is unavailable; cannot synthesize audio")
+            raise
 
     def generate_alert_audio(
         self,
@@ -107,10 +182,14 @@ class AudioManager:
             output_path = self.config.temp_dir / filename
             
             # Synthesize audio
-            audio_path = self.tts_engine.synthesize(alert_text, output_path)
+            engine_used, audio_path = self._synthesize_with_optional_fallback(
+                alert_text,
+                output_path,
+                allow_fallback=False,
+            )
             
             # Validate generated audio
-            if not self.tts_engine.validate_audio_file(audio_path):
+            if not engine_used.validate_audio_file(audio_path):
                 logger.error(f"Generated audio file is invalid: {audio_path}")
                 return None
             
@@ -142,7 +221,7 @@ class AudioManager:
                     logger.debug(f"Using original audio without suffix: {audio_path}")
             
             # Get audio duration
-            duration = self.tts_engine.get_audio_duration(audio_path)
+            duration = engine_used.get_audio_duration(audio_path)
             
             # Ensure asterisk user can read the file (chmod 644)
             try:
@@ -209,10 +288,14 @@ class AudioManager:
             output_path = self.config.temp_dir / filename
             
             # Synthesize audio
-            audio_path = self.tts_engine.synthesize(all_clear_text, output_path)
+            engine_used, audio_path = self._synthesize_with_optional_fallback(
+                all_clear_text,
+                output_path,
+                allow_fallback=False,
+            )
             
             # Validate generated audio
-            if not self.tts_engine.validate_audio_file(audio_path):
+            if not engine_used.validate_audio_file(audio_path):
                 logger.error(f"Generated all-clear audio file is invalid: {audio_path}")
                 return None
             
@@ -228,7 +311,7 @@ class AudioManager:
                     audio_path = self.tts_engine.synthesize(all_clear_text, output_path)
             
             # Get audio duration
-            duration = self.tts_engine.get_audio_duration(audio_path)
+            duration = engine_used.get_audio_duration(audio_path)
             
             # Ensure asterisk user can read the file (chmod 644)
             try:
@@ -480,37 +563,48 @@ class AudioManager:
             main_audio = main_audio.set_frame_rate(8000).set_channels(1)
             
             combined = main_audio
-            added_counties = set()
+            appended_counties: List[str] = []
+            missing_files: List[str] = []
+            failed_loads: List[str] = []
             
-            for i, county_file in enumerate(county_audio_files):
+            for county_file in county_audio_files:
                 county_path = self.config.sounds_path / county_file
                 logger.info(f"Looking for county audio file: {county_path} (resolved from sounds_path: {self.config.sounds_path}, filename: {county_file})")
                 
                 if not county_path.exists():
                     logger.warning(f"County audio file not found: {county_path} (sounds_path: {self.config.sounds_path})")
+                    missing_files.append(county_file)
                     continue
                 
                 # Skip duplicates
-                if county_file in added_counties:
+                if county_file in appended_counties:
                     continue
-                added_counties.add(county_file)
                 
                 # Load county audio (handles ulaw conversion if needed)
                 logger.info(f"Loading county audio file: {county_path}")
                 county_audio = self._load_audio_file_for_append(county_path)
                 if not county_audio:
                     logger.warning(f"Failed to load county audio file: {county_path}")
+                    failed_loads.append(county_file)
                     continue
                 county_audio = county_audio.set_frame_rate(8000).set_channels(1)
                 logger.info(f"Successfully loaded county audio file: {county_file} (duration: {len(county_audio)/1000:.2f}s)")
                 
                 # Add spacing: 600ms before first county, 400ms before others
-                spacing = AudioSegment.silent(duration=600 if i == 0 else 400)
+                spacing = AudioSegment.silent(duration=600 if not appended_counties else 400)
                 combined = combined + spacing + county_audio
+                appended_counties.append(county_file)
+            
+            if missing_files:
+                logger.warning(f"Missing county audio files: {missing_files}")
+            if failed_loads:
+                logger.warning(f"Failed to load county audio files (conversion errors): {failed_loads}")
+            if not appended_counties:
+                logger.warning("No county audio could be appended; returning original alert audio")
+                return main_audio_path
             
             # Add final spacing after last county
-            if county_audio_files:
-                combined = combined + AudioSegment.silent(duration=600)
+            combined = combined + AudioSegment.silent(duration=600)
             
             # Create new filename for combined audio
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -540,7 +634,7 @@ class AudioManager:
                 logger.error(f"Combined audio file is empty after creation: {combined_path}")
                 return None
             
-            logger.info(f"Appended {len(added_counties)} county audio files to audio: {combined_path}")
+            logger.info(f"Appended {len(appended_counties)} county audio files to audio: {combined_path}")
             return combined_path
             
         except Exception as e:
@@ -714,15 +808,19 @@ class AudioManager:
                 tts_text = f"{tts_text} County"
             
             # Generate audio using TTS (says full county name with "County" suffix)
-            audio_path = self.tts_engine.synthesize(tts_text, output_path)
+            engine_used, audio_path = self._synthesize_with_optional_fallback(
+                tts_text,
+                output_path,
+                allow_fallback=True,
+            )
             
             # Validate generated audio
-            if not self.tts_engine.validate_audio_file(audio_path):
+            if not engine_used.validate_audio_file(audio_path):
                 logger.error(f"Generated county audio file is invalid: {audio_path}")
                 return None
             
             # Get audio duration
-            duration = self.tts_engine.get_audio_duration(audio_path)
+            duration = engine_used.get_audio_duration(audio_path)
             logger.info(f"Generated county audio: {filename} (duration: {duration:.1f}s)")
             
             return filename

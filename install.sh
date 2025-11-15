@@ -124,8 +124,8 @@ fi
 echo "Setting up configuration..."
 if [ -f "config/default.yaml" ]; then
     if [ ! -f "/etc/skywarnplus-ng/config.yaml" ]; then
-        sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
-        sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
+    sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
+    sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
         echo "✓ Configuration created at /etc/skywarnplus-ng/config.yaml"
     else
         # Preserve user config; provide example for reference

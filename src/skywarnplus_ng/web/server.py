@@ -1780,10 +1780,10 @@ class WebDashboard:
             raise TypeError(f"Type {type(obj)} not serializable")
         
         try:
-            message = json.dumps({
-                'type': update_type,
-                'data': data,
-                'timestamp': datetime.now(timezone.utc).isoformat()
+        message = json.dumps({
+            'type': update_type,
+            'data': data,
+            'timestamp': datetime.now(timezone.utc).isoformat()
             }, default=json_serializer)
         except (TypeError, ValueError) as e:
             logger.error(f"Failed to serialize WebSocket message: {e}")
