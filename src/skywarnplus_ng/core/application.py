@@ -774,7 +774,7 @@ class SkywarnPlusApplication:
                 if self._should_announce_alert(alert):
                     announcement_nodes = await self._announce_alert(alert)
                     if announcement_nodes:
-                    self.state_manager.mark_alert_announced(self.state, alert.id)
+                        self.state_manager.mark_alert_announced(self.state, alert.id)
                 
                 # Execute alert script
                 if self.script_manager:
