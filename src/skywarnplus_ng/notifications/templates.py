@@ -4,6 +4,9 @@ Notification templates and personalization system for SkywarnPlus-NG.
 
 import logging
 from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
@@ -143,15 +146,20 @@ class NotificationTemplate:
 class TemplateEngine:
     """Template engine for notification rendering."""
     
-    def __init__(self):
+    def __init__(self, storage_path: Optional[Path] = None):
         self.templates: Dict[str, NotificationTemplate] = {}
         self.logger = logging.getLogger(__name__)
+        self.storage_path = storage_path or Path(
+            os.environ.get("SKYWARNPLUS_NG_DATA", "/var/lib/skywarnplus-ng/data")
+        ) / "templates.json"
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         self._load_default_templates()
+        self._load_persisted_templates()
     
     def _load_default_templates(self) -> None:
         """Load default notification templates."""
         # Email templates
-        self.add_template(NotificationTemplate(
+        self.templates.setdefault("email_alert_default", NotificationTemplate(
             template_id="email_alert_default",
             name="Default Email Alert",
             description="Default email template for weather alerts",
@@ -241,7 +249,7 @@ class TemplateEngine:
         ))
         
         # Webhook templates
-        self.add_template(NotificationTemplate(
+        self.templates.setdefault("webhook_alert_default", NotificationTemplate(
             template_id="webhook_alert_default",
             name="Default Webhook Alert",
             description="Default webhook template for weather alerts",
@@ -296,7 +304,7 @@ class TemplateEngine:
         ))
         
         # Push notification templates
-        self.add_template(NotificationTemplate(
+        self.templates.setdefault("push_alert_default", NotificationTemplate(
             template_id="push_alert_default",
             name="Default Push Alert",
             description="Default push notification template for weather alerts",
@@ -306,9 +314,77 @@ class TemplateEngine:
             body_template="⚠️ {{event}} - {{area_desc}}\nSeverity: {{severity}}\nUrgency: {{urgency}}\nEffective: {{effective}}"
         ))
     
+    def _load_persisted_templates(self) -> None:
+        """Load templates from persistent storage."""
+        if not self.storage_path.exists():
+            return
+        
+        try:
+            with open(self.storage_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            for entry in data.get("templates", []):
+                try:
+                    template = NotificationTemplate(
+                        template_id=entry["template_id"],
+                        name=entry.get("name", ""),
+                        description=entry.get("description", ""),
+                        template_type=TemplateType(entry.get("template_type", "email")),
+                        format=TemplateFormat(entry.get("format", "text")),
+                        subject_template=entry.get("subject_template", ""),
+                        body_template=entry.get("body_template", ""),
+                        enabled=entry.get("enabled", True)
+                    )
+                    self.templates[template.template_id] = template
+                except Exception as exc:
+                    self.logger.warning(f"Skipping invalid template entry {entry.get('template_id')}: {exc}")
+        except Exception as exc:
+            self.logger.error(f"Failed to load templates from {self.storage_path}: {exc}")
+    
+    def _serialize_template(self, template: NotificationTemplate, include_content: bool = True) -> Dict[str, Any]:
+        data = {
+            "id": template.template_id,
+            "template_id": template.template_id,
+            "name": template.name,
+            "description": template.description,
+            "template_type": template.template_type.value,
+            "format": template.format.value,
+            "enabled": template.enabled,
+            "is_default": template.template_id.endswith("_default")
+        }
+        if include_content:
+            data["subject_template"] = template.subject_template
+            data["body_template"] = template.body_template
+        return data
+    
+    def _save_templates(self) -> None:
+        """Persist templates to disk."""
+        try:
+            payload = {
+                "templates": [
+                    {
+                        "template_id": template.template_id,
+                        "name": template.name,
+                        "description": template.description,
+                        "template_type": template.template_type.value,
+                        "format": template.format.value,
+                        "subject_template": template.subject_template,
+                        "body_template": template.body_template,
+                        "enabled": template.enabled
+                    }
+                    for template in self.templates.values()
+                ],
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
+            with open(self.storage_path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+        except Exception as exc:
+            self.logger.error(f"Failed to save templates to {self.storage_path}: {exc}")
+    
     def add_template(self, template: NotificationTemplate) -> None:
-        """Add a template."""
+        """Add or update a template."""
         self.templates[template.template_id] = template
+        self._save_templates()
         self.logger.debug(f"Added template: {template.template_id}")
     
     def get_template(self, template_id: str) -> Optional[NotificationTemplate]:
@@ -321,6 +397,36 @@ class TemplateEngine:
             template for template in self.templates.values()
             if template.template_type == template_type
         ]
+    
+    def get_available_templates(self) -> List[Dict[str, Any]]:
+        """Get summaries of all templates."""
+        return [
+            self._serialize_template(template, include_content=False)
+            for template in sorted(self.templates.values(), key=lambda tpl: tpl.name.lower())
+        ]
+    
+    def get_template_data(self, template_id: str) -> Optional[Dict[str, Any]]:
+        """Get detailed template information."""
+        template = self.get_template(template_id)
+        if not template:
+            return None
+        return self._serialize_template(template, include_content=True)
+    
+    def is_default_template(self, template_id: str) -> bool:
+        """Check if a template is one of the built-in defaults."""
+        return template_id.endswith("_default")
+    
+    def remove_template(self, template_id: str) -> bool:
+        """Remove a custom template."""
+        if template_id not in self.templates:
+            return False
+        
+        if self.is_default_template(template_id):
+            raise ValueError("Default templates cannot be deleted")
+        
+        del self.templates[template_id]
+        self._save_templates()
+        return True
     
     def render_alert_template(
         self, 

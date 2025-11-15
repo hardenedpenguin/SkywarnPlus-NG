@@ -34,6 +34,7 @@ from ..notifications.subscriber import (
     NotificationMethod,
     SubscriptionStatus,
 )
+from ..notifications.templates import TemplateEngine, TemplateType, TemplateFormat
 
 if TYPE_CHECKING:
     from ..core.application import SkywarnPlusApplication
@@ -143,6 +144,11 @@ class WebDashboard:
         """Create a subscriber manager scoped to the data directory."""
         data_dir = self._get_data_dir()
         return SubscriberManager(data_dir / "subscribers.json")
+
+    def _get_template_engine(self) -> TemplateEngine:
+        """Create a template engine scoped to the data directory."""
+        data_dir = self._get_data_dir()
+        return TemplateEngine(storage_path=data_dir / "templates.json")
 
     @staticmethod
     def _normalize_list(value) -> List[str]:
@@ -478,6 +484,7 @@ class WebDashboard:
         app.router.add_put('/api/notifications/subscribers/{subscriber_id}', self.api_notifications_update_subscriber_handler)
         app.router.add_delete('/api/notifications/subscribers/{subscriber_id}', self.api_notifications_delete_subscriber_handler)
         app.router.add_get('/api/notifications/templates', self.api_notifications_templates_handler)
+        app.router.add_get('/api/notifications/templates/{template_id}', self.api_notifications_template_detail_handler)
         app.router.add_post('/api/notifications/templates', self.api_notifications_add_template_handler)
         app.router.add_put('/api/notifications/templates/{template_id}', self.api_notifications_update_template_handler)
         app.router.add_delete('/api/notifications/templates/{template_id}', self.api_notifications_delete_template_handler)
@@ -1711,17 +1718,25 @@ class WebDashboard:
     async def api_notifications_templates_handler(self, request: Request) -> Response:
         """Handle templates list endpoint."""
         try:
-            # Import notification modules
-            from ..notifications.templates import TemplateEngine
-            
-            # Get templates
-            template_engine = TemplateEngine()
+            template_engine = self._get_template_engine()
             templates = template_engine.get_available_templates()
-            
             return web.json_response(templates)
             
         except Exception as e:
             logger.error(f"Error getting templates: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_template_detail_handler(self, request: Request) -> Response:
+        """Handle template detail endpoint."""
+        try:
+            template_id = request.match_info['template_id']
+            template_engine = self._get_template_engine()
+            template = template_engine.get_template_data(template_id)
+            if not template:
+                return web.json_response({"error": "Template not found"}, status=404)
+            return web.json_response(template)
+        except Exception as e:
+            logger.error(f"Error getting template {template_id}: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_notifications_add_template_handler(self, request: Request) -> Response:
@@ -1729,23 +1744,26 @@ class WebDashboard:
         try:
             data = await request.json()
             
-            # Import notification modules
-            from ..notifications.templates import TemplateEngine, NotificationTemplate, TemplateType, TemplateFormat
-            
-            # Create template
+            template_engine = self._get_template_engine()
+            template_type_value = (data.get('template_type') or 'email').lower()
+            format_value = (data.get('format') or 'text').lower()
+            try:
+                template_type = TemplateType(template_type_value)
+                template_format = TemplateFormat(format_value)
+            except ValueError:
+                return web.json_response({"error": "Invalid template type or format"}, status=400)
+
             template = NotificationTemplate(
                 template_id=data.get('template_id', str(uuid.uuid4())),
                 name=data.get('name', ''),
                 description=data.get('description', ''),
-                template_type=TemplateType(data.get('template_type', 'email')),
-                format=TemplateFormat(data.get('format', 'html')),
+                template_type=template_type,
+                format=template_format,
                 subject_template=data.get('subject_template', ''),
                 body_template=data.get('body_template', ''),
                 enabled=data.get('enabled', True)
             )
             
-            # Add template
-            template_engine = TemplateEngine()
             template_engine.add_template(template)
             
             return web.json_response({
@@ -1764,11 +1782,7 @@ class WebDashboard:
             template_id = request.match_info['template_id']
             data = await request.json()
             
-            # Import notification modules
-            from ..notifications.templates import TemplateEngine, NotificationTemplate, TemplateType, TemplateFormat
-            
-            # Get existing template
-            template_engine = TemplateEngine()
+            template_engine = self._get_template_engine()
             template = template_engine.get_template(template_id)
             
             if not template:
@@ -1780,9 +1794,15 @@ class WebDashboard:
             if 'description' in data:
                 template.description = data['description']
             if 'template_type' in data:
-                template.template_type = TemplateType(data['template_type'])
+                try:
+                    template.template_type = TemplateType((data['template_type'] or '').lower())
+                except ValueError:
+                    return web.json_response({"error": "Invalid template type"}, status=400)
             if 'format' in data:
-                template.format = TemplateFormat(data['format'])
+                try:
+                    template.format = TemplateFormat((data['format'] or '').lower())
+                except ValueError:
+                    return web.json_response({"error": "Invalid template format"}, status=400)
             if 'subject_template' in data:
                 template.subject_template = data['subject_template']
             if 'body_template' in data:
@@ -1807,18 +1827,15 @@ class WebDashboard:
         try:
             template_id = request.match_info['template_id']
             
-            # Import notification modules
-            from ..notifications.templates import TemplateEngine
-            
-            # Delete template
-            template_engine = TemplateEngine()
+            template_engine = self._get_template_engine()
             template = template_engine.get_template(template_id)
-            
             if not template:
                 return web.json_response({"error": "Template not found"}, status=404)
             
-            # Remove template (this would need to be implemented in TemplateEngine)
-            del template_engine.templates[template_id]
+            try:
+                template_engine.remove_template(template_id)
+            except ValueError as exc:
+                return web.json_response({"error": str(exc)}, status=400)
             
             return web.json_response({
                 "success": True,

@@ -1624,6 +1624,84 @@
         </div>
     </div>
 
+    <!-- Template Modal -->
+    <div id="template-modal" class="fixed inset-0 bg-gray-700 bg-opacity-60 hidden z-50 items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                <h3 id="template-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Add Template
+                </h3>
+                <button type="button" onclick="closeTemplateModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="template-form" class="px-6 py-6 space-y-6" onsubmit="saveTemplate(event)">
+                <input type="hidden" id="template_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Template Name</label>
+                        <input type="text" id="template_name" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Template Type</label>
+                        <select id="template_type" class="form-input">
+                            <option value="email">Email</option>
+                            <option value="webhook">Webhook</option>
+                            <option value="push">Push</option>
+                            <option value="sms">SMS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Format</label>
+                        <select id="template_format" class="form-input">
+                            <option value="text">Plain Text</option>
+                            <option value="html">HTML</option>
+                            <option value="markdown">Markdown</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Description</label>
+                        <input type="text" id="template_description" class="form-input" placeholder="Short description">
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="template_enabled" class="form-checkbox">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Disabled templates are kept for reference but not used for notifications.</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">Subject Template</label>
+                    <input type="text" id="template_subject" class="form-input" placeholder="Weather Alert: {{event}}">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Use {{variable}} placeholders such as {{event}}, {{area_desc}}, {{severity}}.</p>
+                </div>
+                
+                <div>
+                    <label class="form-label">Body Template</label>
+                    <textarea id="template_body" class="form-input font-mono text-sm" rows="12" placeholder="Template body goes here"></textarea>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">HTML and Markdown formats support rich content. JSON format should be valid JSON.</p>
+                </div>
+                
+                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-md p-4 text-sm text-blue-800 dark:text-blue-100">
+                    <p class="font-medium">Available Variables</p>
+                    <p class="mt-1 text-blue-700 dark:text-blue-200">Use {{event}}, {{area_desc}}, {{severity}}, {{urgency}}, {{certainty}}, {{effective}}, {{expires}}, {{description}}, {{instruction}}, and more. Unsupported variables will be left empty.</p>
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" class="btn-secondary" onclick="closeTemplateModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- County Search Modal (outside form to prevent submission) -->
     <div id="county-search-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
@@ -1695,8 +1773,22 @@
     const SUBSCRIBER_DEFAULT_URGENCIES = ['Future', 'Expected', 'Immediate'];
     const SUBSCRIBER_DEFAULT_CERTAINTIES = ['Possible', 'Likely', 'Observed'];
     const SUBSCRIBER_DEFAULT_METHODS = ['email'];
+    const TEMPLATE_TYPES = [
+        { value: 'email', label: 'Email (HTML/Text)' },
+        { value: 'webhook', label: 'Webhook (JSON payload)' },
+        { value: 'push', label: 'Push Notification' },
+        { value: 'sms', label: 'SMS/Text Message' }
+    ];
+    const TEMPLATE_FORMATS = [
+        { value: 'text', label: 'Plain Text' },
+        { value: 'html', label: 'HTML' },
+        { value: 'markdown', label: 'Markdown' },
+        { value: 'json', label: 'JSON' }
+    ];
     let subscribersCache = [];
+    let templatesCache = [];
     let editingSubscriberId = null;
+    let editingTemplateId = null;
 
     // Tab management
     function updateTTSEngineFields() {
@@ -3015,52 +3107,8 @@
     async function loadTemplates() {
         try {
             const templates = await apiCall('/api/notifications/templates');
-            const templatesGrid = document.getElementById('templates-grid');
-            templatesGrid.innerHTML = '';
-            
-            if (!templates || Object.keys(templates).length === 0) {
-                const emptyCard = document.createElement('div');
-                emptyCard.className = 'col-span-full bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center';
-                emptyCard.innerHTML = `
-                    <div class="text-gray-500 dark:text-gray-400">
-                        <svg class="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p class="text-sm">No notification templates configured.</p>
-                        <p class="text-xs mt-1">Notification system is not yet set up.</p>
-                    </div>
-                `;
-                templatesGrid.appendChild(emptyCard);
-                return;
-            }
-            
-            Object.entries(templates).forEach(([type, templateList]) => {
-                if (Array.isArray(templateList)) {
-                    templateList.forEach(template => {
-                        const templateCard = document.createElement('div');
-                        templateCard.className = 'bg-gray-50 dark:bg-gray-700 rounded-lg p-4';
-                        templateCard.innerHTML = `
-                            <div class="flex justify-between items-start mb-2">
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">${template.name || 'Unnamed Template'}</h4>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                    ${type}
-                                </span>
-                            </div>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">${template.description || 'No description'}</p>
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                    ${template.enabled ? 'Enabled' : 'Disabled'}
-                                </span>
-                                <div class="flex space-x-2">
-                                    <button onclick="editTemplate('${template.id}')" class="text-blue-600 hover:text-blue-900 text-xs">Edit</button>
-                                    <button onclick="deleteTemplate('${template.id}')" class="text-red-600 hover:text-red-900 text-xs">Delete</button>
-                                </div>
-                            </div>
-                        `;
-                        templatesGrid.appendChild(templateCard);
-                    });
-                }
-            });
+            templatesCache = Array.isArray(templates) ? templates : [];
+            renderTemplates();
         } catch (error) {
             console.error('Failed to load templates:', error);
             const templatesGrid = document.getElementById('templates-grid');
@@ -3070,28 +3118,190 @@
                         <svg class="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
-                        <p class="text-sm">Notification system not available.</p>
-                        <p class="text-xs mt-1">This feature is not yet implemented.</p>
+                        <p class="text-sm">Unable to load templates.</p>
+                        <p class="text-xs mt-1">${error.message || 'Unknown error'}</p>
                     </div>
                 </div>
             `;
         }
     }
 
+    function renderTemplates() {
+        const templatesGrid = document.getElementById('templates-grid');
+        templatesGrid.innerHTML = '';
+        
+        if (!templatesCache.length) {
+            const emptyCard = document.createElement('div');
+            emptyCard.className = 'col-span-full bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center';
+            emptyCard.innerHTML = `
+                <div class="text-gray-500 dark:text-gray-400">
+                    <svg class="mx-auto h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="text-sm">No notification templates configured.</p>
+                    <p class="text-xs mt-1">Click "Add Template" to create one.</p>
+                </div>
+            `;
+            templatesGrid.appendChild(emptyCard);
+            return;
+        }
+        
+        templatesCache.forEach(template => {
+            templatesGrid.appendChild(buildTemplateCard(template));
+        });
+    }
+    
+    function buildTemplateCard(template) {
+        const typeLabel = TEMPLATE_TYPES.find(t => t.value === template.template_type)?.label || template.template_type;
+        const formatLabel = TEMPLATE_FORMATS.find(f => f.value === template.format)?.label || template.format;
+        const statusBadge = template.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600';
+        const deleteClasses = template.is_default
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200';
+        const deleteDisabled = template.is_default ? 'disabled' : '';
+        const card = document.createElement('div');
+        card.className = 'bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600';
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-white">${template.name || 'Unnamed Template'}</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-300">${template.description || 'No description provided'}</p>
+                </div>
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                    ${typeLabel}
+                </span>
+            </div>
+            <p class="text-xs text-gray-600 dark:text-gray-300 mb-2">Format: ${formatLabel}${template.is_default ? ' • Default' : ''}</p>
+            <div class="flex justify-between items-center">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusBadge}">
+                    ${template.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <div class="flex space-x-3 text-sm">
+                    <button type="button" onclick="editTemplate('${template.id}')" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-200">Edit</button>
+                    <button type="button" onclick="deleteTemplate('${template.id}', ${template.is_default})" class="${deleteClasses}" ${deleteDisabled}>Delete</button>
+                </div>
+            </div>
+        `;
+        return card;
+    }
+    
     function addTemplate() {
-        // Open template creation modal
-        showNotification('Add template functionality coming soon', 'info');
+        editingTemplateId = null;
+        openTemplateModal();
+    }
+    
+    async function editTemplate(templateId) {
+        try {
+            const template = await apiCall(`/api/notifications/templates/${templateId}`);
+            editingTemplateId = templateId;
+            openTemplateModal(template);
+        } catch (error) {
+            console.error(`Failed to load template ${templateId}:`, error);
+            showNotification('Failed to load template', 'error');
+        }
+    }
+    
+    async function deleteTemplate(templateId, isDefault = false) {
+        if (isDefault) {
+            showNotification('Default templates cannot be deleted', 'warning');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to delete this template?')) {
+            return;
+        }
+        
+        try {
+            await apiCall(`/api/notifications/templates/${templateId}`, { method: 'DELETE' });
+            showNotification('Template deleted', 'success');
+            loadTemplates();
+        } catch (error) {
+            console.error('Failed to delete template:', error);
+            showNotification('Failed to delete template', 'error');
+        }
     }
 
-    function editTemplate(templateId) {
-        // Open template edit modal
-        showNotification(`Edit template ${templateId} functionality coming soon`, 'info');
+    function openTemplateModal(template = null) {
+        const modal = document.getElementById('template-modal');
+        const form = document.getElementById('template-form');
+        form.reset();
+        
+        document.getElementById('template_enabled').checked = true;
+        document.getElementById('template_type').value = 'email';
+        document.getElementById('template_format').value = 'text';
+        document.getElementById('template_subject').value = 'Weather Alert: {{event}}';
+        document.getElementById('template_body').value = '';
+        
+        if (template) {
+            populateTemplateForm(template);
+            document.getElementById('template-modal-title').textContent = template.is_default ? 'View Default Template' : 'Edit Template';
+            document.getElementById('template_type').disabled = template.is_default;
+        } else {
+            document.getElementById('template_id').value = '';
+            document.getElementById('template-modal-title').textContent = 'Add Template';
+            document.getElementById('template_type').disabled = false;
+        }
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     }
-
-    function deleteTemplate(templateId) {
-        if (confirm(`Are you sure you want to delete template ${templateId}?`)) {
-            // Delete template
-            showNotification(`Delete template ${templateId} functionality coming soon`, 'info');
+    
+    function closeTemplateModal() {
+        const modal = document.getElementById('template-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        editingTemplateId = null;
+        document.getElementById('template_type').disabled = false;
+    }
+    
+    function populateTemplateForm(template) {
+        document.getElementById('template_id').value = template.id || template.template_id || '';
+        document.getElementById('template_name').value = template.name || '';
+        document.getElementById('template_description').value = template.description || '';
+        document.getElementById('template_type').value = template.template_type || 'email';
+        document.getElementById('template_format').value = template.format || 'text';
+        document.getElementById('template_enabled').checked = template.enabled !== false;
+        document.getElementById('template_subject').value = template.subject_template || '';
+        document.getElementById('template_body').value = template.body_template || '';
+    }
+    
+    function collectTemplateForm() {
+        return {
+            template_id: document.getElementById('template_id').value || undefined,
+            name: document.getElementById('template_name').value.trim(),
+            description: document.getElementById('template_description').value.trim(),
+            template_type: document.getElementById('template_type').value,
+            format: document.getElementById('template_format').value,
+            enabled: document.getElementById('template_enabled').checked,
+            subject_template: document.getElementById('template_subject').value,
+            body_template: document.getElementById('template_body').value
+        };
+    }
+    
+    async function saveTemplate(event) {
+        event.preventDefault();
+        const payload = collectTemplateForm();
+        
+        if (!payload.name || !payload.subject_template || !payload.body_template) {
+            showNotification('Name, subject, and body are required', 'warning');
+            return;
+        }
+        
+        const isEdit = Boolean(editingTemplateId);
+        const url = isEdit ? `/api/notifications/templates/${editingTemplateId}` : '/api/notifications/templates';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        try {
+            await apiCall(url, {
+                method,
+                body: JSON.stringify(payload)
+            });
+            showNotification(isEdit ? 'Template updated' : 'Template created', 'success');
+            closeTemplateModal();
+            loadTemplates();
+        } catch (error) {
+            console.error('Failed to save template:', error);
+            showNotification('Failed to save template', 'error');
         }
     }
 
