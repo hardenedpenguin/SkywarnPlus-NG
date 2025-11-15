@@ -24,8 +24,16 @@ from websockets.exceptions import ConnectionClosed
 from typing import TYPE_CHECKING
 
 from ..core.config import AppConfig
+from ..core.models import AlertSeverity, AlertUrgency, AlertCertainty
 from ..database.manager import DatabaseManager
 from ..monitoring.health import HealthMonitor
+from ..notifications.subscriber import (
+    SubscriberManager,
+    Subscriber,
+    SubscriptionPreferences,
+    NotificationMethod,
+    SubscriptionStatus,
+)
 
 if TYPE_CHECKING:
     from ..core.application import SkywarnPlusApplication
@@ -41,6 +49,47 @@ class WebDashboardError(Exception):
 
 class WebDashboard:
     """Professional web dashboard for SkywarnPlus-NG."""
+
+    PREFERENCE_FIELDS = [
+        "counties",
+        "states",
+        "custom_areas",
+        "enabled_severities",
+        "enabled_urgencies",
+        "enabled_certainties",
+        "enabled_events",
+        "blocked_events",
+        "enabled_methods",
+        "immediate_delivery",
+        "batch_delivery",
+        "batch_interval_minutes",
+        "quiet_hours_start",
+        "quiet_hours_end",
+        "timezone",
+        "max_notifications_per_hour",
+        "max_notifications_per_day",
+    ]
+
+    DEFAULT_SEVERITIES = {
+        AlertSeverity.MINOR,
+        AlertSeverity.MODERATE,
+        AlertSeverity.SEVERE,
+        AlertSeverity.EXTREME,
+    }
+
+    DEFAULT_URGENCIES = {
+        AlertUrgency.FUTURE,
+        AlertUrgency.EXPECTED,
+        AlertUrgency.IMMEDIATE,
+    }
+
+    DEFAULT_CERTAINTIES = {
+        AlertCertainty.POSSIBLE,
+        AlertCertainty.LIKELY,
+        AlertCertainty.OBSERVED,
+    }
+
+    DEFAULT_METHODS = {NotificationMethod.EMAIL}
 
     def __init__(self, app_instance: "SkywarnPlusApplication", config: AppConfig):
         """
@@ -83,6 +132,179 @@ class WebDashboard:
         # Generate secret key if not provided
         if not self.config.monitoring.http_server.auth.secret_key:
             self.config.monitoring.http_server.auth.secret_key = secrets.token_hex(32)
+
+    def _get_data_dir(self) -> Path:
+        """Resolve and ensure the data directory exists."""
+        data_dir = Path(self.config.data_dir or "/var/lib/skywarnplus-ng/data")
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
+
+    def _get_subscriber_manager(self) -> SubscriberManager:
+        """Create a subscriber manager scoped to the data directory."""
+        data_dir = self._get_data_dir()
+        return SubscriberManager(data_dir / "subscribers.json")
+
+    @staticmethod
+    def _normalize_list(value) -> List[str]:
+        """Normalize incoming list-like data into a list of strings."""
+        if value is None:
+            return []
+
+        if isinstance(value, (list, tuple, set)):
+            iterable = value
+        elif isinstance(value, str):
+            text = value.replace(';', ',').replace('\n', ',')
+            iterable = [item.strip() for item in text.split(',')]
+        else:
+            iterable = [value]
+
+        result = []
+        for item in iterable:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                result.append(text)
+        return result
+
+    @staticmethod
+    def _normalize_bool(value, default: bool = False) -> bool:
+        """Normalize truthy inputs."""
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _to_int(value, default: int) -> int:
+        """Convert value to int with default fallback."""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _parse_enum_list(self, values, enum_cls, default_values) -> Set:
+        """Convert incoming iterable into a set of enum members."""
+        if values is None:
+            return set(default_values)
+
+        if not isinstance(values, (list, tuple, set)):
+            values = [values]
+
+        parsed = set()
+        for item in values:
+            if isinstance(item, enum_cls):
+                parsed.add(item)
+            else:
+                try:
+                    parsed.add(enum_cls(item))
+                except ValueError:
+                    logger.warning(f"Ignoring invalid {enum_cls.__name__} value: {item}")
+
+        return parsed or set(default_values)
+
+    def _build_preferences_state(
+        self, prefs: Optional[SubscriptionPreferences]
+    ) -> Dict[str, Any]:
+        """Create a mutable dict of the current preference state."""
+        if not prefs:
+            return {
+                "counties": [],
+                "states": [],
+                "custom_areas": [],
+                "enabled_severities": list(self.DEFAULT_SEVERITIES),
+                "enabled_urgencies": list(self.DEFAULT_URGENCIES),
+                "enabled_certainties": list(self.DEFAULT_CERTAINTIES),
+                "enabled_events": [],
+                "blocked_events": [],
+                "enabled_methods": list(self.DEFAULT_METHODS),
+                "immediate_delivery": True,
+                "batch_delivery": False,
+                "batch_interval_minutes": 15,
+                "quiet_hours_start": None,
+                "quiet_hours_end": None,
+                "timezone": "UTC",
+                "max_notifications_per_hour": 10,
+                "max_notifications_per_day": 50,
+            }
+
+        return {
+            "counties": list(prefs.counties or []),
+            "states": list(prefs.states or []),
+            "custom_areas": list(prefs.custom_areas or []),
+            "enabled_severities": list(prefs.enabled_severities or []),
+            "enabled_urgencies": list(prefs.enabled_urgencies or []),
+            "enabled_certainties": list(prefs.enabled_certainties or []),
+            "enabled_events": list(prefs.enabled_events or []),
+            "blocked_events": list(prefs.blocked_events or []),
+            "enabled_methods": list(prefs.enabled_methods or []),
+            "immediate_delivery": prefs.immediate_delivery,
+            "batch_delivery": prefs.batch_delivery,
+            "batch_interval_minutes": prefs.batch_interval_minutes,
+            "quiet_hours_start": prefs.quiet_hours_start,
+            "quiet_hours_end": prefs.quiet_hours_end,
+            "timezone": prefs.timezone,
+            "max_notifications_per_hour": prefs.max_notifications_per_hour,
+            "max_notifications_per_day": prefs.max_notifications_per_day,
+        }
+
+    def _parse_subscription_preferences(
+        self,
+        payload: Dict[str, Any],
+        existing: Optional[SubscriptionPreferences] = None
+    ) -> SubscriptionPreferences:
+        """Parse incoming payload into a SubscriptionPreferences object."""
+        prefs_payload = payload.get("preferences")
+        if prefs_payload is None:
+            prefs_payload = {
+                key: payload[key]
+                for key in self.PREFERENCE_FIELDS
+                if key in payload
+            }
+
+        state = self._build_preferences_state(existing)
+        for key, value in prefs_payload.items():
+            if key in self.PREFERENCE_FIELDS:
+                state[key] = value
+
+        return SubscriptionPreferences(
+            counties=self._normalize_list(state.get("counties")),
+            states=self._normalize_list(state.get("states")),
+            custom_areas=self._normalize_list(state.get("custom_areas")),
+            enabled_severities=self._parse_enum_list(
+                state.get("enabled_severities"), AlertSeverity, self.DEFAULT_SEVERITIES
+            ),
+            enabled_urgencies=self._parse_enum_list(
+                state.get("enabled_urgencies"), AlertUrgency, self.DEFAULT_URGENCIES
+            ),
+            enabled_certainties=self._parse_enum_list(
+                state.get("enabled_certainties"), AlertCertainty, self.DEFAULT_CERTAINTIES
+            ),
+            enabled_events=set(self._normalize_list(state.get("enabled_events"))),
+            blocked_events=set(self._normalize_list(state.get("blocked_events"))),
+            enabled_methods=self._parse_enum_list(
+                state.get("enabled_methods"), NotificationMethod, self.DEFAULT_METHODS
+            ),
+            immediate_delivery=self._normalize_bool(
+                state.get("immediate_delivery"), True
+            ),
+            batch_delivery=self._normalize_bool(
+                state.get("batch_delivery"), False
+            ),
+            batch_interval_minutes=self._to_int(
+                state.get("batch_interval_minutes"), 15
+            ),
+            quiet_hours_start=state.get("quiet_hours_start") or None,
+            quiet_hours_end=state.get("quiet_hours_end") or None,
+            timezone=state.get("timezone") or "UTC",
+            max_notifications_per_hour=self._to_int(
+                state.get("max_notifications_per_hour"), 10
+            ),
+            max_notifications_per_day=self._to_int(
+                state.get("max_notifications_per_day"), 50
+            ),
+        )
 
     def _hash_password(self, password: str) -> str:
         """Hash a password using SHA-256."""
@@ -1342,11 +1564,7 @@ class WebDashboard:
     async def api_notifications_subscribers_handler(self, request: Request) -> Response:
         """Handle subscribers list endpoint."""
         try:
-            # Import notification modules
-            from ..notifications.subscriber import SubscriberManager
-            
-            # Get subscribers (this would need to be integrated with the app)
-            subscriber_manager = SubscriberManager()
+            subscriber_manager = self._get_subscriber_manager()
             subscribers = subscriber_manager.get_all_subscribers()
             
             # Convert to dict format for JSON response
@@ -1362,35 +1580,36 @@ class WebDashboard:
         """Handle add subscriber endpoint."""
         try:
             data = await request.json()
-            
-            # Import notification modules
-            from ..notifications.subscriber import SubscriberManager, Subscriber, SubscriptionPreferences, NotificationMethod, SubscriptionStatus
-            
-            # Create subscriber
-            preferences = SubscriptionPreferences(
-                counties=data.get('counties', []),
-                states=data.get('states', []),
-                enabled_severities=set(data.get('enabled_severities', [])),
-                enabled_urgencies=set(data.get('enabled_urgencies', [])),
-                enabled_certainties=set(data.get('enabled_certainties', [])),
-                enabled_methods=set(data.get('enabled_methods', [NotificationMethod.EMAIL])),
-                max_notifications_per_hour=data.get('max_notifications_per_hour', 10),
-                max_notifications_per_day=data.get('max_notifications_per_day', 50)
-            )
-            
+            subscriber_id = data.get('subscriber_id') or str(uuid.uuid4())
+            name = (data.get('name') or '').strip()
+            email = (data.get('email') or '').strip()
+
+            if not name or not email:
+                return web.json_response(
+                    {"success": False, "error": "Name and email are required"},
+                    status=400,
+                )
+
+            try:
+                status = SubscriptionStatus(data.get('status', 'active'))
+            except ValueError:
+                status = SubscriptionStatus.ACTIVE
+
+            preferences = self._parse_subscription_preferences(data)
+
             subscriber = Subscriber(
-                subscriber_id=data.get('subscriber_id', str(uuid.uuid4())),
-                name=data.get('name', ''),
-                email=data.get('email', ''),
-                status=SubscriptionStatus(data.get('status', 'active')),
+                subscriber_id=subscriber_id,
+                name=name,
+                email=email,
+                status=status,
                 preferences=preferences,
                 phone=data.get('phone'),
                 webhook_url=data.get('webhook_url'),
-                push_tokens=data.get('push_tokens', [])
+                push_tokens=self._normalize_list(data.get('push_tokens')),
             )
             
             # Add subscriber
-            subscriber_manager = SubscriberManager()
+            subscriber_manager = self._get_subscriber_manager()
             success = subscriber_manager.add_subscriber(subscriber)
             
             if success:
@@ -1415,11 +1634,8 @@ class WebDashboard:
             subscriber_id = request.match_info['subscriber_id']
             data = await request.json()
             
-            # Import notification modules
-            from ..notifications.subscriber import SubscriberManager, Subscriber, SubscriptionPreferences, NotificationMethod, SubscriptionStatus
-            
             # Get existing subscriber
-            subscriber_manager = SubscriberManager()
+            subscriber_manager = self._get_subscriber_manager()
             subscriber = subscriber_manager.get_subscriber(subscriber_id)
             
             if not subscriber:
@@ -1427,29 +1643,28 @@ class WebDashboard:
             
             # Update subscriber data
             if 'name' in data:
-                subscriber.name = data['name']
+                subscriber.name = data['name'].strip()
             if 'email' in data:
-                subscriber.email = data['email']
+                subscriber.email = data['email'].strip()
             if 'status' in data:
-                subscriber.status = SubscriptionStatus(data['status'])
+                try:
+                    subscriber.status = SubscriptionStatus(data['status'])
+                except ValueError:
+                    pass
             if 'phone' in data:
                 subscriber.phone = data['phone']
             if 'webhook_url' in data:
                 subscriber.webhook_url = data['webhook_url']
             if 'push_tokens' in data:
-                subscriber.push_tokens = data['push_tokens']
+                subscriber.push_tokens = self._normalize_list(data.get('push_tokens'))
             
-            # Update preferences
-            if 'preferences' in data:
-                prefs_data = data['preferences']
-                subscriber.preferences.counties = prefs_data.get('counties', [])
-                subscriber.preferences.states = prefs_data.get('states', [])
-                subscriber.preferences.enabled_severities = set(prefs_data.get('enabled_severities', []))
-                subscriber.preferences.enabled_urgencies = set(prefs_data.get('enabled_urgencies', []))
-                subscriber.preferences.enabled_certainties = set(prefs_data.get('enabled_certainties', []))
-                subscriber.preferences.enabled_methods = set(prefs_data.get('enabled_methods', [NotificationMethod.EMAIL]))
-                subscriber.preferences.max_notifications_per_hour = prefs_data.get('max_notifications_per_hour', 10)
-                subscriber.preferences.max_notifications_per_day = prefs_data.get('max_notifications_per_day', 50)
+            # Update preferences if provided
+            preference_keys = set(data.keys()).intersection(self.PREFERENCE_FIELDS)
+            if 'preferences' in data or preference_keys:
+                subscriber.preferences = self._parse_subscription_preferences(
+                    data,
+                    existing=subscriber.preferences
+                )
             
             # Save updated subscriber
             success = subscriber_manager.update_subscriber(subscriber)
@@ -1474,11 +1689,8 @@ class WebDashboard:
         try:
             subscriber_id = request.match_info['subscriber_id']
             
-            # Import notification modules
-            from ..notifications.subscriber import SubscriberManager
-            
             # Delete subscriber
-            subscriber_manager = SubscriberManager()
+            subscriber_manager = self._get_subscriber_manager()
             success = subscriber_manager.remove_subscriber(subscriber_id)
             
             if success:
@@ -1620,17 +1832,10 @@ class WebDashboard:
     async def api_notifications_stats_handler(self, request: Request) -> Response:
         """Handle notification statistics endpoint."""
         try:
-            # Import notification modules
-            # Note: notification stats are currently mocked; no import needed
-            
-            # Get notification stats (this would need to be integrated with the app)
-            # For now, return mock data
+            subscriber_manager = self._get_subscriber_manager()
+            subscriber_stats = subscriber_manager.get_subscriber_stats()
             stats = {
-                "subscribers": {
-                    "total_subscribers": 0,
-                    "active_subscribers": 0,
-                    "inactive_subscribers": 0
-                },
+                "subscribers": subscriber_stats,
                 "notifiers": {
                     "email": 0,
                     "webhook": 0,

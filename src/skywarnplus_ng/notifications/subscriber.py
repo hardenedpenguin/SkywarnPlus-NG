@@ -4,6 +4,7 @@ Handles user subscriptions and notification preferences.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
@@ -357,7 +358,19 @@ class SubscriberManager:
     """Manages subscribers and their preferences."""
     
     def __init__(self, data_file: Optional[Path] = None):
-        self.data_file = data_file or Path("subscribers.json")
+        if data_file is None:
+            base_dir = Path(
+                os.environ.get("SKYWARNPLUS_NG_DATA", "/var/lib/skywarnplus-ng/data")
+            )
+            try:
+                base_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                logger.debug(f"Could not create data directory {base_dir}, using CWD")
+                base_dir = Path.cwd()
+            data_file = base_dir / "subscribers.json"
+
+        self.data_file = Path(data_file)
+        self.data_file.parent.mkdir(parents=True, exist_ok=True)
         self.subscribers: Dict[str, Subscriber] = {}
         self.logger = logging.getLogger(__name__)
         self._load_subscribers()

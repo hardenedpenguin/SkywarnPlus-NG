@@ -1418,6 +1418,189 @@
             </div>
         </div>
 
+        <!-- Subscriber Modal -->
+        <div id="subscriber-modal" class="fixed inset-0 bg-gray-700 bg-opacity-60 hidden z-50 items-center justify-center p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                    <h3 id="subscriber-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                        Add Subscriber
+                    </h3>
+                    <button type="button" onclick="closeSubscriberModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <form id="subscriber-form" class="px-6 py-6 space-y-6" onsubmit="saveSubscriber(event)">
+                    <input type="hidden" id="subscriber_id">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="form-label">Name</label>
+                            <input type="text" id="subscriber_name" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Email</label>
+                            <input type="email" id="subscriber_email" class="form-input" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Status</label>
+                            <select id="subscriber_status" class="form-input">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="unsubscribed">Unsubscribed</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Phone (optional)</label>
+                            <input type="tel" id="subscriber_phone" class="form-input" placeholder="+1-555-123-4567">
+                        </div>
+                        <div>
+                            <label class="form-label">Webhook URL</label>
+                            <input type="url" id="subscriber_webhook" class="form-input" placeholder="https://example.com/webhook">
+                        </div>
+                        <div>
+                            <label class="form-label">Push Tokens</label>
+                            <textarea id="subscriber_push_tokens" class="form-input" rows="2" placeholder="One token per line"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="form-label">Notification Methods</label>
+                        <div class="flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300">
+                            <label class="inline-flex items-center gap-2">
+                                <input type="checkbox" value="email" class="form-checkbox subscriber-method">
+                                Email
+                            </label>
+                            <label class="inline-flex items-center gap-2">
+                                <input type="checkbox" value="webhook" class="form-checkbox subscriber-method">
+                                Webhook
+                            </label>
+                            <label class="inline-flex items-center gap-2">
+                                <input type="checkbox" value="push" class="form-checkbox subscriber-method">
+                                Push
+                            </label>
+                            <label class="inline-flex items-center gap-2">
+                                <input type="checkbox" value="sms" class="form-checkbox subscriber-method">
+                                SMS (beta)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="form-label">Counties (comma separated)</label>
+                            <textarea id="subscriber_counties" class="form-input" rows="2" placeholder="TXC039, TXC201"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label">States (comma separated)</label>
+                            <textarea id="subscriber_states" class="form-input" rows="2" placeholder="TX, OK"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label">Custom Areas (comma separated)</label>
+                            <textarea id="subscriber_custom_areas" class="form-input" rows="2" placeholder="Houston, Galveston"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label">Enabled Events (comma separated)</label>
+                            <textarea id="subscriber_enabled_events" class="form-input" rows="2" placeholder="Tornado Warning, Severe Thunderstorm Warning"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label">Blocked Events (comma separated)</label>
+                            <textarea id="subscriber_blocked_events" class="form-input" rows="2" placeholder="*Advisory"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <p class="form-label mb-2">Severities</p>
+                            <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Minor" class="form-checkbox subscriber-severity"> Minor</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Moderate" class="form-checkbox subscriber-severity"> Moderate</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Severe" class="form-checkbox subscriber-severity"> Severe</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Extreme" class="form-checkbox subscriber-severity"> Extreme</label>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="form-label mb-2">Urgencies</p>
+                            <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Future" class="form-checkbox subscriber-urgency"> Future</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Expected" class="form-checkbox subscriber-urgency"> Expected</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Immediate" class="form-checkbox subscriber-urgency"> Immediate</label>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="form-label mb-2">Certainties</p>
+                            <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Possible" class="form-checkbox subscriber-certainty"> Possible</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Likely" class="form-checkbox subscriber-certainty"> Likely</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" value="Observed" class="form-checkbox subscriber-certainty"> Observed</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="form-label">Notification Limits</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Max per hour</span>
+                                    <input type="number" id="subscriber_max_hour" class="form-input" min="1" value="10">
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Max per day</span>
+                                    <input type="number" id="subscriber_max_day" class="form-input" min="1" value="50">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="form-label">Quiet Hours</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Start</span>
+                                    <input type="time" id="subscriber_quiet_start" class="form-input">
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">End</span>
+                                    <input type="time" id="subscriber_quiet_end" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" id="subscriber_immediate" class="form-checkbox">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Immediate Delivery</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Send alerts as soon as they are received</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" id="subscriber_batch" class="form-checkbox">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Delivery</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="subscriber_batch_interval" class="form-input" value="15" min="5">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">minutes</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="form-label">Timezone</label>
+                        <input type="text" id="subscriber_timezone" class="form-input" placeholder="UTC">
+                    </div>
+                    
+                    <div class="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <button type="button" class="btn-secondary" onclick="closeSubscriberModal()">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Subscriber</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Templates Tab -->
         <div id="tab-content-templates" class="tab-content hidden">
             <div class="space-y-6">
@@ -1507,6 +1690,12 @@
     let currentConfig = {};
     let currentTab = 'core';
     let allCounties = []; // Will hold all county data
+    const SUBSCRIBER_DEFAULT_SEVERITIES = ['Minor', 'Moderate', 'Severe', 'Extreme'];
+    const SUBSCRIBER_DEFAULT_URGENCIES = ['Future', 'Expected', 'Immediate'];
+    const SUBSCRIBER_DEFAULT_CERTAINTIES = ['Possible', 'Likely', 'Observed'];
+    const SUBSCRIBER_DEFAULT_METHODS = ['email'];
+    let subscribersCache = [];
+    let editingSubscriberId = null;
 
     // Tab management
     function updateTTSEngineFields() {
@@ -2575,48 +2764,23 @@
     async function loadSubscribers() {
         try {
             const subscribers = await apiCall('/api/notifications/subscribers');
+            subscribersCache = Array.isArray(subscribers) ? subscribers : [];
             const tableBody = document.getElementById('subscribers-table');
             tableBody.innerHTML = '';
             
-            if (!subscribers || subscribers.length === 0) {
+            if (subscribersCache.length === 0) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                        No subscribers configured. Notification system is not yet set up.
+                        No subscribers configured yet. Click "Add Subscriber" to get started.
                     </td>
                 `;
                 tableBody.appendChild(row);
                 return;
             }
             
-            subscribers.forEach(subscriber => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        ${subscriber.name}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        ${subscriber.email}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            subscriber.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }">
-                            ${subscriber.status}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        ${subscriber.preferences?.enabled_methods?.join(', ') || 'None'}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                        ${subscriber.preferences?.counties?.join(', ') || 'None'}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button type="button" onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                        <button type="button" onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                    </td>
-                `;
-                tableBody.appendChild(row);
+            subscribersCache.forEach(subscriber => {
+                tableBody.appendChild(buildSubscriberRow(subscriber));
             });
         } catch (error) {
             console.error('Failed to load subscribers:', error);
@@ -2624,27 +2788,226 @@
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                        Notification system not available. This feature is not yet implemented.
+                        Unable to load subscribers: ${error.message || 'Unknown error'}
                     </td>
                 </tr>
             `;
         }
     }
 
+    function buildSubscriberRow(subscriber) {
+        const row = document.createElement('tr');
+        const methods = formatSubscriberMethods(subscriber.preferences?.enabled_methods);
+        const counties = (subscriber.preferences?.counties || []).join(', ') || 'All';
+        const status = (subscriber.status || 'inactive').toLowerCase();
+        const badgeClasses = status === 'active'
+            ? 'bg-green-100 text-green-800'
+            : status === 'suspended'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-red-100 text-red-800';
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                ${subscriber.name}
+                <div class="text-xs text-gray-500 dark:text-gray-400">${subscriber.email}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClasses}">
+                    ${status}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                ${methods}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                ${counties}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button type="button" onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                <button type="button" onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button>
+            </td>
+        `;
+        return row;
+    }
+    
+    function formatSubscriberMethods(methods) {
+        if (!methods || methods.length === 0) {
+            return 'None';
+        }
+        return methods.map(method => {
+            const text = (method && method.value) ? method.value : method;
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        }).join(', ');
+    }
+    
     function addSubscriber() {
-        // Open subscriber modal or redirect to add page
-        showNotification('Add subscriber functionality coming soon', 'info');
+        editingSubscriberId = null;
+        openSubscriberModal();
     }
-
+    
     function editSubscriber(subscriberId) {
-        // Open subscriber edit modal
-        showNotification(`Edit subscriber ${subscriberId} functionality coming soon`, 'info');
+        const subscriber = subscribersCache.find(sub => sub.subscriber_id === subscriberId);
+        if (!subscriber) {
+            showNotification('Subscriber not found', 'error');
+            return;
+        }
+        editingSubscriberId = subscriberId;
+        openSubscriberModal(subscriber);
     }
+    
+    async function deleteSubscriber(subscriberId) {
+        if (!confirm('Are you sure you want to delete this subscriber?')) {
+            return;
+        }
+        try {
+            await apiCall(`/api/notifications/subscribers/${subscriberId}`, { method: 'DELETE' });
+            showNotification('Subscriber deleted', 'success');
+            loadSubscribers();
+        } catch (error) {
+            console.error('Failed to delete subscriber:', error);
+            showNotification('Failed to delete subscriber', 'error');
+        }
+    }
+    
+    function openSubscriberModal(subscriber = null) {
+        const modal = document.getElementById('subscriber-modal');
+        document.getElementById('subscriber-form').reset();
+        
+        setCheckboxGroup('.subscriber-method', subscriber?.preferences?.enabled_methods, SUBSCRIBER_DEFAULT_METHODS);
+        setCheckboxGroup('.subscriber-severity', subscriber?.preferences?.enabled_severities, SUBSCRIBER_DEFAULT_SEVERITIES);
+        setCheckboxGroup('.subscriber-urgency', subscriber?.preferences?.enabled_urgencies, SUBSCRIBER_DEFAULT_URGENCIES);
+        setCheckboxGroup('.subscriber-certainty', subscriber?.preferences?.enabled_certainties, SUBSCRIBER_DEFAULT_CERTAINTIES);
+        
+        if (subscriber) {
+            populateSubscriberForm(subscriber);
+            document.getElementById('subscriber-modal-title').textContent = 'Edit Subscriber';
+        } else {
+            document.getElementById('subscriber_id').value = '';
+            document.getElementById('subscriber_status').value = 'active';
+            document.getElementById('subscriber_immediate').checked = true;
+            document.getElementById('subscriber_batch').checked = false;
+            document.getElementById('subscriber_batch_interval').value = 15;
+            document.getElementById('subscriber_timezone').value = 'UTC';
+            document.getElementById('subscriber-modal-title').textContent = 'Add Subscriber';
+        }
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    function closeSubscriberModal() {
+        const modal = document.getElementById('subscriber-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        editingSubscriberId = null;
+    }
+    
+    function setCheckboxGroup(selector, values, fallbackValues = []) {
+        let normalized = [];
+        if (Array.isArray(values)) {
+            normalized = values.map(v => v.toString().toLowerCase());
+        } else if (values) {
+            normalized = [values.toString().toLowerCase()];
+        } else if (Array.isArray(fallbackValues)) {
+            normalized = fallbackValues.map(v => v.toString().toLowerCase());
+        }
 
-    function deleteSubscriber(subscriberId) {
-        if (confirm(`Are you sure you want to delete subscriber ${subscriberId}?`)) {
-            // Delete subscriber
-            showNotification(`Delete subscriber ${subscriberId} functionality coming soon`, 'info');
+        document.querySelectorAll(selector).forEach(cb => {
+            cb.checked = normalized.includes(cb.value.toLowerCase());
+        });
+    }
+    
+    function populateSubscriberForm(subscriber) {
+        document.getElementById('subscriber_id').value = subscriber.subscriber_id;
+        document.getElementById('subscriber_name').value = subscriber.name || '';
+        document.getElementById('subscriber_email').value = subscriber.email || '';
+        document.getElementById('subscriber_status').value = subscriber.status || 'active';
+        document.getElementById('subscriber_phone').value = subscriber.phone || '';
+        document.getElementById('subscriber_webhook').value = subscriber.webhook_url || '';
+        document.getElementById('subscriber_push_tokens').value = (subscriber.push_tokens || []).join('\n');
+        
+        const prefs = subscriber.preferences || {};
+        document.getElementById('subscriber_counties').value = (prefs.counties || []).join(', ');
+        document.getElementById('subscriber_states').value = (prefs.states || []).join(', ');
+        document.getElementById('subscriber_custom_areas').value = (prefs.custom_areas || []).join(', ');
+        document.getElementById('subscriber_enabled_events').value = (prefs.enabled_events || []).join(', ');
+        document.getElementById('subscriber_blocked_events').value = (prefs.blocked_events || []).join(', ');
+        document.getElementById('subscriber_immediate').checked = prefs.immediate_delivery !== false;
+        document.getElementById('subscriber_batch').checked = !!prefs.batch_delivery;
+        document.getElementById('subscriber_batch_interval').value = prefs.batch_interval_minutes || 15;
+        document.getElementById('subscriber_quiet_start').value = prefs.quiet_hours_start || '';
+        document.getElementById('subscriber_quiet_end').value = prefs.quiet_hours_end || '';
+        document.getElementById('subscriber_timezone').value = prefs.timezone || 'UTC';
+        document.getElementById('subscriber_max_hour').value = prefs.max_notifications_per_hour || 10;
+        document.getElementById('subscriber_max_day').value = prefs.max_notifications_per_day || 50;
+    }
+    
+    function getCheckedValues(selector) {
+        return Array.from(document.querySelectorAll(selector))
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+    }
+    
+    function parseCSVList(value) {
+        if (!value) return [];
+        return value
+            .split(/[,;\n]/)
+            .map(item => item.trim())
+            .filter(item => item.length > 0);
+    }
+    
+    function collectSubscriberForm() {
+        const payload = {
+            subscriber_id: document.getElementById('subscriber_id').value || undefined,
+            name: document.getElementById('subscriber_name').value.trim(),
+            email: document.getElementById('subscriber_email').value.trim(),
+            status: document.getElementById('subscriber_status').value,
+            phone: document.getElementById('subscriber_phone').value.trim() || null,
+            webhook_url: document.getElementById('subscriber_webhook').value.trim() || null,
+            push_tokens: parseCSVList(document.getElementById('subscriber_push_tokens').value),
+            preferences: {
+                counties: parseCSVList(document.getElementById('subscriber_counties').value),
+                states: parseCSVList(document.getElementById('subscriber_states').value),
+                custom_areas: parseCSVList(document.getElementById('subscriber_custom_areas').value),
+                enabled_events: parseCSVList(document.getElementById('subscriber_enabled_events').value),
+                blocked_events: parseCSVList(document.getElementById('subscriber_blocked_events').value),
+                enabled_methods: getCheckedValues('.subscriber-method'),
+                enabled_severities: getCheckedValues('.subscriber-severity'),
+                enabled_urgencies: getCheckedValues('.subscriber-urgency'),
+                enabled_certainties: getCheckedValues('.subscriber-certainty'),
+                immediate_delivery: document.getElementById('subscriber_immediate').checked,
+                batch_delivery: document.getElementById('subscriber_batch').checked,
+                batch_interval_minutes: Number(document.getElementById('subscriber_batch_interval').value) || 15,
+                quiet_hours_start: document.getElementById('subscriber_quiet_start').value || null,
+                quiet_hours_end: document.getElementById('subscriber_quiet_end').value || null,
+                timezone: document.getElementById('subscriber_timezone').value || 'UTC',
+                max_notifications_per_hour: Number(document.getElementById('subscriber_max_hour').value) || 10,
+                max_notifications_per_day: Number(document.getElementById('subscriber_max_day').value) || 50
+            }
+        };
+        return payload;
+    }
+    
+    async function saveSubscriber(event) {
+        event.preventDefault();
+        const payload = collectSubscriberForm();
+        const isEdit = Boolean(editingSubscriberId);
+        const url = isEdit
+            ? `/api/notifications/subscribers/${editingSubscriberId}`
+            : '/api/notifications/subscribers';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        try {
+            await apiCall(url, {
+                method,
+                body: JSON.stringify(payload)
+            });
+            showNotification(isEdit ? 'Subscriber updated' : 'Subscriber added', 'success');
+            closeSubscriberModal();
+            loadSubscribers();
+        } catch (error) {
+            console.error('Failed to save subscriber:', error);
+            showNotification('Failed to save subscriber', 'error');
         }
     }
 
