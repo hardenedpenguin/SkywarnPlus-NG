@@ -377,6 +377,28 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
         }
 
+        [data-theme="dark"] input,
+        [data-theme="dark"] select,
+        [data-theme="dark"] textarea {
+            background-color: #ffffff !important;
+            border: 2px solid #334155 !important;
+            color: #111827 !important;
+        }
+
+        [data-theme="dark"] input::placeholder,
+        [data-theme="dark"] select::placeholder,
+        [data-theme="dark"] textarea::placeholder {
+            color: #475569 !important;
+        }
+
+        [data-theme="dark"] input:focus,
+        [data-theme="dark"] select:focus,
+        [data-theme="dark"] textarea:focus {
+            border-color: #3b82f6 !important;
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+        }
+
         /* Button improvements */
         [data-theme="light"] .btn-primary {
             background-color: #1d4ed8 !important;
