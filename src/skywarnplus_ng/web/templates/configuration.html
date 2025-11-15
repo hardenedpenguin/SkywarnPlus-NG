@@ -1418,188 +1418,6 @@
             </div>
         </div>
 
-        <!-- Subscriber Modal -->
-        <div id="subscriber-modal" class="fixed inset-0 bg-gray-700 bg-opacity-60 hidden z-50 items-center justify-center p-4">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                    <h3 id="subscriber-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
-                        Add Subscriber
-                    </h3>
-                    <button type="button" onclick="closeSubscriberModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <form id="subscriber-form" class="px-6 py-6 space-y-6" onsubmit="saveSubscriber(event)">
-                    <input type="hidden" id="subscriber_id">
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="form-label">Name</label>
-                            <input type="text" id="subscriber_name" class="form-input" required>
-                        </div>
-                        <div>
-                            <label class="form-label">Email</label>
-                            <input type="email" id="subscriber_email" class="form-input" required>
-                        </div>
-                        <div>
-                            <label class="form-label">Status</label>
-                            <select id="subscriber_status" class="form-input">
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                                <option value="suspended">Suspended</option>
-                                <option value="unsubscribed">Unsubscribed</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">Phone (optional)</label>
-                            <input type="tel" id="subscriber_phone" class="form-input" placeholder="+1-555-123-4567">
-                        </div>
-                        <div>
-                            <label class="form-label">Webhook URL</label>
-                            <input type="url" id="subscriber_webhook" class="form-input" placeholder="https://example.com/webhook">
-                        </div>
-                        <div>
-                            <label class="form-label">Push Tokens</label>
-                            <textarea id="subscriber_push_tokens" class="form-input" rows="2" placeholder="One token per line"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="form-label">Notification Methods</label>
-                        <div class="flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300">
-                            <label class="inline-flex items-center gap-2">
-                                <input type="checkbox" value="email" class="form-checkbox subscriber-method">
-                                Email
-                            </label>
-                            <label class="inline-flex items-center gap-2">
-                                <input type="checkbox" value="webhook" class="form-checkbox subscriber-method">
-                                Webhook
-                            </label>
-                            <label class="inline-flex items-center gap-2">
-                                <input type="checkbox" value="push" class="form-checkbox subscriber-method">
-                                Push
-                            </label>
-                            <label class="inline-flex items-center gap-2">
-                                <input type="checkbox" value="sms" class="form-checkbox subscriber-method">
-                                SMS (beta)
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="form-label">Counties (comma separated)</label>
-                            <textarea id="subscriber_counties" class="form-input" rows="2" placeholder="TXC039, TXC201"></textarea>
-                        </div>
-                        <div>
-                            <label class="form-label">States (comma separated)</label>
-                            <textarea id="subscriber_states" class="form-input" rows="2" placeholder="TX, OK"></textarea>
-                        </div>
-                        <div>
-                            <label class="form-label">Custom Areas (comma separated)</label>
-                            <textarea id="subscriber_custom_areas" class="form-input" rows="2" placeholder="Houston, Galveston"></textarea>
-                        </div>
-                        <div>
-                            <label class="form-label">Enabled Events (comma separated)</label>
-                            <textarea id="subscriber_enabled_events" class="form-input" rows="2" placeholder="Tornado Warning, Severe Thunderstorm Warning"></textarea>
-                        </div>
-                        <div>
-                            <label class="form-label">Blocked Events (comma separated)</label>
-                            <textarea id="subscriber_blocked_events" class="form-input" rows="2" placeholder="*Advisory"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <p class="form-label mb-2">Severities</p>
-                            <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Minor" class="form-checkbox subscriber-severity"> Minor</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Moderate" class="form-checkbox subscriber-severity"> Moderate</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Severe" class="form-checkbox subscriber-severity"> Severe</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Extreme" class="form-checkbox subscriber-severity"> Extreme</label>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="form-label mb-2">Urgencies</p>
-                            <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Future" class="form-checkbox subscriber-urgency"> Future</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Expected" class="form-checkbox subscriber-urgency"> Expected</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Immediate" class="form-checkbox subscriber-urgency"> Immediate</label>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="form-label mb-2">Certainties</p>
-                            <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Possible" class="form-checkbox subscriber-certainty"> Possible</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Likely" class="form-checkbox subscriber-certainty"> Likely</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" value="Observed" class="form-checkbox subscriber-certainty"> Observed</label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <label class="form-label">Notification Limits</label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">Max per hour</span>
-                                    <input type="number" id="subscriber_max_hour" class="form-input" min="1" value="10">
-                                </div>
-                                <div>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">Max per day</span>
-                                    <input type="number" id="subscriber_max_day" class="form-input" min="1" value="50">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="form-label">Quiet Hours</label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">Start</span>
-                                    <input type="time" id="subscriber_quiet_start" class="form-input">
-                                </div>
-                                <div>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">End</span>
-                                    <input type="time" id="subscriber_quiet_end" class="form-input">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" id="subscriber_immediate" class="form-checkbox">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Immediate Delivery</label>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Send alerts as soon as they are received</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" id="subscriber_batch" class="form-checkbox">
-                            <div class="flex-1">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Delivery</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" id="subscriber_batch_interval" class="form-input" value="15" min="5">
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">minutes</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="form-label">Timezone</label>
-                        <input type="text" id="subscriber_timezone" class="form-input" placeholder="UTC">
-                    </div>
-                    
-                    <div class="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <button type="button" class="btn-secondary" onclick="closeSubscriberModal()">Cancel</button>
-                        <button type="submit" class="btn-primary">Save Subscriber</button>
-                    </div>
-                </form>
-            </div>
-        </div>
 
         <!-- Templates Tab -->
         <div id="tab-content-templates" class="tab-content hidden">
@@ -1622,6 +1440,189 @@
             </div>
         </div>
     </form>
+
+    <!-- Subscriber Modal -->
+    <div id="subscriber-modal" class="fixed inset-0 bg-gray-700 bg-opacity-60 hidden z-50 items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                <h3 id="subscriber-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Add Subscriber
+                </h3>
+                <button type="button" onclick="closeSubscriberModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="subscriber-form" class="px-6 py-6 space-y-6" onsubmit="saveSubscriber(event)">
+                <input type="hidden" id="subscriber_id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Name</label>
+                        <input type="text" id="subscriber_name" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Email</label>
+                        <input type="email" id="subscriber_email" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="form-label">Status</label>
+                        <select id="subscriber_status" class="form-input">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                            <option value="unsubscribed">Unsubscribed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Phone (optional)</label>
+                        <input type="tel" id="subscriber_phone" class="form-input" placeholder="+1-555-123-4567">
+                    </div>
+                    <div>
+                        <label class="form-label">Webhook URL</label>
+                        <input type="url" id="subscriber_webhook" class="form-input" placeholder="https://example.com/webhook">
+                    </div>
+                    <div>
+                        <label class="form-label">Push Tokens</label>
+                        <textarea id="subscriber_push_tokens" class="form-input" rows="2" placeholder="One token per line"></textarea>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">Notification Methods</label>
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="checkbox" value="email" class="form-checkbox subscriber-method">
+                            Email
+                        </label>
+                        <label class="inline-flex items-center gap-2">
+                            <input type="checkbox" value="webhook" class="form-checkbox subscriber-method">
+                            Webhook
+                        </label>
+                        <label class="inline-flex items-center gap-2">
+                            <input type="checkbox" value="push" class="form-checkbox subscriber-method">
+                            Push
+                        </label>
+                        <label class="inline-flex items-center gap-2">
+                            <input type="checkbox" value="sms" class="form-checkbox subscriber-method">
+                            SMS (beta)
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Counties (comma separated)</label>
+                        <textarea id="subscriber_counties" class="form-input" rows="2" placeholder="TXC039, TXC201"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label">States (comma separated)</label>
+                        <textarea id="subscriber_states" class="form-input" rows="2" placeholder="TX, OK"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label">Custom Areas (comma separated)</label>
+                        <textarea id="subscriber_custom_areas" class="form-input" rows="2" placeholder="Houston, Galveston"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label">Enabled Events (comma separated)</label>
+                        <textarea id="subscriber_enabled_events" class="form-input" rows="2" placeholder="Tornado Warning, Severe Thunderstorm Warning"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label">Blocked Events (comma separated)</label>
+                        <textarea id="subscriber_blocked_events" class="form-input" rows="2" placeholder="*Advisory"></textarea>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <p class="form-label mb-2">Severities</p>
+                        <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Minor" class="form-checkbox subscriber-severity"> Minor</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Moderate" class="form-checkbox subscriber-severity"> Moderate</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Severe" class="form-checkbox subscriber-severity"> Severe</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Extreme" class="form-checkbox subscriber-severity"> Extreme</label>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="form-label mb-2">Urgencies</p>
+                        <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Future" class="form-checkbox subscriber-urgency"> Future</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Expected" class="form-checkbox subscriber-urgency"> Expected</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Immediate" class="form-checkbox subscriber-urgency"> Immediate</label>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="form-label mb-2">Certainties</p>
+                        <div class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Possible" class="form-checkbox subscriber-certainty"> Possible</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Likely" class="form-checkbox subscriber-certainty"> Likely</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" value="Observed" class="form-checkbox subscriber-certainty"> Observed</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="form-label">Notification Limits</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Max per hour</span>
+                                <input type="number" id="subscriber_max_hour" class="form-input" min="1" value="10">
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Max per day</span>
+                                <input type="number" id="subscriber_max_day" class="form-input" min="1" value="50">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="form-label">Quiet Hours</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Start</span>
+                                <input type="time" id="subscriber_quiet_start" class="form-input">
+                            </div>
+                            <div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">End</span>
+                                <input type="time" id="subscriber_quiet_end" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="subscriber_immediate" class="form-checkbox">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Immediate Delivery</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Send alerts as soon as they are received</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="subscriber_batch" class="form-checkbox">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batch Delivery</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="subscriber_batch_interval" class="form-input" value="15" min="5">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">minutes</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="form-label">Timezone</label>
+                    <input type="text" id="subscriber_timezone" class="form-input" placeholder="UTC">
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" class="btn-secondary" onclick="closeSubscriberModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Subscriber</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- County Search Modal (outside form to prevent submission) -->
     <div id="county-search-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
