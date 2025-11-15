@@ -498,24 +498,6 @@ class TemplateEngine:
             "geocode": alert.geocode or []
         }
     
-    def get_available_templates(self) -> Dict[str, List[str]]:
-        """Get available templates by type."""
-        templates_by_type = {}
-        
-        for template_type in TemplateType:
-            templates = self.get_templates_by_type(template_type)
-            templates_by_type[template_type.value] = [
-                {
-                    "id": t.template_id,
-                    "name": t.name,
-                    "description": t.description,
-                    "enabled": t.enabled
-                }
-                for t in templates
-            ]
-        
-        return templates_by_type
-    
     def create_custom_template(
         self,
         template_id: str,
