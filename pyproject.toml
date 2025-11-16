@@ -35,7 +35,7 @@ dependencies = [
     "gtts>=2.4.0",
     "piper-tts>=1.0.0",
     "pydub>=0.25.1",
-    "audioop-lts>=0.2.0",
+    "audioop-lts>=0.2.0; python_version >= \"3.13\"",
     "sqlalchemy>=2.0.0",
     "alembic>=1.12.0",
     "aiohttp>=3.9.0",
