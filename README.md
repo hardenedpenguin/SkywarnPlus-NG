@@ -6,11 +6,11 @@ Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
 ```bash
 # Download the signed release tarball
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.0/skywarnplus-ng-1.0.0.tar.gz
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.1/skywarnplus-ng-1.0.1.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
-tar -xzf skywarnplus-ng-1.0.0.tar.gz
-cd skywarnplus-ng-1.0.0
+tar -xzf skywarnplus-ng-1.0.1.tar.gz
+cd skywarnplus-ng-1.0.1
 ./install.sh
 
 # Edit your configuration
@@ -40,22 +40,22 @@ All of the above are installed automatically when you run `install.sh` on a clea
 ## Installation Steps
 
 1. **Download & Verify**
-   ```bash
-   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.0/skywarnplus-ng-1.0.0.tar.gz
-   sha256sum skywarnplus-ng-1.0.0.tar.gz
+```bash
+   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.1/skywarnplus-ng-1.0.1.tar.gz
+   sha256sum skywarnplus-ng-1.0.1.tar.gz
    ```
    Compare the checksum against the value published on the release page.
 
 2. **Extract & Install**
-   ```bash
-   tar -xzf skywarnplus-ng-1.0.0.tar.gz
-   cd skywarnplus-ng-1.0.0
+```bash
+   tar -xzf skywarnplus-ng-1.0.1.tar.gz
+   cd skywarnplus-ng-1.0.1
    ./install.sh
    ```
    The installer creates the service account, virtualenv, systemd unit, logrotate config, and copies sounds/scripts.
 
 3. **Configure**
-   ```bash
+```bash
    sudo nano /etc/skywarnplus-ng/config.yaml
    ```
    - Add your county codes under `counties`.

@@ -38,7 +38,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Version</p>
-                    <p id="version" class="text-2xl font-bold text-gray-900 dark:text-white">1.0.0</p>
+                    <p id="version" class="text-2xl font-bold text-gray-900 dark:text-white">1.0.1</p>
                 </div>
                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -157,7 +157,7 @@
         document.getElementById('overall-status').textContent = health.overall_status;
         document.getElementById('overall-status-indicator').className = `status-indicator ${getStatusClasses(health.overall_status)}`;
         document.getElementById('uptime').textContent = formatUptime(health.uptime_seconds);
-        document.getElementById('version').textContent = health.version || '1.0.0';
+        document.getElementById('version').textContent = health.version || '1.0.1';
         document.getElementById('last-check').textContent = formatRelativeTime(health.timestamp);
     }
 
