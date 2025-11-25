@@ -959,6 +959,12 @@ class SkywarnPlusApplication:
         if not self.config.alerts.say_alert:
             return False
         
+        # Check if this alert was already announced (prevent duplicates)
+        last_sayalert = self.state.get('last_sayalert', [])
+        if alert.id in last_sayalert:
+            logger.debug(f"Alert {alert.id} ({alert.event}) already announced, skipping duplicate announcement")
+            return False
+        
         # Check if this event type is blocked from announcement
         for blocked_event in self.config.filtering.say_alert_blocked:
             if self._matches_pattern(alert.event, blocked_event):

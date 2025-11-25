@@ -584,15 +584,78 @@ class WebDashboard:
             active_alerts = self.app.state.get('active_alerts', [])
             alerts_data = []
             
+            # Build county code to name mapping for concise display
+            county_code_to_name = {}
+            if self.app and hasattr(self.app, 'config'):
+                county_code_to_name = {
+                    county.code: county.name 
+                    for county in self.app.config.counties 
+                    if county.enabled and county.name
+                }
+            
+            def format_event_with_counties(event: str, county_codes: list, area_desc: str = None) -> str:
+                """Format event name with concise county information."""
+                try:
+                    if not county_codes or not isinstance(county_codes, list):
+                        return event
+                    
+                    # Get county names, fallback to codes if name not found
+                    county_names = []
+                    for code in county_codes:
+                        if not code:
+                            continue
+                        if code in county_code_to_name and county_code_to_name[code]:
+                            # Remove " County" suffix for brevity
+                            name = str(county_code_to_name[code]).replace(' County', '').replace(' county', '')
+                            if name:
+                                county_names.append(name)
+                        else:
+                            # Fallback to code if name not found
+                            county_names.append(str(code))
+                    
+                    if not county_names:
+                        return event
+                    
+                    # Format based on count
+                    if len(county_names) == 1:
+                        return f"{event} ({county_names[0]})"
+                    elif len(county_names) == 2:
+                        return f"{event} ({', '.join(county_names)})"
+                    elif len(county_names) <= 4:
+                        # Show first 3 and count
+                        return f"{event} ({', '.join(county_names[:3])}, +{len(county_names) - 3} more)"
+                    else:
+                        # Just show count
+                        return f"{event} ({len(county_names)} counties)"
+                except Exception as e:
+                    # If formatting fails, just return the original event
+                    logger.warning(f"Error formatting event with counties: {e}")
+                    return event
+            
             for alert_id in active_alerts:
-                alert_data = self.app.state.get('last_alerts', {}).get(alert_id)
-                if alert_data:
-                    # Format alert for Supermon display
-                    alerts_data.append({
-                        'event': alert_data.get('event', 'Unknown'),
-                        'severity': alert_data.get('severity', 'Unknown'),
-                        'headline': alert_data.get('headline', alert_data.get('description', 'No headline'))[:100]  # Limit headline length
-                    })
+                try:
+                    alert_data = self.app.state.get('last_alerts', {}).get(alert_id)
+                    if alert_data:
+                        # Get county codes (filtered to monitored counties)
+                        county_codes = alert_data.get('county_codes', [])
+                        if not isinstance(county_codes, list):
+                            county_codes = []
+                        area_desc = alert_data.get('area_desc', '')
+                        
+                        # Format event with county information
+                        event = alert_data.get('event', 'Unknown')
+                        formatted_event = format_event_with_counties(event, county_codes, area_desc)
+                        
+                        # Format alert for Supermon display
+                        alerts_data.append({
+                            'event': formatted_event,
+                            'severity': alert_data.get('severity', 'Unknown'),
+                            'headline': alert_data.get('headline', alert_data.get('description', 'No headline'))[:100]  # Limit headline length
+                        })
+                except Exception as e:
+                    logger.warning(f"Error processing alert {alert_id} for status: {e}")
+                    # Continue with other alerts even if one fails
+                    continue
             
             # Add Supermon-compatible fields
             status['has_alerts'] = len(alerts_data) > 0
