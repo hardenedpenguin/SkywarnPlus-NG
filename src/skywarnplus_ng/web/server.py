@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import secrets
 import hashlib
 from datetime import datetime, timezone, timedelta
@@ -609,10 +610,71 @@ class WebDashboard:
             active_alerts = self.app.state.get('active_alerts', [])
             alerts_data = []
             
+            # Get monitored county codes for filtering
+            monitored_county_codes = set()
+            if self.app and hasattr(self.app, 'config'):
+                monitored_county_codes = {county.code for county in self.app.config.counties if county.enabled}
+            
             for alert_id in active_alerts:
                 alert_data = self.app.state.get('last_alerts', {}).get(alert_id)
                 if alert_data:
-                    alerts_data.append(alert_data)
+                    # Filter county codes to only monitored counties
+                    if monitored_county_codes and 'county_codes' in alert_data:
+                        original_codes = alert_data.get('county_codes', [])
+                        filtered_codes = [code for code in original_codes if code in monitored_county_codes]
+                        if filtered_codes:
+                            # Create filtered alert data
+                            filtered_alert = alert_data.copy()
+                            filtered_alert['county_codes'] = filtered_codes
+                            
+                            # Filter area_desc if possible
+                            if 'area_desc' in filtered_alert and filtered_alert['area_desc']:
+                                area_desc = filtered_alert['area_desc']
+                                # Try to match county names from area_desc
+                                county_code_to_name = {county.code: county.name for county in self.app.config.counties if county.enabled and county.name}
+                                area_parts = [part.strip() for part in re.split(r'[;,]', area_desc)]
+                                filtered_parts = []
+                                
+                                for part in area_parts:
+                                    if not part:
+                                        continue
+                                    part_lower = part.lower().strip()
+                                    matched = False
+                                    
+                                    # Check by county name
+                                    for code, name in county_code_to_name.items():
+                                        if name:
+                                            name_lower = name.lower().strip()
+                                            if (part_lower == name_lower or 
+                                                part_lower == name_lower.replace(' county', '') or
+                                                part_lower == name_lower.replace(' county', '').replace(' ', '')):
+                                                filtered_parts.append(part)
+                                                matched = True
+                                                break
+                                    
+                                    # Check by county code
+                                    if not matched:
+                                        for code in monitored_county_codes:
+                                            if code.lower() in part_lower:
+                                                filtered_parts.append(part)
+                                                matched = True
+                                                break
+                                
+                                if filtered_parts:
+                                    filtered_alert['area_desc'] = '; '.join(filtered_parts)
+                                elif len(filtered_codes) < len(original_codes):
+                                    # Build area_desc from county names
+                                    county_names = []
+                                    for code in filtered_codes:
+                                        if code in county_code_to_name:
+                                            county_names.append(county_code_to_name[code])
+                                    if county_names:
+                                        filtered_alert['area_desc'] = '; '.join(county_names)
+                            
+                            alerts_data.append(filtered_alert)
+                        # If no monitored counties, skip this alert
+                    else:
+                        alerts_data.append(alert_data)
             
             return web.json_response({
                 "alerts": alerts_data,
@@ -1603,7 +1665,7 @@ class WebDashboard:
                 status = SubscriptionStatus.ACTIVE
 
             preferences = self._parse_subscription_preferences(data)
-
+            
             subscriber = Subscriber(
                 subscriber_id=subscriber_id,
                 name=name,

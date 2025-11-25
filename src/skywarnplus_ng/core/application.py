@@ -706,6 +706,12 @@ class SkywarnPlusApplication:
         else:
             processed_alerts = current_alerts
         
+        # Filter alert county codes to only include monitored counties
+        # This ensures alerts only show counties that are actually being monitored
+        monitored_county_codes = {county.code for county in self.config.counties if county.enabled}
+        if monitored_county_codes:
+            processed_alerts = [self._filter_alert_counties(alert, monitored_county_codes) for alert in processed_alerts]
+        
         # Get new and expired alerts
         new_alerts = self.state_manager.get_new_alerts(self.state, processed_alerts)
         expired_alerts = self.state_manager.get_expired_alerts(self.state, processed_alerts)
@@ -975,6 +981,86 @@ class SkywarnPlusApplication:
         """
         import fnmatch
         return fnmatch.fnmatch(text, pattern)
+
+    def _filter_alert_counties(self, alert: WeatherAlert, monitored_county_codes: Set[str]) -> WeatherAlert:
+        """
+        Filter alert to only include monitored counties.
+        
+        This ensures that alerts only show counties that are actually being monitored,
+        even if the NWS API returns alerts covering additional counties.
+        
+        Args:
+            alert: Alert to filter
+            monitored_county_codes: Set of monitored county codes
+            
+        Returns:
+            New alert instance with filtered county codes and area_desc
+        """
+        # Filter county codes to only monitored ones
+        filtered_county_codes = [code for code in alert.county_codes if code in monitored_county_codes]
+        
+        # If no monitored counties match, return original alert (shouldn't happen if filter worked)
+        if not filtered_county_codes:
+            logger.warning(f"Alert {alert.id} has no monitored counties after filtering, keeping original")
+            return alert
+        
+        # Filter area_desc to only show monitored counties
+        # Parse area_desc (typically "County1; County2; County3" or "County1 County; County2 County")
+        filtered_area_desc = alert.area_desc
+        if alert.area_desc:
+            # Create a map of county codes to county names for matching
+            county_code_to_name = {county.code: county.name for county in self.config.counties if county.enabled and county.name}
+            
+            # Try to filter area_desc by matching county names
+            area_parts = [part.strip() for part in re.split(r'[;,]', alert.area_desc)]
+            filtered_parts = []
+            
+            for part in area_parts:
+                if not part:
+                    continue
+                
+                # Check if this area part matches any monitored county
+                part_lower = part.lower().strip()
+                matched = False
+                
+                # Check by county name
+                for county_code, county_name in county_code_to_name.items():
+                    if county_name:
+                        county_name_lower = county_name.lower().strip()
+                        # Check if part matches county name (with or without "County" suffix)
+                        if (part_lower == county_name_lower or 
+                            part_lower == county_name_lower.replace(' county', '') or
+                            part_lower == county_name_lower.replace(' county', '').replace(' ', '')):
+                            filtered_parts.append(part)
+                            matched = True
+                            break
+                
+                # If not matched by name, check if any monitored county code appears in the part
+                if not matched:
+                    for county_code in monitored_county_codes:
+                        if county_code.lower() in part_lower:
+                            filtered_parts.append(part)
+                            matched = True
+                            break
+            
+            # If we filtered any parts, reconstruct area_desc
+            if filtered_parts:
+                filtered_area_desc = '; '.join(filtered_parts)
+            elif len(filtered_county_codes) < len(alert.county_codes):
+                # If we filtered county codes but couldn't match area_desc, 
+                # try to build area_desc from county names
+                county_names = []
+                for code in filtered_county_codes:
+                    if code in county_code_to_name:
+                        county_names.append(county_code_to_name[code])
+                if county_names:
+                    filtered_area_desc = '; '.join(county_names)
+        
+        # Create new alert with filtered data
+        return alert.model_copy(update={
+            'county_codes': filtered_county_codes,
+            'area_desc': filtered_area_desc
+        })
 
     def _get_county_audio_files(self, county_codes: List[str], area_desc: Optional[str] = None) -> List[str]:
         """
