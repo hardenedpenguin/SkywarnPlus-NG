@@ -803,6 +803,73 @@ class WebDashboard:
 
             # Determine content type from extension
             ext = audio_path.suffix.lower()
+            
+            # Convert ulaw to WAV for browser compatibility (browsers can't play ulaw)
+            if ext in ['.ulaw', '.ul']:
+                import tempfile
+                import subprocess
+                
+                # Create temporary WAV file for conversion
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
+                    temp_wav_path = Path(temp_wav.name)
+                
+                try:
+                    # Convert ulaw to WAV using ffmpeg
+                    result = subprocess.run(
+                        [
+                            "ffmpeg", "-y",
+                            "-f", "mulaw",  # Input format: mulaw
+                            "-ar", "8000",  # Sample rate: 8kHz (standard for ulaw)
+                            "-ac", "1",     # Channels: mono
+                            "-i", str(audio_path),
+                            str(temp_wav_path)
+                        ],
+                        check=True,
+                        capture_output=True,
+                        timeout=30,
+                        text=True
+                    )
+                    
+                    # Read the converted WAV file into memory
+                    wav_data = temp_wav_path.read_bytes()
+                    
+                    # Clean up temp file
+                    try:
+                        temp_wav_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    
+                    # Return WAV data as response
+                    return web.Response(
+                        body=wav_data,
+                        headers={'Content-Type': 'audio/wav'}
+                    )
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Failed to convert ulaw to WAV: {e.stderr if e.stderr else 'Unknown error'}")
+                    # Clean up temp file
+                    try:
+                        temp_wav_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    # Fallback: try to return original file anyway
+                    return web.FileResponse(
+                        path=str(audio_path),
+                        headers={'Content-Type': 'application/octet-stream'}
+                    )
+                except Exception as conv_e:
+                    logger.error(f"Error during ulaw conversion: {conv_e}")
+                    # Clean up temp file on error
+                    try:
+                        temp_wav_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    # Fallback: return original file
+                    return web.FileResponse(
+                        path=str(audio_path),
+                        headers={'Content-Type': 'application/octet-stream'}
+                    )
+            
+            # Handle other formats
             if ext in ['.mp3']:
                 content_type = 'audio/mpeg'
             elif ext in ['.wav']:
