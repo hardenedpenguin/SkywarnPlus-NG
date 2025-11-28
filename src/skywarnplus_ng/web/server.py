@@ -636,13 +636,58 @@ class WebDashboard:
                 try:
                     alert_data = self.app.state.get('last_alerts', {}).get(alert_id)
                     if alert_data:
-                        # Get county codes (filtered to monitored counties)
-                        county_codes = alert_data.get('county_codes', [])
-                        if not isinstance(county_codes, list):
-                            county_codes = []
+                        # Get county codes and filter to only configured/monitored counties
+                        all_county_codes = alert_data.get('county_codes', [])
+                        if not isinstance(all_county_codes, list):
+                            all_county_codes = []
+                        
+                        # Filter to only counties that are configured/monitored
+                        county_codes = [code for code in all_county_codes if code in county_code_to_name]
+                        
                         area_desc = alert_data.get('area_desc', '')
                         
-                        # Format event with county information
+                        # If no county codes matched, try to extract from area_desc
+                        if not county_codes and area_desc and self.app and hasattr(self.app, 'config'):
+                            import re
+                            # Parse area_desc (e.g., "Brazoria Islands; Galveston Island")
+                            area_parts = [part.strip() for part in re.split(r'[;,]', area_desc)]
+                            
+                            # Build a map of county names (normalized) to county codes
+                            county_name_to_code = {}
+                            for county in self.app.config.counties:
+                                if county.enabled and county.name:
+                                    # Normalize county name (remove " County" suffix, lowercase)
+                                    normalized_name = county.name.replace(' County', '').replace(' county', '').lower()
+                                    county_name_to_code[normalized_name] = county.code
+                                    
+                                    # Also add without "Island", "Islands", etc. for matching
+                                    base_name = re.sub(r'\s+(island|islands|peninsula|beach|beaches)\s*$', '', normalized_name, flags=re.IGNORECASE)
+                                    if base_name != normalized_name:
+                                        county_name_to_code[base_name] = county.code
+                            
+                            # Try to match area parts to configured counties
+                            matched_codes = []
+                            for area_part in area_parts:
+                                # Remove common suffixes and normalize
+                                normalized_area = re.sub(r'\s+(island|islands|peninsula|beach|beaches|county)\s*$', '', area_part, flags=re.IGNORECASE).lower().strip()
+                                
+                                # Try exact match first
+                                if normalized_area in county_name_to_code:
+                                    code = county_name_to_code[normalized_area]
+                                    if code not in matched_codes:
+                                        matched_codes.append(code)
+                                else:
+                                    # Try partial match (e.g., "Brazoria" in "Brazoria Islands")
+                                    for county_name, code in county_name_to_code.items():
+                                        if county_name in normalized_area or normalized_area in county_name:
+                                            if code not in matched_codes:
+                                                matched_codes.append(code)
+                            
+                            if matched_codes:
+                                county_codes = matched_codes
+                                logger.debug(f"Alert {alert_id}: Matched counties from area_desc: {county_codes}")
+                        
+                        # Format event with county information (only configured counties)
                         event = alert_data.get('event', 'Unknown')
                         formatted_event = format_event_with_counties(event, county_codes, area_desc)
                         
@@ -685,6 +730,46 @@ class WebDashboard:
                     if monitored_county_codes and 'county_codes' in alert_data:
                         original_codes = alert_data.get('county_codes', [])
                         filtered_codes = [code for code in original_codes if code in monitored_county_codes]
+                        
+                        # If no county codes matched, try to extract from area_desc
+                        if not filtered_codes and self.app and hasattr(self.app, 'config'):
+                            area_desc = alert_data.get('area_desc', '')
+                            if area_desc:
+                                # Build a map of county names (normalized) to county codes
+                                county_name_to_code = {}
+                                for county in self.app.config.counties:
+                                    if county.enabled and county.name:
+                                        # Normalize county name (remove " County" suffix, lowercase)
+                                        normalized_name = county.name.replace(' County', '').replace(' county', '').lower()
+                                        county_name_to_code[normalized_name] = county.code
+                                        
+                                        # Also add without "Island", "Islands", etc. for matching
+                                        base_name = re.sub(r'\s+(island|islands|peninsula|beach|beaches)\s*$', '', normalized_name, flags=re.IGNORECASE)
+                                        if base_name != normalized_name:
+                                            county_name_to_code[base_name] = county.code
+                                
+                                # Parse area_desc and try to match county names
+                                area_parts = [part.strip() for part in re.split(r'[;,]', area_desc)]
+                                matched_codes = []
+                                for area_part in area_parts:
+                                    # Remove common suffixes and normalize
+                                    normalized_area = re.sub(r'\s+(island|islands|peninsula|beach|beaches|county)\s*$', '', area_part, flags=re.IGNORECASE).lower().strip()
+                                    
+                                    # Try exact match first
+                                    if normalized_area in county_name_to_code:
+                                        code = county_name_to_code[normalized_area]
+                                        if code not in matched_codes:
+                                            matched_codes.append(code)
+                                    else:
+                                        # Try partial match (e.g., "Brazoria" in "Brazoria Islands")
+                                        for county_name, code in county_name_to_code.items():
+                                            if county_name in normalized_area or normalized_area in county_name:
+                                                if code not in matched_codes:
+                                                    matched_codes.append(code)
+                                
+                                if matched_codes:
+                                    filtered_codes = matched_codes
+                        
                         if filtered_codes:
                             # Create filtered alert data
                             filtered_alert = alert_data.copy()
