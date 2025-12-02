@@ -6,6 +6,10 @@ Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
 *Click the image above to view the full dashboard screenshot*
 
+## About
+
+SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) project by [Mason Nelson (N5LSN/WRKF394)](https://github.com/Mason10198). This rewrite modernizes the codebase, adds a web dashboard, and improves maintainability while preserving the core concept and functionality of the original project. We extend our gratitude to Mason Nelson for the original idea and implementation that inspired this project.
+
 ## Quick Start
 
 ```bash
