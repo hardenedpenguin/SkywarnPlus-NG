@@ -814,6 +814,43 @@ class SkywarnPlusApplication:
                     except Exception as e:
                         logger.error(f"Failed to send PushOver notification: {e}")
                 
+                # Send Discord webhook notification if enabled
+                try:
+                    # Access notifications config (may be dict due to extra="allow" in config)
+                    notifications_config = getattr(self.config, 'notifications', None)
+                    discord_url = None
+                    
+                    if notifications_config:
+                        if isinstance(notifications_config, dict):
+                            webhook_config = notifications_config.get('webhook', {})
+                            discord_url = webhook_config.get('discord_url') if isinstance(webhook_config, dict) else None
+                        elif hasattr(notifications_config, 'webhook'):
+                            webhook_config = notifications_config.webhook
+                            if hasattr(webhook_config, 'discord_url'):
+                                discord_url = webhook_config.discord_url
+                            elif isinstance(webhook_config, dict):
+                                discord_url = webhook_config.get('discord_url')
+                    
+                    if discord_url and discord_url.strip():
+                        logger.debug(f"Attempting to send Discord webhook for alert: {alert.event}")
+                        from ..notifications.webhook import WebhookNotifier, WebhookConfig, WebhookProvider
+                        webhook_cfg = WebhookConfig(
+                            provider=WebhookProvider.DISCORD,
+                            webhook_url=discord_url.strip(),
+                            enabled=True,
+                            username="SkywarnPlus-NG"
+                        )
+                        async with WebhookNotifier(webhook_cfg) as webhook:
+                            result = await webhook.send_alert_webhook(alert)
+                            if result.get("success", False):
+                                logger.info(f"Discord webhook notification sent for alert: {alert.event}")
+                            else:
+                                logger.warning(f"Discord webhook notification failed: {result.get('error', 'Unknown error')}")
+                    else:
+                        logger.debug(f"Discord webhook not configured or URL is empty")
+                except Exception as e:
+                    logger.error(f"Failed to send Discord webhook notification: {e}", exc_info=True)
+                
                 # Log alert processing completion
                 processing_time = (datetime.now(timezone.utc) - alert_start_time).total_seconds() * 1000
                 self.alert_logger.log_alert_processed(
