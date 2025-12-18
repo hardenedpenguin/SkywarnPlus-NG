@@ -1305,18 +1305,17 @@
 
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Webhook Notifications</h3>
+                    <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p class="text-sm text-blue-800 dark:text-blue-200">
+                            <strong>Note:</strong> Discord webhooks should be configured through the <strong>Subscribers</strong> section below to enable per-county filtering and prevent duplicate notifications.
+                        </p>
+                    </div>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Slack Webhook URL
                             </label>
                             <input type="url" name="notifications.webhook.slack_url" class="form-input" placeholder="https://hooks.slack.com/services/...">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Discord Webhook URL
-                            </label>
-                            <input type="url" name="notifications.webhook.discord_url" class="form-input" placeholder="https://discord.com/api/webhooks/...">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
