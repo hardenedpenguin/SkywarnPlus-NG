@@ -816,70 +816,99 @@ class SkywarnPlusApplication:
                 
                 # Send Discord webhook notification if enabled
                 # Check if we should send based on subscriptions (preferred) or main config
+                # Also check if webhook has already been sent for this alert to prevent duplicates
                 try:
-                    # First, check if there are any active subscribers with Discord webhooks configured
-                    # that match this alert's counties
-                    from ..notifications.subscriber import SubscriberManager, SubscriptionStatus
-                    
-                    subscriber_manager = None
-                    should_send_discord = False
-                    discord_url = None
-                    
-                    # Try to load subscribers to check if any match this alert
-                    try:
-                        subscriber_file = self.config.data_dir / "subscribers.json"
-                        if subscriber_file.exists():
-                            subscriber_manager = SubscriberManager(subscriber_file)
-                            matching_subscribers = subscriber_manager.get_subscribers_for_alert(alert)
-                            
-                            # Check if any matching subscriber has a Discord webhook configured
-                            for subscriber in matching_subscribers:
-                                if (subscriber.status == SubscriptionStatus.ACTIVE and 
-                                    subscriber.webhook_url and 
-                                    'discord.com/api/webhooks' in subscriber.webhook_url):
-                                    discord_url = subscriber.webhook_url
-                                    should_send_discord = True
-                                    logger.debug(f"Found matching subscriber {subscriber.subscriber_id} with Discord webhook for alert: {alert.event}")
-                                    break
-                    except Exception as sub_e:
-                        logger.debug(f"Could not check subscribers for Discord webhook: {sub_e}")
-                    
-                    # If no subscription-based Discord webhook found, fall back to main config
-                    if not should_send_discord:
-                        notifications_config = getattr(self.config, 'notifications', None)
-                        
-                        if notifications_config:
-                            if isinstance(notifications_config, dict):
-                                webhook_config = notifications_config.get('webhook', {})
-                                discord_url = webhook_config.get('discord_url') if isinstance(webhook_config, dict) else None
-                            elif hasattr(notifications_config, 'webhook'):
-                                webhook_config = notifications_config.webhook
-                                if hasattr(webhook_config, 'discord_url'):
-                                    discord_url = webhook_config.discord_url
-                                elif isinstance(webhook_config, dict):
-                                    discord_url = webhook_config.get('discord_url')
-                        
-                        if discord_url and discord_url.strip():
-                            should_send_discord = True
-                            logger.debug(f"Using main config Discord webhook for alert: {alert.event}")
-                    
-                    if should_send_discord and discord_url and discord_url.strip():
-                        logger.debug(f"Attempting to send Discord webhook for alert: {alert.event}")
-                        from ..notifications.webhook import WebhookNotifier, WebhookConfig, WebhookProvider
-                        webhook_cfg = WebhookConfig(
-                            provider=WebhookProvider.DISCORD,
-                            webhook_url=discord_url.strip(),
-                            enabled=True,
-                            username="SkywarnPlus-NG"
-                        )
-                        async with WebhookNotifier(webhook_cfg) as webhook:
-                            result = await webhook.send_alert_webhook(alert)
-                            if result.get("success", False):
-                                logger.info(f"Discord webhook notification sent for alert: {alert.event}")
-                            else:
-                                logger.warning(f"Discord webhook notification failed: {result.get('error', 'Unknown error')}")
+                    # Check if webhook has already been sent for this alert
+                    if self.state_manager.has_alert_webhook_sent(self.state, alert.id):
+                        logger.debug(f"Discord webhook already sent for alert {alert.id} ({alert.event}), skipping")
                     else:
-                        logger.debug(f"Discord webhook not configured or no matching subscriptions for alert: {alert.event}")
+                        # First, check if there are any active subscribers with Discord webhooks configured
+                        # that match this alert's counties
+                        from ..notifications.subscriber import SubscriberManager, SubscriptionStatus
+                        
+                        subscriber_manager = None
+                        should_send_discord = False
+                        discord_url = None
+                        webhook_source = None  # Track whether webhook is from subscriber or main config
+                        subscriber_webhook_urls = set()  # Track all subscriber webhook URLs to avoid duplicates
+                        
+                        # Try to load subscribers to check if any match this alert
+                        try:
+                            subscriber_file = self.config.data_dir / "subscribers.json"
+                            if subscriber_file.exists():
+                                subscriber_manager = SubscriberManager(subscriber_file)
+                                matching_subscribers = subscriber_manager.get_subscribers_for_alert(alert)
+                                
+                                # Collect all subscriber webhook URLs to check for duplicates with main config
+                                for subscriber in matching_subscribers:
+                                    if (subscriber.status == SubscriptionStatus.ACTIVE and 
+                                        subscriber.webhook_url and 
+                                        'discord.com/api/webhooks' in subscriber.webhook_url):
+                                        subscriber_webhook_urls.add(subscriber.webhook_url.strip())
+                                
+                                # Check if any matching subscriber has a Discord webhook configured
+                                for subscriber in matching_subscribers:
+                                    if (subscriber.status == SubscriptionStatus.ACTIVE and 
+                                        subscriber.webhook_url and 
+                                        'discord.com/api/webhooks' in subscriber.webhook_url):
+                                        discord_url = subscriber.webhook_url.strip()
+                                        should_send_discord = True
+                                        webhook_source = f"subscriber:{subscriber.subscriber_id}"
+                                        logger.info(f"Found matching subscriber {subscriber.subscriber_id} with Discord webhook for alert: {alert.event} (ID: {alert.id})")
+                                        break
+                        except Exception as sub_e:
+                            logger.debug(f"Could not check subscribers for Discord webhook: {sub_e}")
+                        
+                        # If no subscription-based Discord webhook found, fall back to main config
+                        # BUT only if the main config webhook URL is different from any subscriber webhook URL
+                        if not should_send_discord:
+                            notifications_config = getattr(self.config, 'notifications', None)
+                            
+                            if notifications_config:
+                                if isinstance(notifications_config, dict):
+                                    webhook_config = notifications_config.get('webhook', {})
+                                    main_config_url = webhook_config.get('discord_url') if isinstance(webhook_config, dict) else None
+                                elif hasattr(notifications_config, 'webhook'):
+                                    webhook_config = notifications_config.webhook
+                                    if hasattr(webhook_config, 'discord_url'):
+                                        main_config_url = webhook_config.discord_url
+                                    elif isinstance(webhook_config, dict):
+                                        main_config_url = webhook_config.get('discord_url')
+                                    else:
+                                        main_config_url = None
+                                else:
+                                    main_config_url = None
+                                
+                                # Only use main config if URL is different from all subscriber webhooks
+                                if main_config_url and main_config_url.strip():
+                                    main_config_url = main_config_url.strip()
+                                    if main_config_url not in subscriber_webhook_urls:
+                                        discord_url = main_config_url
+                                        should_send_discord = True
+                                        webhook_source = "main_config"
+                                        logger.info(f"Using main config Discord webhook for alert: {alert.event} (ID: {alert.id})")
+                                    else:
+                                        logger.debug(f"Skipping main config Discord webhook (same URL as subscriber) for alert: {alert.event}")
+                        
+                        if should_send_discord and discord_url and discord_url.strip():
+                            logger.info(f"Attempting to send Discord webhook for alert: {alert.event} (ID: {alert.id}) via {webhook_source}")
+                            from ..notifications.webhook import WebhookNotifier, WebhookConfig, WebhookProvider
+                            webhook_cfg = WebhookConfig(
+                                provider=WebhookProvider.DISCORD,
+                                webhook_url=discord_url.strip(),
+                                enabled=True,
+                                username="SkywarnPlus-NG"
+                            )
+                            async with WebhookNotifier(webhook_cfg) as webhook:
+                                result = await webhook.send_alert_webhook(alert)
+                                if result.get("success", False):
+                                    # Mark webhook as sent to prevent duplicates
+                                    self.state_manager.mark_alert_webhook_sent(self.state, alert.id)
+                                    logger.info(f"Discord webhook notification sent for alert: {alert.event} (ID: {alert.id}) via {webhook_source}")
+                                else:
+                                    logger.warning(f"Discord webhook notification failed for alert {alert.id}: {result.get('error', 'Unknown error')}")
+                        else:
+                            logger.debug(f"Discord webhook not configured or no matching subscriptions for alert: {alert.event} (ID: {alert.id})")
                 except Exception as e:
                     logger.error(f"Failed to send Discord webhook notification: {e}", exc_info=True)
                 

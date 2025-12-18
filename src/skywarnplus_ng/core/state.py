@@ -97,6 +97,7 @@ class ApplicationState:
             'active_alerts': [],  # Currently active alert IDs
             'last_sayalert': [],  # Alerts that were announced
             'alertscript_alerts': [],  # Alerts that triggered scripts
+            'webhook_sent_alerts': [],  # Alerts that had webhooks sent
             'last_poll': None,  # Last poll timestamp
             'last_all_clear': None,  # Last all-clear timestamp
             'ct': None,  # Current courtesy tone mode ('normal' or 'wx')
@@ -288,6 +289,31 @@ class ApplicationState:
         if alert_id not in state.get('alertscript_alerts', []):
             state['alertscript_alerts'].append(alert_id)
             logger.debug(f"Marked alert {alert_id} as script-triggered")
+
+    def has_alert_webhook_sent(self, state: Dict[str, Any], alert_id: str) -> bool:
+        """
+        Check if a webhook has already been sent for an alert.
+
+        Args:
+            state: Current state dictionary
+            alert_id: ID of alert to check
+
+        Returns:
+            True if webhook was already sent, False otherwise
+        """
+        return alert_id in state.get('webhook_sent_alerts', [])
+
+    def mark_alert_webhook_sent(self, state: Dict[str, Any], alert_id: str) -> None:
+        """
+        Mark an alert as having had a webhook sent.
+
+        Args:
+            state: Current state dictionary
+            alert_id: ID of alert to mark as webhook-sent
+        """
+        if alert_id not in state.get('webhook_sent_alerts', []):
+            state['webhook_sent_alerts'].append(alert_id)
+            logger.debug(f"Marked alert {alert_id} as webhook-sent")
 
     def update_poll_time(self, state: Dict[str, Any]) -> None:
         """
