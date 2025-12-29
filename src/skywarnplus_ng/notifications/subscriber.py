@@ -206,21 +206,30 @@ class Subscriber:
     def _check_geographic_preferences(self, alert: WeatherAlert) -> bool:
         """Check if alert matches geographic preferences."""
         # Check counties
+        county_match = False
         if self.preferences.counties:
             alert_counties = set(alert.county_codes or [])
-            if not alert_counties.intersection(set(self.preferences.counties)):
-                return False
+            county_match = bool(alert_counties.intersection(set(self.preferences.counties)))
         
-        # Check states (extract from county codes)
+        # Check states (extract from county codes or zone codes)
+        state_match = True  # Default to True if no state preference
         if self.preferences.states:
             alert_states = set()
             if alert.county_codes:
-                for county in alert.county_codes:
-                    if len(county) >= 2:
-                        alert_states.add(county[:2])
+                for code in alert.county_codes:
+                    if len(code) >= 2:
+                        # Extract state from code (TXZ176 -> TX, TXC039 -> TX)
+                        alert_states.add(code[:2])
             
-            if not alert_states.intersection(set(self.preferences.states)):
+            state_match = bool(alert_states.intersection(set(self.preferences.states)))
+        
+        # If counties are configured but don't match, and states don't match either, fail
+        if self.preferences.counties and not county_match:
+            if not state_match:
                 return False
+            # If state matches but county codes don't, this might be a zone code (TXZ*) vs county code (TXC*) issue
+            # In this case, we'll allow it if state matches (zone codes are still in the same state)
+            # This handles the common case where NWS returns zone codes instead of county codes
         
         # Check custom areas (simplified text matching)
         if self.preferences.custom_areas:
