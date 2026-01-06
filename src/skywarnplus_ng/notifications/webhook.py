@@ -520,8 +520,10 @@ class WebhookNotifier:
                     json=payload,
                     headers={"Content-Type": "application/json"}
                 ) as response:
-                    if response.status == 200:
-                        self.logger.debug(f"Webhook sent successfully (attempt {attempt + 1})")
+                    # Accept 200 (OK) and 204 (No Content) as success
+                    # Discord webhooks return 204 on success
+                    if response.status in (200, 204):
+                        self.logger.debug(f"Webhook sent successfully (attempt {attempt + 1}, status {response.status})")
                         return {
                             "status_code": response.status,
                             "attempt": attempt + 1
