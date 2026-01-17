@@ -14,11 +14,11 @@ SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://githu
 
 ```bash
 # Download the signed release tarball
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.1/skywarnplus-ng-1.0.1.tar.gz
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.2/skywarnplus-ng-1.0.2.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
-tar -xzf skywarnplus-ng-1.0.1.tar.gz
-cd skywarnplus-ng-1.0.1
+tar -xzf skywarnplus-ng-1.0.2.tar.gz
+cd skywarnplus-ng-1.0.2
 ./install.sh
 
 # Edit your configuration
@@ -49,15 +49,15 @@ All of the above are installed automatically when you run `install.sh` on a clea
 
 1. **Download & Verify**
 ```bash
-   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.1/skywarnplus-ng-1.0.1.tar.gz
-   sha256sum skywarnplus-ng-1.0.1.tar.gz
+   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.2/skywarnplus-ng-1.0.2.tar.gz
+   sha256sum skywarnplus-ng-1.0.2.tar.gz
    ```
    Compare the checksum against the value published on the release page.
 
 2. **Extract & Install**
 ```bash
-   tar -xzf skywarnplus-ng-1.0.1.tar.gz
-   cd skywarnplus-ng-1.0.1
+   tar -xzf skywarnplus-ng-1.0.2.tar.gz
+   cd skywarnplus-ng-1.0.2
    ./install.sh
    ```
    The installer creates the service account, virtualenv, systemd unit, logrotate config, and copies sounds/scripts.
