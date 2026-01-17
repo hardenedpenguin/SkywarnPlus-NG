@@ -153,26 +153,18 @@ skydescribe:
   descriptions_dir: "/var/lib/skywarnplus-ng/descriptions"
   cleanup_interval_hours: 24
   max_file_age_hours: 48
-  # Configurable DTMF codes - change these to avoid conflicts with existing assignments
+  max_words: 150  # Maximum words in description
+  # DTMF codes configuration - basic setup, will be extended with additional codes later
+  # These codes can be mapped in Asterisk's rpt.conf or extensions.conf
+  # Example mapping in rpt.conf: 841 = cmd,/path/to/skywarnplus-ng dtmf describe 1
   dtmf_codes:
-    current_alerts: "*1"      # Current active weather alerts
+    # Basic DTMF codes - configure these to match your Asterisk setup
+    # In the original SkywarnPlus, these were typically mapped to SkyDescribe with alert indices
+    current_alerts: "*1"      # Current active weather alerts summary
     alert_by_id: "*2"         # Specific alert by ID (followed by 4-digit ID)
     all_clear: "*3"           # All-clear status
     system_status: "*4"       # System status information
     help: "*5"                # Help and available commands
-  # Alternative DTMF code sets (uncomment to use)
-  # dtmf_codes:
-  #   current_alerts: "*9"      # Alternative: *9 for current alerts
-  #   alert_by_id: "*8"         # Alternative: *8 for specific alert
-  #   all_clear: "*7"           # Alternative: *7 for all-clear
-  #   system_status: "*6"       # Alternative: *6 for system status
-  #   help: "*0"                # Alternative: *0 for help
-  # dtmf_codes:
-  #   current_alerts: "**1"     # Alternative: **1 for current alerts
-  #   alert_by_id: "**2"        # Alternative: **2 for specific alert
-  #   all_clear: "**3"          # Alternative: **3 for all-clear
-  #   system_status: "**4"      # Alternative: **4 for system status
-  #   help: "**5"               # Alternative: **5 for help
 
 # PushOver notification configuration
 pushover:

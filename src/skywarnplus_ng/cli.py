@@ -90,6 +90,97 @@ async def test_nws_client_with_config(config_path=None):
         await nws_client.close()
 
 
+async def handle_describe_command(config_path=None, index_or_title=None):
+    """Handle SkyDescribe command via CLI (for rpt.conf integration)."""
+    if not index_or_title:
+        print("ERROR: No alert index or title specified")
+        print("Usage: skywarnplus-ng describe <index|title>")
+        print("Examples:")
+        print("  skywarnplus-ng describe 1          # Describe 1st alert")
+        print("  skywarnplus-ng describe 2          # Describe 2nd alert")
+        print('  skywarnplus-ng describe "Tornado Warning"  # Describe by title')
+        sys.exit(1)
+    
+    try:
+        from .core.config import AppConfig
+        from .core.state import ApplicationState
+        from .audio.manager import AudioManager
+        from .skydescribe.manager import SkyDescribeManager
+        from collections import OrderedDict
+        
+        # Load configuration
+        config = AppConfig.from_yaml(config_path)
+        
+        # Load state to get last_alerts
+        state_manager = ApplicationState(state_file=config.data_dir / "state.json")
+        state = state_manager.load_state()
+        
+        # Convert last_alerts to the format expected by describe_by_index_or_title
+        # State stores: OrderedDict[str, Dict] (alert_id -> alert_data)
+        # describe_by_index_or_title expects: OrderedDict[str, List[Dict]] (alert_title -> list of alert_data)
+        raw_last_alerts = state.get('last_alerts', OrderedDict())
+        if isinstance(raw_last_alerts, list):
+            raw_last_alerts = OrderedDict(raw_last_alerts)
+        
+        if not raw_last_alerts:
+            print("ERROR: No alerts found in state. SkywarnPlus-NG may not be running or no alerts have been processed yet.")
+            sys.exit(1)
+        
+        # Convert format: group by alert title (event field) and convert to lists
+        last_alerts = OrderedDict()
+        for alert_id, alert_data in raw_last_alerts.items():
+            # Handle both dict and list formats
+            if isinstance(alert_data, dict):
+                alert_title = alert_data.get('event', alert_id)
+                if alert_title not in last_alerts:
+                    last_alerts[alert_title] = []
+                last_alerts[alert_title].append(alert_data)
+            elif isinstance(alert_data, list):
+                # Already in list format, but we still need to group by title
+                for data in alert_data:
+                    if isinstance(data, dict):
+                        alert_title = data.get('event', alert_id)
+                        if alert_title not in last_alerts:
+                            last_alerts[alert_title] = []
+                        last_alerts[alert_title].append(data)
+            else:
+                # Unexpected format - skip
+                logger.warning(f"Unexpected alert_data format for {alert_id}: {type(alert_data)}")
+        
+        # Create SkyDescribe manager
+        audio_manager = AudioManager(config.audio)
+        descriptions_dir = config.skydescribe.descriptions_dir
+        describe_manager = SkyDescribeManager(
+            audio_manager=audio_manager,
+            descriptions_dir=descriptions_dir,
+            max_words=config.skydescribe.max_words
+        )
+        
+        # Get asterisk nodes from config
+        asterisk_nodes = config.asterisk.nodes if config.asterisk.enabled else None
+        
+        # Call describe_by_index_or_title
+        audio_file = describe_manager.describe_by_index_or_title(
+            index_or_title=index_or_title,
+            last_alerts=last_alerts,
+            asterisk_nodes=asterisk_nodes,
+            use_describe_wav=True
+        )
+        
+        if audio_file and audio_file.exists():
+            print(f"SUCCESS:{audio_file}")
+            sys.exit(0)
+        else:
+            print("ERROR: Failed to generate description audio")
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
 async def handle_dtmf_command_with_config(config_path=None, command=None, alert_id=None):
     """Handle DTMF command with specified config."""
     if not command:
@@ -163,6 +254,8 @@ def create_parser():
 Examples:
   %(prog)s run --config config/default.yaml    Run the main application
   %(prog)s test-nws                           Test NWS API connection
+  %(prog)s describe 1                         Generate description for 1st alert (for rpt.conf)
+  %(prog)s describe "Tornado Warning"         Generate description by alert title
   %(prog)s dtmf current_alerts                Test DTMF command
         """
     )
@@ -180,6 +273,14 @@ Examples:
     test_nws_parser.add_argument('--config', '-c',
                                 help='Configuration file path (default: config/default.yaml)',
                                 default='config/default.yaml')
+    
+    # Describe command (for rpt.conf integration)
+    describe_parser = subparsers.add_parser('describe', help='Generate SkyDescribe audio for an alert (for rpt.conf integration)')
+    describe_parser.add_argument('--config', '-c',
+                                help='Configuration file path (default: config/default.yaml)',
+                                default='config/default.yaml')
+    describe_parser.add_argument('index_or_title',
+                                help='Alert index (1-based) or alert title to describe')
     
     # DTMF command
     dtmf_parser = subparsers.add_parser('dtmf', help='Test DTMF commands')
@@ -210,6 +311,8 @@ def main():
             asyncio.run(run_application_with_config(args.config))
         elif args.command == 'test-nws':
             asyncio.run(test_nws_client_with_config(args.config))
+        elif args.command == 'describe':
+            asyncio.run(handle_describe_command(args.config, args.index_or_title))
         elif args.command == 'dtmf':
             asyncio.run(handle_dtmf_command_with_config(args.config, args.dtmf_command, args.alert_id))
     except KeyboardInterrupt:

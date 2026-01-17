@@ -246,6 +246,7 @@ class SkyDescribeConfig(BaseModel):
     cleanup_interval_hours: int = Field(24, description="Cleanup interval for old audio files")
     max_file_age_hours: int = Field(48, description="Maximum age of audio files before cleanup")
     dtmf_codes: DTMFConfig = Field(default_factory=DTMFConfig)
+    max_words: int = Field(150, description="Maximum words in description")
 
 
 class PushOverConfig(BaseModel):
@@ -274,7 +275,7 @@ class AppConfig(BaseSettings):
 
     # Core settings
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=None,  # Disable .env file loading (not needed for YAML-based config)
         env_file_encoding="utf-8",
         extra="allow",
         case_sensitive=False,

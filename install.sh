@@ -45,27 +45,22 @@ sudo apt-get install -y \
 
 echo "✓ System dependencies installed"
 
-# Create application user
-if ! id "skywarnplus" &>/dev/null; then
-    echo "Creating skywarnplus user..."
-    sudo useradd -r -s /bin/false -m -d /var/lib/skywarnplus-ng skywarnplus
-    echo "✓ User skywarnplus created"
+# Use asterisk user for running skywarnplus-ng (simplifies permissions)
+if ! id "asterisk" &>/dev/null; then
+    echo "Error: asterisk user does not exist. Please install Asterisk first."
+    exit 1
 else
-    echo "✓ User skywarnplus already exists"
+    echo "✓ Using existing asterisk user for skywarnplus-ng"
 fi
 
-# Add skywarnplus user to asterisk group for Asterisk socket access
-if id "asterisk" &>/dev/null; then
-    sudo usermod -a -G asterisk skywarnplus
-    echo "✓ Added skywarnplus user to asterisk group"
-fi
+# Set username variable for use throughout the script
+APP_USER="asterisk"
+APP_GROUP="asterisk"
 
-# Configure sudoers for Asterisk CLI access
-sudo tee /etc/sudoers.d/skywarnplus-ng > /dev/null <<'EOF'
-skywarnplus ALL=(asterisk) NOPASSWD:/usr/sbin/asterisk
-EOF
-sudo chmod 440 /etc/sudoers.d/skywarnplus-ng
-echo "✓ Sudoers entry created at /etc/sudoers.d/skywarnplus-ng"
+# Configure sudoers for Asterisk CLI access (asterisk can run itself)
+# This allows asterisk user to execute asterisk commands via rpt.conf
+# Note: asterisk user typically already has permission to run asterisk commands
+echo "✓ Asterisk CLI access configured (asterisk user runs its own commands)"
 
 # Create directories
 echo "Creating application directories..."
@@ -84,10 +79,14 @@ else
     echo "Warning: SOUNDS directory not found. Sound files not installed."
 fi
 
-# Set permissions
-sudo chown -R skywarnplus:skywarnplus /var/lib/skywarnplus-ng
-sudo chown -R skywarnplus:skywarnplus /var/log/skywarnplus-ng
-sudo chown -R skywarnplus:skywarnplus /tmp/skywarnplus-ng-audio
+# Set permissions - all owned by asterisk:asterisk
+sudo chown -R ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng
+sudo chown -R ${APP_USER}:${APP_GROUP} /var/log/skywarnplus-ng
+sudo chown -R ${APP_USER}:${APP_GROUP} /tmp/skywarnplus-ng-audio
+
+# Set directory permissions (755 for directories, files can be 644)
+sudo chmod 755 /var/lib/skywarnplus-ng
+sudo chmod 755 /var/lib/skywarnplus-ng/descriptions
 
 echo "✓ Directories created and permissions set"
 
@@ -98,23 +97,24 @@ sudo cp -r src/ /var/lib/skywarnplus-ng/
 if [ -f "pyproject.toml" ]; then
     sudo cp pyproject.toml /var/lib/skywarnplus-ng/
 fi
-sudo chown -R skywarnplus:skywarnplus /var/lib/skywarnplus-ng/src
+sudo chown -R ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng/src
 if [ -f "pyproject.toml" ]; then
-    sudo chown skywarnplus:skywarnplus /var/lib/skywarnplus-ng/pyproject.toml
+    sudo chown ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng/pyproject.toml
 fi
 echo "✓ Source files copied"
 
 # Create virtual environment and install Python dependencies
 echo "Installing Python dependencies..."
+CURRENT_DIR=$(pwd)
 if [ -f "pyproject.toml" ]; then
     # Create virtual environment in /var/lib/skywarnplus-ng/venv
     echo "Creating virtual environment..."
-    sudo -u skywarnplus python3 -m venv /var/lib/skywarnplus-ng/venv
+    sudo -u ${APP_USER} python3 -m venv /var/lib/skywarnplus-ng/venv
     
     # Install dependencies using venv's pip (from /var/lib/skywarnplus-ng directory)
     echo "Installing packages..."
-    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install --upgrade pip"
-    sudo -u skywarnplus bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install ."
+    sudo -u ${APP_USER} bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install --upgrade pip"
+    sudo -u ${APP_USER} bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install ."
     echo "✓ Python dependencies installed"
 else
     echo "⚠️  Warning: pyproject.toml not found. Skipping Python dependencies installation."
@@ -125,23 +125,54 @@ echo "Setting up configuration..."
 if [ -f "config/default.yaml" ]; then
     if [ ! -f "/etc/skywarnplus-ng/config.yaml" ]; then
     sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
-    sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml
+    sudo chown ${APP_USER}:${APP_GROUP} /etc/skywarnplus-ng/config.yaml
         echo "✓ Configuration created at /etc/skywarnplus-ng/config.yaml"
     else
         # Preserve user config; provide example for reference
         sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml.example
-        sudo chown skywarnplus:skywarnplus /etc/skywarnplus-ng/config.yaml.example
+        sudo chown ${APP_USER}:${APP_GROUP} /etc/skywarnplus-ng/config.yaml.example
         echo "✓ Existing config preserved; example updated at /etc/skywarnplus-ng/config.yaml.example"
     fi
 else
     echo "⚠️  Warning: config/default.yaml not found. Skipping configuration copy."
 fi
 
+# Generate DTMF configuration (must run after venv is created)
+echo "Generating DTMF configuration..."
+if [ -f "${CURRENT_DIR}/scripts/generate_dtmf_conf.py" ]; then
+    # Use the venv Python if it exists (check if venv directory exists and Python is available)
+    VENV_PYTHON="/var/lib/skywarnplus-ng/venv/bin/python"
+    if [ -d "/var/lib/skywarnplus-ng/venv" ] && [ -e "${VENV_PYTHON}" ]; then
+        if sudo "${VENV_PYTHON}" "${CURRENT_DIR}/scripts/generate_dtmf_conf.py" > /tmp/dtmf_gen.log 2>&1; then
+            # Check if file was created
+            if [ -f "/etc/asterisk/custom/rpt/skydescribe.conf" ]; then
+                echo "✓ DTMF configuration generated at /etc/asterisk/custom/rpt/skydescribe.conf"
+            else
+                echo "⚠️  Warning: DTMF configuration script ran but file was not created"
+                cat /tmp/dtmf_gen.log 2>/dev/null | grep -i "error\|warning" || true
+            fi
+        else
+            echo "⚠️  Warning: Failed to generate DTMF configuration. Check errors below:"
+            cat /tmp/dtmf_gen.log 2>/dev/null | grep -i "error\|warning" || true
+            echo "You may need to run it manually:"
+            echo "   sudo ${VENV_PYTHON} ${CURRENT_DIR}/scripts/generate_dtmf_conf.py"
+        fi
+        rm -f /tmp/dtmf_gen.log
+    else
+        echo "⚠️  Warning: Virtual environment not found, skipping DTMF configuration generation"
+        echo "   You can generate it manually after installation:"
+        echo "   sudo ${VENV_PYTHON} /var/lib/skywarnplus-ng/scripts/generate_dtmf_conf.py"
+    fi
+else
+    echo "⚠️  Warning: Could not generate DTMF configuration (script not found)"
+    echo "   Script: ${CURRENT_DIR}/scripts/generate_dtmf_conf.py"
+fi
+
 # Copy scripts directory for user convenience
 echo "Copying scripts..."
 if [ -d "scripts" ]; then
     sudo cp -r scripts/* /var/lib/skywarnplus-ng/scripts/
-    sudo chown -R skywarnplus:skywarnplus /var/lib/skywarnplus-ng/scripts/
+    sudo chown -R ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng/scripts/
     echo "✓ Scripts copied to /var/lib/skywarnplus-ng/scripts/"
 else
     echo "⚠️  Warning: scripts directory not found."
@@ -157,8 +188,8 @@ Wants=asterisk.service
 
 [Service]
 Type=simple
-User=skywarnplus
-Group=skywarnplus
+User=asterisk
+Group=asterisk
 WorkingDirectory=/var/lib/skywarnplus-ng
 ExecStart=/var/lib/skywarnplus-ng/venv/bin/python -m skywarnplus_ng.cli run --config /etc/skywarnplus-ng/config.yaml
 Restart=always
@@ -221,7 +252,8 @@ echo "5. View logs: sudo journalctl -u skywarnplus-ng -f"
 echo "6. Web dashboard: http://localhost:8100"
 echo ""
 echo "Asterisk integration:"
-echo "- Generate config: /var/lib/skywarnplus-ng/venv/bin/python /var/lib/skywarnplus-ng/scripts/generate_asterisk_config.py --type rpt --show"
+echo "- DTMF config: /etc/asterisk/custom/rpt/skydescribe.conf (generated during install)"
+echo "- Enable SkyDescribe for your node via ASL-menu"
 echo "- Audio files: /var/lib/skywarnplus-ng/SOUNDS/"
 echo "- Web dashboard: http://localhost:8100 or via reverse proxy"
 echo ""

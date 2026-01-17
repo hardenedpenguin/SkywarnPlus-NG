@@ -102,7 +102,7 @@ class ApplicationState:
             'last_all_clear': None,  # Last all-clear timestamp
             'ct': None,  # Current courtesy tone mode ('normal' or 'wx')
             'id': None,  # Current identifier
-            'version': '1.0.1',  # State file version
+            'version': '1.0.2',  # State file version
         }
 
     def get_alert_ids(self, state: Dict[str, Any]) -> Set[str]:
