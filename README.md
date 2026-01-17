@@ -21,16 +21,19 @@ tar -xzf skywarnplus-ng-1.0.2.tar.gz
 cd skywarnplus-ng-1.0.2
 ./install.sh
 
-# Edit your configuration
-sudo nano /etc/skywarnplus-ng/config.yaml
-
 # Enable and start the service
 sudo systemctl enable skywarnplus-ng
 sudo systemctl start skywarnplus-ng
 
-# Web dashboard (default creds admin/skywarn123) – adjust base_path if using a reverse proxy
+# Access the web dashboard to configure your installation
+# Default credentials: admin / skywarn123
+# Navigate to the Configuration tab to set up counties, alerts, and other settings
 http://localhost:8100
 ```
+
+> **Note:** After installation, start the service and configure SkywarnPlus-NG through the web interface. The dashboard provides a user-friendly way to configure all settings including counties, audio options, notifications, and DTMF commands without editing YAML files manually.
+>
+> **Firewall:** If accessing the web dashboard from a remote machine, ensure port 8100 is open in your firewall. For example, with `ufw`: `sudo ufw allow 8100/tcp`
 
 > **Heads up:** The installer targets Debian 13 (trixie) and Python 3.13. On other distros ensure the prerequisites listed below are installed before running the script.
 
@@ -62,23 +65,26 @@ All of the above are installed automatically when you run `install.sh` on a clea
    ```
    The installer creates the service account, virtualenv, systemd unit, logrotate config, and copies sounds/scripts.
 
-3. **Configure**
-```bash
-   sudo nano /etc/skywarnplus-ng/config.yaml
-   ```
-   - Add your county codes under `counties`.
-   - Set Asterisk node numbers (optional).
-   - Configure alerts, TTS engine (gTTS or Piper), and notifications.
-   
-   > Prefer a UI? Sign in to the web dashboard and use the **Configuration** tab to edit every setting (including counties, audio, notifications, and scripts) without touching the YAML file. All changes saved there are written back to `/etc/skywarnplus-ng/config.yaml`.
-
-4. **Start & Verify**
+3. **Start the Service**
    ```bash
+   sudo systemctl enable skywarnplus-ng
    sudo systemctl start skywarnplus-ng
    sudo systemctl status skywarnplus-ng
-   sudo journalctl -u skywarnplus-ng -f
    ```
-   Visit the dashboard at `http://<hostname>:8100` (or behind your reverse proxy). Default login: `admin / skywarn123`.
+
+4. **Configure via Web Interface**
+   - **Firewall:** If accessing remotely, ensure port 8100 is open in your firewall (e.g., `sudo ufw allow 8100/tcp`)
+   - Visit the web dashboard at `http://<hostname>:8100` (or behind your reverse proxy)
+   - Default login: `admin / skywarn123`
+   - Navigate to the **Configuration** tab to configure:
+     - County codes to monitor
+     - Asterisk node numbers (optional)
+     - TTS engine settings (gTTS or Piper)
+     - Alert notifications (Email, Pushover, Webhook)
+     - DTMF command settings
+     - All other application settings
+   
+   > All configuration changes made through the web interface are automatically saved to `/etc/skywarnplus-ng/config.yaml`. You can also edit the YAML file directly if preferred, but the web interface provides a user-friendly alternative.
 
 5. **Reverse Proxy (optional)**
    When fronting with Apache/Nginx under `/skywarnplus-ng`, set `monitoring.http_server.base_path: "/skywarnplus-ng"` in `config.yaml`, ensure static assets are proxied, and forward WebSocket upgrades to `/ws`.
@@ -91,34 +97,20 @@ All of the above are installed automatically when you run `install.sh` on a clea
 
 ## Configuration
 
-Edit `/etc/skywarnplus-ng/config.yaml`:
+Configuration is managed through the web dashboard, which provides an intuitive interface for all settings. All changes made through the web interface are automatically saved to `/etc/skywarnplus-ng/config.yaml`.
 
-```yaml
-# Configure counties to monitor
-counties:
-  - code: "TXC039"
-    name: "Brazoria County"
-    enabled: true
-
-# Asterisk nodes for announcements
-asterisk:
-  enabled: true
-  nodes: [546050]
-
-# Web dashboard
-monitoring:
-  http_server:
-    port: 8100
-    auth:
-      username: "admin"
-      password: "your_password"
-```
+**To configure via web dashboard:**
+1. Start the service: `sudo systemctl start skywarnplus-ng`
+2. Ensure port 8100 is open in your firewall (e.g., `sudo ufw allow 8100/tcp` for remote access)
+3. Access the dashboard: `http://<hostname>:8100`
+4. Log in with default credentials: `admin / skywarn123`
+5. Navigate to the **Configuration** tab to configure all settings
 
 ## Features
 
 - **Weather Alerts**: Real-time NWS alert monitoring and voice announcements
-- **SkyDescribe DTMF**: On-demand weather info via DTMF codes (*1, *2, *3, etc.)
-- **Web Dashboard**: Modern web interface for monitoring and configuration
+- **SkyDescribe DTMF**: On-demand weather descriptions for active alerts via DTMF codes (*1, *2, *3, etc.)
+- **Web Dashboard**: Modern web interface for monitoring, configuration, and management
 - **Tail Messages**: Continuous alert announcements via tail message system
 - **Courtesy Tones**: Automatic tone switching based on alert status
 - **ID Changes**: Dynamic node ID switching for weather alerts
@@ -128,11 +120,30 @@ monitoring:
 
 ## DTMF Commands
 
-- `*1` - Current active alerts
-- `*2xxxx` - Specific alert by ID
-- `*3` - All-clear status
-- `*4` - System status
-- `*9` - Help
+SkyDescribe DTMF commands allow you to request weather information via DTMF codes on your Asterisk/app_rpt node. **Note: DTMF commands only describe currently active alerts** - expired or cancelled alerts are not accessible via DTMF.
+
+The DTMF codes `841-849` are mapped to describe active alerts by index (1-9). These codes are automatically configured during installation via the `skydescribe.conf` file.
+
+- `841` - Describe the 1st active alert (by index)
+- `842` - Describe the 2nd active alert (by index)
+- `843` - Describe the 3rd active alert (by index)
+- `844` - Describe the 4th active alert (by index)
+- `845` - Describe the 5th active alert (by index)
+- `846` - Describe the 6th active alert (by index)
+- `847` - Describe the 7th active alert (by index)
+- `848` - Describe the 8th active alert (by index)
+- `849` - Describe the 9th active alert (by index)
+
+**Alternative:** You can also use the CLI command directly:
+```bash
+skywarnplus-ng describe 1                    # Describe 1st active alert
+skywarnplus-ng describe "Tornado Warning"    # Describe all alerts with this title
+```
+
+> **Important:** Before using DTMF commands, ensure that:
+> 1. SkywarnPlus-NG is running and monitoring your configured counties
+> 2. The `skydescribe.conf` file is properly installed in `/etc/asterisk/custom/rpt/` (automatically generated during installation)
+> 3. DTMF commands are enabled for your node in the Asterisk app_rpt menu system (ASL-menu)
 
 ## Service Management
 
