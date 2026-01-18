@@ -4,7 +4,9 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 
 import asyncio
 import logging
+import os
 import socket
+import sys
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 
@@ -141,10 +143,28 @@ class AsteriskManager:
         try:
             logger.debug(f"Running Asterisk command: {command}")
             
-            # Execute via sudo as the asterisk user (requires sudoers configuration)
+            # Determine if we are already running as the asterisk user
+            try:
+                import pwd
+                asterisk_uid = pwd.getpwnam('asterisk').pw_uid
+                is_asterisk_user = (os.geteuid() == asterisk_uid)
+            except (ImportError, KeyError):
+                # Fallback: check username
+                is_asterisk_user = (os.getenv('USER') == 'asterisk')
+            
+            # Execute command - skip sudo if already running as asterisk user
+            if is_asterisk_user:
+                # Run directly as asterisk user (no sudo needed)
+                command_args = [str(self.asterisk_path), "-rx", command]
+                logger.debug(f"Running command directly as asterisk user: {command_args}")
+            else:
+                # Run via sudo as the asterisk user (for manual testing or different user context)
+                command_args = ["sudo", "-n", "-u", "asterisk", str(self.asterisk_path), "-rx", command]
+                logger.debug(f"Running command via sudo: {command_args}")
+            
             # Note: command is passed as a single string to asterisk -rx
             process = await asyncio.create_subprocess_exec(
-                "sudo", "-n", "-u", "asterisk", str(self.asterisk_path), "-rx", command,
+                *command_args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd="/tmp"  # Run from /tmp to avoid permission issues

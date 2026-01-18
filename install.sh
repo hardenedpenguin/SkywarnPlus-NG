@@ -230,7 +230,7 @@ sudo tee /etc/logrotate.d/skywarnplus-ng > /dev/null <<EOF
     compress
     delaycompress
     notifempty
-    create 644 skywarnplus skywarnplus
+    create 644 asterisk asterisk
     postrotate
         systemctl kill -s HUP skywarnplus-ng > /dev/null 2>&1 || true
     endscript
