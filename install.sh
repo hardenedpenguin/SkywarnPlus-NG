@@ -4,186 +4,275 @@
 
 set -e
 
-echo "Installing SkywarnPlus-NG (Traditional Method)"
-echo "=============================================="
+# ============================================================================
+# Configuration Constants
+# ============================================================================
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo "Please do not run this script as root. It will use sudo when needed."
-    exit 1
-fi
-
-# Check Python version
-python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-required_version="3.11"
-
-if [ "$(printf '%s\n' "$required_version" "$python_version" | sort -V | head -n1)" != "$required_version" ]; then
-    echo "Error: Python $required_version or higher is required. Found: $python_version"
-    exit 1
-fi
-
-echo "✓ Python version check passed: $python_version"
-
-# Install system dependencies
-echo "Installing system dependencies..."
-sudo apt-get update
-sudo apt-get install -y \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    gcc \
-    g++ \
-    libffi-dev \
-    libssl-dev \
-    libasound2-dev \
-    libgomp1 \
-    libopenblas0 \
-    libsndfile1 \
-    portaudio19-dev \
-    ffmpeg \
-    sox
-
-echo "✓ System dependencies installed"
-
-# Use asterisk user for running skywarnplus-ng (simplifies permissions)
-if ! id "asterisk" &>/dev/null; then
-    echo "Error: asterisk user does not exist. Please install Asterisk first."
-    exit 1
-else
-    echo "✓ Using existing asterisk user for skywarnplus-ng"
-fi
-
-# Set username variable for use throughout the script
 APP_USER="asterisk"
 APP_GROUP="asterisk"
+REQUIRED_PYTHON_VERSION="3.11"
+WEB_PORT=8100
 
-# Configure sudoers for Asterisk CLI access (asterisk can run itself)
-# This allows asterisk user to execute asterisk commands via rpt.conf
-# Note: asterisk user typically already has permission to run asterisk commands
-echo "✓ Asterisk CLI access configured (asterisk user runs its own commands)"
+# Installation paths
+INSTALL_ROOT="/var/lib/skywarnplus-ng"
+LOG_DIR="/var/log/skywarnplus-ng"
+CONFIG_DIR="/etc/skywarnplus-ng"
+TMP_AUDIO_DIR="/tmp/skywarnplus-ng-audio"
+VENV_PATH="${INSTALL_ROOT}/venv"
+VENV_PYTHON="${VENV_PATH}/bin/python"
 
-# Create directories
-echo "Creating application directories..."
-sudo mkdir -p /var/lib/skywarnplus-ng/{descriptions,audio,data,scripts}
-sudo mkdir -p /var/lib/skywarnplus-ng/src/skywarnplus_ng/web/static
-sudo mkdir -p /var/log/skywarnplus-ng
-sudo mkdir -p /etc/skywarnplus-ng
-sudo mkdir -p /tmp/skywarnplus-ng-audio
+# System paths
+SYSTEMD_SERVICE="/etc/systemd/system/skywarnplus-ng.service"
+LOGROTATE_CONFIG="/etc/logrotate.d/skywarnplus-ng"
+DTMF_CONFIG="/etc/asterisk/custom/rpt/skydescribe.conf"
 
-# Copy sound files
-echo "Installing sound files..."
-if [ -d "SOUNDS" ]; then
-    sudo cp -r SOUNDS /var/lib/skywarnplus-ng/
-    echo "Sound files installed to /var/lib/skywarnplus-ng/SOUNDS/"
-else
-    echo "Warning: SOUNDS directory not found. Sound files not installed."
-fi
-
-# Set permissions - all owned by asterisk:asterisk
-sudo chown -R ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng
-sudo chown -R ${APP_USER}:${APP_GROUP} /var/log/skywarnplus-ng
-sudo chown -R ${APP_USER}:${APP_GROUP} /tmp/skywarnplus-ng-audio
-
-# Set directory permissions (755 for directories, files can be 644)
-sudo chmod 755 /var/lib/skywarnplus-ng
-sudo chmod 755 /var/lib/skywarnplus-ng/descriptions
-
-echo "✓ Directories created and permissions set"
-
-# Copy source files to /var/lib/skywarnplus-ng
-echo "Copying source files..."
+# Current directory (set once at start)
 CURRENT_DIR=$(pwd)
-sudo cp -r src/ /var/lib/skywarnplus-ng/
-if [ -f "pyproject.toml" ]; then
-    sudo cp pyproject.toml /var/lib/skywarnplus-ng/
-fi
-sudo chown -R ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng/src
-if [ -f "pyproject.toml" ]; then
-    sudo chown ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng/pyproject.toml
-fi
-echo "✓ Source files copied"
 
-# Create virtual environment and install Python dependencies
-echo "Installing Python dependencies..."
-CURRENT_DIR=$(pwd)
-if [ -f "pyproject.toml" ]; then
-    # Create virtual environment in /var/lib/skywarnplus-ng/venv
-    echo "Creating virtual environment..."
-    sudo -u ${APP_USER} python3 -m venv /var/lib/skywarnplus-ng/venv
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+# Set ownership recursively for a path
+set_ownership() {
+    local path="$1"
+    sudo chown -R "${APP_USER}:${APP_GROUP}" "${path}"
+}
+
+# Copy file and set ownership
+copy_file_with_ownership() {
+    local src="$1"
+    local dst="$2"
+    sudo cp "${src}" "${dst}"
+    set_ownership "${dst}"
+}
+
+# Copy directory recursively and set ownership
+copy_dir_with_ownership() {
+    local src="$1"
+    local dst="$2"
+    sudo cp -r "${src}" "${dst}"
+    set_ownership "${dst}"
+}
+
+# Run command as app user
+run_as_app_user() {
+    sudo -u "${APP_USER}" bash -c "$1"
+}
+
+# Print section header
+print_section() {
+    echo ""
+    echo "$1"
+    echo "$(printf '=%.0s' {1..50})"
+}
+
+# Print success message
+print_success() {
+    echo "✓ $1"
+}
+
+# Print warning message
+print_warning() {
+    echo "⚠️  Warning: $1"
+}
+
+# ============================================================================
+# Validation Functions
+# ============================================================================
+
+check_not_root() {
+    if [ "$EUID" -eq 0 ]; then
+        echo "Error: Please do not run this script as root. It will use sudo when needed."
+        exit 1
+    fi
+}
+
+check_python_version() {
+    local python_version
+    python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
     
-    # Install dependencies using venv's pip (from /var/lib/skywarnplus-ng directory)
-    echo "Installing packages..."
-    sudo -u ${APP_USER} bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install --upgrade pip"
-    sudo -u ${APP_USER} bash -c "cd /var/lib/skywarnplus-ng && /var/lib/skywarnplus-ng/venv/bin/pip install ."
-    echo "✓ Python dependencies installed"
-else
-    echo "⚠️  Warning: pyproject.toml not found. Skipping Python dependencies installation."
-fi
+    if [ "$(printf '%s\n' "${REQUIRED_PYTHON_VERSION}" "${python_version}" | sort -V | head -n1)" != "${REQUIRED_PYTHON_VERSION}" ]; then
+        echo "Error: Python ${REQUIRED_PYTHON_VERSION} or higher is required. Found: ${python_version}"
+        exit 1
+    fi
+    
+    print_success "Python version check passed: ${python_version}"
+}
 
-# Copy configuration (do not overwrite existing user config)
-echo "Setting up configuration..."
-if [ -f "config/default.yaml" ]; then
-    if [ ! -f "/etc/skywarnplus-ng/config.yaml" ]; then
-    sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml
-    sudo chown ${APP_USER}:${APP_GROUP} /etc/skywarnplus-ng/config.yaml
-        echo "✓ Configuration created at /etc/skywarnplus-ng/config.yaml"
+check_asterisk_user() {
+    if ! id "${APP_USER}" &>/dev/null; then
+        echo "Error: ${APP_USER} user does not exist. Please install Asterisk first."
+        exit 1
+    fi
+    print_success "Using existing ${APP_USER} user for skywarnplus-ng"
+}
+
+# ============================================================================
+# Installation Functions
+# ============================================================================
+
+install_system_dependencies() {
+    print_section "Installing system dependencies"
+    
+    sudo apt-get update
+    sudo apt-get install -y \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        gcc \
+        g++ \
+        libffi-dev \
+        libssl-dev \
+        libasound2-dev \
+        libgomp1 \
+        libopenblas0 \
+        libsndfile1 \
+        portaudio19-dev \
+        ffmpeg \
+        sox
+    
+    print_success "System dependencies installed"
+}
+
+create_directories() {
+    print_section "Creating application directories"
+    
+    # Main application directories
+    sudo mkdir -p "${INSTALL_ROOT}"/{descriptions,audio,data,scripts}
+    sudo mkdir -p "${INSTALL_ROOT}/src/skywarnplus_ng/web/static"
+    sudo mkdir -p "${LOG_DIR}"
+    sudo mkdir -p "${CONFIG_DIR}"
+    sudo mkdir -p "${TMP_AUDIO_DIR}"
+    
+    # Set ownership
+    set_ownership "${INSTALL_ROOT}"
+    set_ownership "${LOG_DIR}"
+    set_ownership "${TMP_AUDIO_DIR}"
+    set_ownership "${CONFIG_DIR}"
+    
+    # Set directory permissions
+    sudo chmod 755 "${INSTALL_ROOT}"
+    sudo chmod 755 "${INSTALL_ROOT}/descriptions"
+    
+    print_success "Directories created and permissions set"
+}
+
+install_sound_files() {
+    print_section "Installing sound files"
+    
+    if [ -d "SOUNDS" ]; then
+        copy_dir_with_ownership "SOUNDS" "${INSTALL_ROOT}/"
+        echo "Sound files installed to ${INSTALL_ROOT}/SOUNDS/"
+    else
+        print_warning "SOUNDS directory not found. Sound files not installed."
+    fi
+}
+
+copy_source_files() {
+    print_section "Copying source files"
+    
+    copy_dir_with_ownership "src/" "${INSTALL_ROOT}/"
+    
+    if [ -f "pyproject.toml" ]; then
+        copy_file_with_ownership "pyproject.toml" "${INSTALL_ROOT}/pyproject.toml"
+    fi
+    
+    print_success "Source files copied"
+}
+
+install_python_dependencies() {
+    print_section "Installing Python dependencies"
+    
+    if [ ! -f "pyproject.toml" ]; then
+        print_warning "pyproject.toml not found. Skipping Python dependencies installation."
+        return
+    fi
+    
+    echo "Creating virtual environment..."
+    run_as_app_user "python3 -m venv ${VENV_PATH}"
+    
+    echo "Installing packages..."
+    run_as_app_user "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install --upgrade pip"
+    run_as_app_user "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install ."
+    
+    print_success "Python dependencies installed"
+}
+
+setup_configuration() {
+    print_section "Setting up configuration"
+    
+    if [ ! -f "config/default.yaml" ]; then
+        print_warning "config/default.yaml not found. Skipping configuration copy."
+        return
+    fi
+    
+    if [ ! -f "${CONFIG_DIR}/config.yaml" ]; then
+        copy_file_with_ownership "config/default.yaml" "${CONFIG_DIR}/config.yaml"
+        print_success "Configuration created at ${CONFIG_DIR}/config.yaml"
     else
         # Preserve user config; provide example for reference
-        sudo cp config/default.yaml /etc/skywarnplus-ng/config.yaml.example
-        sudo chown ${APP_USER}:${APP_GROUP} /etc/skywarnplus-ng/config.yaml.example
-        echo "✓ Existing config preserved; example updated at /etc/skywarnplus-ng/config.yaml.example"
+        copy_file_with_ownership "config/default.yaml" "${CONFIG_DIR}/config.yaml.example"
+        print_success "Existing config preserved; example updated at ${CONFIG_DIR}/config.yaml.example"
     fi
-else
-    echo "⚠️  Warning: config/default.yaml not found. Skipping configuration copy."
-fi
+    
+    # Ensure /etc/skywarnplus-ng and all its contents are properly owned
+    set_ownership "${CONFIG_DIR}"
+}
 
-# Ensure /etc/skywarnplus-ng and all its contents are properly owned
-sudo chown -R ${APP_USER}:${APP_GROUP} /etc/skywarnplus-ng
-
-# Generate DTMF configuration (must run after venv is created)
-echo "Generating DTMF configuration..."
-if [ -f "${CURRENT_DIR}/scripts/generate_dtmf_conf.py" ]; then
-    # Use the venv Python if it exists (check if venv directory exists and Python is available)
-    VENV_PYTHON="/var/lib/skywarnplus-ng/venv/bin/python"
-    if [ -d "/var/lib/skywarnplus-ng/venv" ] && [ -e "${VENV_PYTHON}" ]; then
-        if sudo "${VENV_PYTHON}" "${CURRENT_DIR}/scripts/generate_dtmf_conf.py" > /tmp/dtmf_gen.log 2>&1; then
-            # Check if file was created
-            if [ -f "/etc/asterisk/custom/rpt/skydescribe.conf" ]; then
-                echo "✓ DTMF configuration generated at /etc/asterisk/custom/rpt/skydescribe.conf"
-            else
-                echo "⚠️  Warning: DTMF configuration script ran but file was not created"
-                cat /tmp/dtmf_gen.log 2>/dev/null | grep -i "error\|warning" || true
-            fi
-        else
-            echo "⚠️  Warning: Failed to generate DTMF configuration. Check errors below:"
-            cat /tmp/dtmf_gen.log 2>/dev/null | grep -i "error\|warning" || true
-            echo "You may need to run it manually:"
-            echo "   sudo ${VENV_PYTHON} ${CURRENT_DIR}/scripts/generate_dtmf_conf.py"
-        fi
-        rm -f /tmp/dtmf_gen.log
-    else
-        echo "⚠️  Warning: Virtual environment not found, skipping DTMF configuration generation"
+generate_dtmf_configuration() {
+    print_section "Generating DTMF configuration"
+    
+    local dtmf_script="${CURRENT_DIR}/scripts/generate_dtmf_conf.py"
+    
+    if [ ! -f "${dtmf_script}" ]; then
+        print_warning "Could not generate DTMF configuration (script not found)"
+        echo "   Script: ${dtmf_script}"
+        return
+    fi
+    
+    if [ ! -d "${VENV_PATH}" ] || [ ! -e "${VENV_PYTHON}" ]; then
+        print_warning "Virtual environment not found, skipping DTMF configuration generation"
         echo "   You can generate it manually after installation:"
-        echo "   sudo ${VENV_PYTHON} /var/lib/skywarnplus-ng/scripts/generate_dtmf_conf.py"
+        echo "   sudo ${VENV_PYTHON} ${INSTALL_ROOT}/scripts/generate_dtmf_conf.py"
+        return
     fi
-else
-    echo "⚠️  Warning: Could not generate DTMF configuration (script not found)"
-    echo "   Script: ${CURRENT_DIR}/scripts/generate_dtmf_conf.py"
-fi
+    
+    local log_file="/tmp/dtmf_gen.log"
+    
+    if sudo "${VENV_PYTHON}" "${dtmf_script}" > "${log_file}" 2>&1; then
+        if [ -f "${DTMF_CONFIG}" ]; then
+            print_success "DTMF configuration generated at ${DTMF_CONFIG}"
+        else
+            print_warning "DTMF configuration script ran but file was not created"
+            grep -i "error\|warning" "${log_file}" 2>/dev/null || true
+        fi
+    else
+        print_warning "Failed to generate DTMF configuration. Check errors below:"
+        grep -i "error\|warning" "${log_file}" 2>/dev/null || true
+        echo "You may need to run it manually:"
+        echo "   sudo ${VENV_PYTHON} ${dtmf_script}"
+    fi
+    
+    rm -f "${log_file}"
+}
 
-# Copy scripts directory for user convenience
-echo "Copying scripts..."
-if [ -d "scripts" ]; then
-    sudo cp -r scripts/* /var/lib/skywarnplus-ng/scripts/
-    sudo chown -R ${APP_USER}:${APP_GROUP} /var/lib/skywarnplus-ng/scripts/
-    echo "✓ Scripts copied to /var/lib/skywarnplus-ng/scripts/"
-else
-    echo "⚠️  Warning: scripts directory not found."
-fi
+copy_scripts() {
+    print_section "Copying scripts"
+    
+    if [ -d "scripts" ]; then
+        sudo cp -r scripts/* "${INSTALL_ROOT}/scripts/"
+        set_ownership "${INSTALL_ROOT}/scripts/"
+        print_success "Scripts copied to ${INSTALL_ROOT}/scripts/"
+    else
+        print_warning "scripts directory not found."
+    fi
+}
 
-# Create systemd service
-echo "Creating systemd service..."
-sudo tee /etc/systemd/system/skywarnplus-ng.service > /dev/null <<EOF
+create_systemd_service() {
+    print_section "Creating systemd service"
+    
+    sudo tee "${SYSTEMD_SERVICE}" > /dev/null <<EOF
 [Unit]
 Description=SkywarnPlus-NG Weather Alert System
 After=network.target asterisk.service
@@ -191,72 +280,111 @@ Wants=asterisk.service
 
 [Service]
 Type=simple
-User=asterisk
-Group=asterisk
-WorkingDirectory=/var/lib/skywarnplus-ng
-ExecStart=/var/lib/skywarnplus-ng/venv/bin/python -m skywarnplus_ng.cli run --config /etc/skywarnplus-ng/config.yaml
+User=${APP_USER}
+Group=${APP_GROUP}
+WorkingDirectory=${INSTALL_ROOT}
+ExecStart=${VENV_PYTHON} -m skywarnplus_ng.cli run --config ${CONFIG_DIR}/config.yaml
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
 # Environment
-Environment=SKYWARNPLUS_NG_DATA=/var/lib/skywarnplus-ng/data
-Environment=SKYWARNPLUS_NG_LOGS=/var/log/skywarnplus-ng
+Environment=SKYWARNPLUS_NG_DATA=${INSTALL_ROOT}/data
+Environment=SKYWARNPLUS_NG_LOGS=${LOG_DIR}
 
 [Install]
 WantedBy=multi-user.target
 EOF
+    
+    sudo systemctl daemon-reload
+    sudo systemctl enable skywarnplus-ng
+    
+    print_success "Systemd service created and enabled"
+}
 
-# Reload systemd and enable service
-sudo systemctl daemon-reload
-sudo systemctl enable skywarnplus-ng
+clear_port() {
+    print_section "Ensuring port ${WEB_PORT} is available"
+    
+    if command -v lsof >/dev/null 2>&1; then
+        sudo kill -9 $(sudo lsof -t -i :${WEB_PORT}) 2>/dev/null || true
+    elif command -v fuser >/dev/null 2>&1; then
+        sudo fuser -k ${WEB_PORT}/tcp 2>/dev/null || true
+    fi
+    
+    print_success "Port ${WEB_PORT} cleared"
+}
 
-echo "✓ Systemd service created and enabled"
-
-# Ensure port 8100 is clear
-echo "Ensuring port 8100 is available..."
-if command -v lsof >/dev/null 2>&1; then
-    sudo kill -9 $(sudo lsof -t -i :8100) 2>/dev/null || true
-elif command -v fuser >/dev/null 2>&1; then
-    sudo fuser -k 8100/tcp 2>/dev/null || true
-fi
-echo "✓ Port 8100 cleared"
-
-# Create logrotate configuration
-echo "Setting up log rotation..."
-sudo tee /etc/logrotate.d/skywarnplus-ng > /dev/null <<EOF
-/var/log/skywarnplus-ng/*.log {
+create_logrotate_config() {
+    print_section "Setting up log rotation"
+    
+    sudo tee "${LOGROTATE_CONFIG}" > /dev/null <<EOF
+${LOG_DIR}/*.log {
     daily
     missingok
     rotate 30
     compress
     delaycompress
     notifempty
-    create 644 asterisk asterisk
+    create 644 ${APP_USER} ${APP_GROUP}
     postrotate
         systemctl kill -s HUP skywarnplus-ng > /dev/null 2>&1 || true
     endscript
 }
 EOF
+    
+    print_success "Log rotation configured"
+}
 
-echo "✓ Log rotation configured"
+print_completion_message() {
+    echo ""
+    echo "Installation complete!"
+    echo "====================="
+    echo ""
+    echo "Next steps:"
+    echo "1. Edit configuration: sudo nano ${CONFIG_DIR}/config.yaml"
+    echo "2. Update county codes and Asterisk node numbers"
+    echo "3. Start the service: sudo systemctl start skywarnplus-ng"
+    echo "4. Check status: sudo systemctl status skywarnplus-ng"
+    echo "5. View logs: sudo journalctl -u skywarnplus-ng -f"
+    echo "6. Web dashboard: http://localhost:${WEB_PORT}"
+    echo ""
+    echo "Asterisk integration:"
+    echo "- DTMF config: ${DTMF_CONFIG} (generated during install)"
+    echo "- Enable SkyDescribe for your node via ASL-menu"
+    echo "- Audio files: ${INSTALL_ROOT}/SOUNDS/"
+    echo "- Web dashboard: http://localhost:${WEB_PORT} or via reverse proxy"
+    echo ""
+}
 
-echo ""
-echo "Installation complete!"
-echo "====================="
-echo ""
-echo "Next steps:"
-echo "1. Edit configuration: sudo nano /etc/skywarnplus-ng/config.yaml"
-echo "2. Update county codes and Asterisk node numbers"
-echo "3. Start the service: sudo systemctl start skywarnplus-ng"
-echo "4. Check status: sudo systemctl status skywarnplus-ng"
-echo "5. View logs: sudo journalctl -u skywarnplus-ng -f"
-echo "6. Web dashboard: http://localhost:8100"
-echo ""
-echo "Asterisk integration:"
-echo "- DTMF config: /etc/asterisk/custom/rpt/skydescribe.conf (generated during install)"
-echo "- Enable SkyDescribe for your node via ASL-menu"
-echo "- Audio files: /var/lib/skywarnplus-ng/SOUNDS/"
-echo "- Web dashboard: http://localhost:8100 or via reverse proxy"
-echo ""
+# ============================================================================
+# Main Installation Flow
+# ============================================================================
+
+main() {
+    print_section "Installing SkywarnPlus-NG (Traditional Method)"
+    
+    # Pre-installation checks
+    check_not_root
+    check_python_version
+    check_asterisk_user
+    
+    # Installation steps
+    install_system_dependencies
+    create_directories
+    install_sound_files
+    copy_source_files
+    install_python_dependencies
+    setup_configuration
+    generate_dtmf_configuration
+    copy_scripts
+    create_systemd_service
+    clear_port
+    create_logrotate_config
+    
+    # Completion message
+    print_completion_message
+}
+
+# Run main function
+main
