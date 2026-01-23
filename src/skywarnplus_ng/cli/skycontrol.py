@@ -18,7 +18,7 @@ import subprocess
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
-from pydub import AudioSegment
+from ..audio.audio_utils import AudioSegment
 
 from ..core.config import AppConfig
 from ..asterisk.manager import AsteriskManager

@@ -8,8 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
-from pydub import AudioSegment
-from pydub.utils import which
+from .audio_utils import AudioSegment
 
 from ..core.config import TTSConfig
 

@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from pydub import AudioSegment
+from .audio_utils import AudioSegment
 
 from ..core.config import AudioConfig, AlertConfig, FilteringConfig
 from ..core.models import WeatherAlert

@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from ..core.config import AudioConfig, TTSConfig
 from ..core.models import WeatherAlert
 from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
-from pydub import AudioSegment
+from .audio_utils import AudioSegment
 
 logger = logging.getLogger(__name__)
 
@@ -649,39 +649,19 @@ class AudioManager:
             audio: AudioSegment to export
             output_path: Path for output ulaw file
         """
-        import tempfile
-        import subprocess
-        
         # Ensure 8kHz mono for ulaw
         audio = audio.set_frame_rate(8000).set_channels(1)
         
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
-            temp_wav_path = Path(temp_wav.name)
-        
+        # Use AudioSegment's built-in ulaw export
         try:
-            # Export as WAV first (more reliable than raw)
-            audio.export(str(temp_wav_path), format="wav")
+            audio.export(str(output_path), format="ulaw")
             
-            # Convert WAV to ulaw using ffmpeg
-            result = subprocess.run(
-                [
-                    "ffmpeg", "-y", "-i", str(temp_wav_path),
-                    "-ar", "8000", "-ac", "1",
-                    "-f", "mulaw",
-                    str(output_path)
-                ],
-                check=True,
-                capture_output=True,
-                timeout=30,
-                text=True
-            )
             # Verify file was created
             import time
             time.sleep(0.1)  # Brief pause for filesystem sync
             
             if not output_path.exists():
                 logger.error(f"FFmpeg output file does not exist: {output_path}")
-                logger.error(f"FFmpeg command: ffmpeg -y -i {temp_wav_path} -ar 8000 -ac 1 -f mulaw {output_path}")
                 raise AudioManagerError(f"FFmpeg did not create output file: {output_path}")
             
             file_size = output_path.stat().st_size
@@ -690,18 +670,9 @@ class AudioManager:
                 raise AudioManagerError(f"FFmpeg created empty ulaw file: {output_path}")
             
             logger.debug(f"Exported to ulaw: {output_path} ({file_size} bytes)")
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
-            logger.error(f"FFmpeg conversion to ulaw failed: {error_msg}")
-            if e.stdout:
-                stdout_msg = e.stdout if isinstance(e.stdout, str) else e.stdout.decode()
-                logger.error(f"FFmpeg stdout: {stdout_msg}")
-            raise AudioManagerError(f"Failed to convert to ulaw format: {error_msg}")
-        except FileNotFoundError:
-            logger.error("FFmpeg not found - cannot convert to ulaw")
-            raise AudioManagerError("FFmpeg is required for ulaw format conversion")
-        finally:
-            temp_wav_path.unlink(missing_ok=True)
+        except RuntimeError as e:
+            logger.error(f"Failed to export to ulaw: {e}")
+            raise AudioManagerError(f"Failed to convert to ulaw format: {str(e)}")
 
     def _append_suffix_audio(self, main_audio_path: Path, suffix_filename: str) -> Optional[Path]:
         """
