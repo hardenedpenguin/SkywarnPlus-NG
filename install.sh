@@ -137,6 +137,9 @@ else
     echo "⚠️  Warning: config/default.yaml not found. Skipping configuration copy."
 fi
 
+# Ensure /etc/skywarnplus-ng and all its contents are properly owned
+sudo chown -R ${APP_USER}:${APP_GROUP} /etc/skywarnplus-ng
+
 # Generate DTMF configuration (must run after venv is created)
 echo "Generating DTMF configuration..."
 if [ -f "${CURRENT_DIR}/scripts/generate_dtmf_conf.py" ]; then
