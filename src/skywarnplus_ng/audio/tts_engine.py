@@ -144,7 +144,7 @@ class GTTSEngine:
             Path to converted audio file
         """
         try:
-            # Load audio with pydub
+            # Load audio with AudioSegment (replaces pydub)
             audio = AudioSegment.from_mp3(str(input_path))
             
             # Convert to mono if needed
@@ -276,7 +276,7 @@ class GTTSEngine:
                     file_size = audio_path.stat().st_size
                     return file_size / 8000.0
             
-            # For other formats, use pydub
+            # For other formats, use AudioSegment
             audio = AudioSegment.from_file(str(audio_path))
             return len(audio) / 1000.0  # Convert milliseconds to seconds
         except Exception as e:
@@ -526,7 +526,7 @@ class PiperTSEngine:
             Path to converted audio file
         """
         try:
-            # Load audio with pydub (Piper outputs WAV)
+            # Load audio (Piper outputs WAV)
             audio = AudioSegment.from_wav(str(input_path))
             
             # Convert to mono if needed
@@ -643,7 +643,7 @@ class PiperTSEngine:
                     file_size = audio_path.stat().st_size
                     return file_size / 8000.0
             
-            # For other formats, use pydub
+            # For other formats, use AudioSegment
             audio = AudioSegment.from_file(str(audio_path))
             return len(audio) / 1000.0  # Convert milliseconds to seconds
         except Exception as e:

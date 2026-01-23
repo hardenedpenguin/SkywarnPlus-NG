@@ -528,7 +528,7 @@ class AudioManager:
                 
                 return audio
             else:
-                # For other formats, use pydub directly
+                # For other formats, use AudioSegment's auto-detection
                 return AudioSegment.from_file(str(audio_path))
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
@@ -656,23 +656,39 @@ class AudioManager:
         try:
             audio.export(str(output_path), format="ulaw")
             
-            # Verify file was created
+            # Verify file was created (with retry for filesystem sync)
             import time
-            time.sleep(0.1)  # Brief pause for filesystem sync
+            for attempt in range(5):  # Retry up to 5 times
+                if output_path.exists() and output_path.stat().st_size > 0:
+                    break
+                if attempt < 4:  # Don't sleep on last attempt
+                    time.sleep(0.05)  # 50ms delay
             
             if not output_path.exists():
                 logger.error(f"FFmpeg output file does not exist: {output_path}")
-                raise AudioManagerError(f"FFmpeg did not create output file: {output_path}")
+                raise AudioManagerError(
+                    f"FFmpeg did not create output file: {output_path}. "
+                    f"Check disk space and permissions."
+                )
             
             file_size = output_path.stat().st_size
             if file_size == 0:
                 logger.error(f"FFmpeg created empty file: {output_path}")
-                raise AudioManagerError(f"FFmpeg created empty ulaw file: {output_path}")
+                raise AudioManagerError(
+                    f"FFmpeg created empty ulaw file: {output_path}. "
+                    f"The input audio may be invalid or corrupted."
+                )
             
             logger.debug(f"Exported to ulaw: {output_path} ({file_size} bytes)")
         except RuntimeError as e:
             logger.error(f"Failed to export to ulaw: {e}")
             raise AudioManagerError(f"Failed to convert to ulaw format: {str(e)}")
+        except FileNotFoundError as e:
+            logger.error(f"File not found during ulaw export: {e}")
+            raise AudioManagerError(
+                f"Output path does not exist or is inaccessible: {output_path}. "
+                f"Check directory permissions and disk space."
+            )
 
     def _append_suffix_audio(self, main_audio_path: Path, suffix_filename: str) -> Optional[Path]:
         """

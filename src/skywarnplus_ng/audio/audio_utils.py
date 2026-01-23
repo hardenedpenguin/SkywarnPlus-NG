@@ -29,9 +29,36 @@ class AudioData:
         
         Args:
             data: Audio data as numpy array (1D for mono, 2D for stereo)
-            sample_rate: Sample rate in Hz
-            channels: Number of audio channels
+            sample_rate: Sample rate in Hz (must be positive)
+            channels: Number of audio channels (1 or 2)
+            
+        Raises:
+            ValueError: If parameters are invalid
+            TypeError: If data is not a numpy array
         """
+        if not isinstance(data, np.ndarray):
+            raise TypeError(f"data must be a numpy array, got {type(data)}")
+        
+        if len(data) == 0:
+            raise ValueError("Audio data cannot be empty")
+        
+        if sample_rate <= 0:
+            raise ValueError(f"Sample rate must be positive, got {sample_rate}")
+        
+        if channels not in (1, 2):
+            raise ValueError(f"Channels must be 1 or 2, got {channels}")
+        
+        # Validate data shape matches channels
+        if len(data.shape) > 1:
+            if data.shape[1] != channels:
+                raise ValueError(
+                    f"Data shape {data.shape} does not match channels={channels}. "
+                    f"Expected shape: (samples,) for mono or (samples, {channels}) for stereo"
+                )
+        elif channels == 2:
+            # Mono data but channels=2, will be converted in set_channels
+            pass
+        
         self.data = data
         self.sample_rate = sample_rate
         self.channels = channels
@@ -64,21 +91,33 @@ class AudioData:
         Resample audio to target sample rate.
         
         Args:
-            target_rate: Target sample rate in Hz
+            target_rate: Target sample rate in Hz (must be positive)
             
         Returns:
             New AudioData instance with resampled audio
+            
+        Raises:
+            ValueError: If target_rate is invalid
         """
+        if target_rate <= 0:
+            raise ValueError(f"Target sample rate must be positive, got {target_rate}")
+        
         if target_rate == self.sample_rate:
             return self
         
         # Calculate number of samples for target rate
         num_samples = int(len(self.data) * target_rate / self.sample_rate)
         
-        # Resample using scipy
-        resampled = signal.resample(self.data, num_samples)
+        if num_samples == 0:
+            raise ValueError(f"Cannot resample: resulting audio would be empty (target rate {target_rate}Hz too low)")
         
-        return AudioData(resampled, target_rate, self.channels)
+        # Resample using scipy
+        try:
+            resampled = signal.resample(self.data, num_samples)
+            logger.debug(f"Resampled audio from {self.sample_rate}Hz to {target_rate}Hz ({len(self.data)} -> {num_samples} samples)")
+            return AudioData(resampled, target_rate, self.channels)
+        except Exception as e:
+            raise RuntimeError(f"Failed to resample audio: {e}") from e
     
     def set_channels(self, target_channels: int) -> 'AudioData':
         """
@@ -212,7 +251,16 @@ class AudioData:
             sf.write(str(output_path), audio.data, audio.sample_rate)
     
     def _export_to_ulaw(self, audio: 'AudioData', output_path: Path) -> None:
-        """Export audio to ulaw format using ffmpeg."""
+        """
+        Export audio to ulaw format using ffmpeg.
+        
+        Args:
+            audio: AudioData to export
+            output_path: Output file path
+            
+        Raises:
+            RuntimeError: If conversion fails or ffmpeg is not available
+        """
         import tempfile
         
         # Create temporary WAV file
@@ -238,18 +286,39 @@ class AudioData:
                 text=True
             )
             
-            # Verify file was created
+            # Verify file was created (with retry for filesystem sync)
+            import time
+            for _ in range(5):  # Retry up to 5 times
+                if output_path.exists() and output_path.stat().st_size > 0:
+                    break
+                time.sleep(0.05)  # 50ms delay
+            
             if not output_path.exists():
-                raise RuntimeError(f"FFmpeg did not create output file: {output_path}")
+                raise RuntimeError(
+                    f"FFmpeg did not create output file: {output_path}. "
+                    f"Check disk space and permissions."
+                )
             
             if output_path.stat().st_size == 0:
-                raise RuntimeError(f"FFmpeg created empty file: {output_path}")
+                raise RuntimeError(
+                    f"FFmpeg created empty file: {output_path}. "
+                    f"The input audio may be invalid or corrupted."
+                )
+            
+            logger.debug(f"Exported audio to ulaw: {output_path} ({output_path.stat().st_size} bytes)")
                 
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
-            raise RuntimeError(f"FFmpeg conversion to ulaw failed: {error_msg}")
+            raise RuntimeError(
+                f"FFmpeg conversion to ulaw failed: {error_msg}. "
+                f"Ensure ffmpeg is properly installed and the input audio is valid."
+            ) from e
         except FileNotFoundError:
-            raise RuntimeError("FFmpeg is required for ulaw format conversion")
+            raise RuntimeError(
+                "FFmpeg is required for ulaw format conversion. "
+                "Please install ffmpeg: sudo apt-get install ffmpeg (Debian/Ubuntu) "
+                "or visit https://ffmpeg.org/download.html"
+            )
         finally:
             temp_wav_path.unlink(missing_ok=True)
     
@@ -299,13 +368,24 @@ class AudioData:
         Generate silence audio.
         
         Args:
-            duration: Duration in milliseconds
-            sample_rate: Sample rate in Hz
+            duration: Duration in milliseconds (must be positive)
+            sample_rate: Sample rate in Hz (must be positive)
             
         Returns:
             AudioData instance with silence
+            
+        Raises:
+            ValueError: If duration or sample_rate is invalid
         """
+        if duration < 0:
+            raise ValueError(f"Duration must be non-negative, got {duration}")
+        if sample_rate <= 0:
+            raise ValueError(f"Sample rate must be positive, got {sample_rate}")
+        
         num_samples = int(duration * sample_rate / 1000)
+        if num_samples == 0:
+            return AudioData.empty()
+        
         silence_data = np.zeros(num_samples, dtype=np.float32)
         return AudioData(silence_data, sample_rate, 1)
     
@@ -324,16 +404,37 @@ class AudioData:
             
         Returns:
             AudioData instance
+            
+        Raises:
+            FileNotFoundError: If file does not exist
+            RuntimeError: If file cannot be read or is invalid
         """
-        data, sample_rate = sf.read(str(file_path))
+        path = Path(file_path)
         
-        # Determine channels
-        if len(data.shape) > 1:
-            channels = data.shape[1]
-        else:
-            channels = 1
+        if not path.exists():
+            raise FileNotFoundError(f"Audio file not found: {file_path}")
         
-        return AudioData(data, sample_rate, channels)
+        if not path.is_file():
+            raise RuntimeError(f"Path is not a file: {file_path}")
+        
+        try:
+            data, sample_rate = sf.read(str(path))
+            
+            # Determine channels
+            if len(data.shape) > 1:
+                channels = data.shape[1]
+            else:
+                channels = 1
+            
+            if len(data) == 0:
+                raise RuntimeError(f"Audio file is empty: {file_path}")
+            
+            logger.debug(f"Loaded WAV file: {file_path} ({len(data)} samples, {sample_rate}Hz, {channels} channels)")
+            return AudioData(data, sample_rate, channels)
+        except sf.LibsndfileError as e:
+            raise RuntimeError(f"Failed to read WAV file {file_path}: {e}. The file may be corrupted or in an unsupported format.") from e
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error loading WAV file {file_path}: {e}") from e
     
     @staticmethod
     def from_mp3(file_path: str) -> 'AudioData':
@@ -345,7 +446,19 @@ class AudioData:
             
         Returns:
             AudioData instance
+            
+        Raises:
+            FileNotFoundError: If file does not exist
+            RuntimeError: If conversion fails or ffmpeg is not available
         """
+        path = Path(file_path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"MP3 file not found: {file_path}")
+        
+        if not path.is_file():
+            raise RuntimeError(f"Path is not a file: {file_path}")
+        
         import tempfile
         
         # Create temporary WAV file
@@ -365,14 +478,27 @@ class AudioData:
                 text=True
             )
             
+            # Verify output file was created
+            if not temp_wav_path.exists():
+                raise RuntimeError(f"FFmpeg did not create output file when converting MP3: {file_path}")
+            
             # Load the converted WAV file
+            logger.debug(f"Converted MP3 to WAV: {file_path}")
             return AudioData.from_wav(str(temp_wav_path))
             
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
-            raise RuntimeError(f"Failed to convert MP3 to WAV: {error_msg}")
+            raise RuntimeError(
+                f"Failed to convert MP3 file {file_path} to WAV. "
+                f"FFmpeg error: {error_msg}. "
+                f"Ensure the file is a valid MP3 and ffmpeg is properly installed."
+            ) from e
         except FileNotFoundError:
-            raise RuntimeError("FFmpeg is required for MP3 file loading")
+            raise RuntimeError(
+                "FFmpeg is required for MP3 file loading. "
+                "Please install ffmpeg: sudo apt-get install ffmpeg (Debian/Ubuntu) "
+                "or visit https://ffmpeg.org/download.html"
+            )
         finally:
             temp_wav_path.unlink(missing_ok=True)
     
@@ -386,8 +512,16 @@ class AudioData:
             
         Returns:
             AudioData instance
+            
+        Raises:
+            FileNotFoundError: If file does not exist
+            RuntimeError: If file cannot be read or format is unsupported
         """
         path = Path(file_path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"Audio file not found: {file_path}")
+        
         ext = path.suffix.lower()
         
         if ext == '.wav':
@@ -405,14 +539,43 @@ class AudioData:
                     channels = data.shape[1]
                 else:
                     channels = 1
+                logger.debug(f"Loaded audio file via soundfile: {file_path} (format: {ext})")
                 return AudioData(data, sample_rate, channels)
-            except Exception:
-                # Fallback to ffmpeg conversion
-                return AudioData._from_ulaw(str(path))
+            except sf.LibsndfileError as e:
+                # Soundfile doesn't support this format, try ffmpeg
+                logger.debug(f"Soundfile cannot read {ext} format, trying ffmpeg conversion")
+                try:
+                    return AudioData._from_ulaw(str(path))
+                except Exception as e2:
+                    raise RuntimeError(
+                        f"Unable to load audio file {file_path}. "
+                        f"Format '{ext}' is not supported. "
+                        f"Supported formats: WAV, MP3, ulaw, and formats supported by soundfile/libsndfile. "
+                        f"Error: {e2}"
+                    ) from e2
+            except Exception as e:
+                raise RuntimeError(f"Failed to load audio file {file_path}: {e}") from e
     
     @staticmethod
     def _from_ulaw(file_path: str) -> 'AudioData':
-        """Load audio from ulaw file using ffmpeg."""
+        """
+        Load audio from ulaw file using ffmpeg.
+        
+        Args:
+            file_path: Path to ulaw file
+            
+        Returns:
+            AudioData instance
+            
+        Raises:
+            FileNotFoundError: If file does not exist
+            RuntimeError: If conversion fails or ffmpeg is not available
+        """
+        path = Path(file_path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"ulaw file not found: {file_path}")
+        
         import tempfile
         
         # Create temporary WAV file
@@ -436,14 +599,27 @@ class AudioData:
                 text=True
             )
             
+            # Verify output file was created
+            if not temp_wav_path.exists():
+                raise RuntimeError(f"FFmpeg did not create output file when converting ulaw: {file_path}")
+            
             # Load the converted WAV file
+            logger.debug(f"Converted ulaw to WAV: {file_path}")
             return AudioData.from_wav(str(temp_wav_path))
             
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
-            raise RuntimeError(f"Failed to convert ulaw to WAV: {error_msg}")
+            raise RuntimeError(
+                f"Failed to convert ulaw file {file_path} to WAV. "
+                f"FFmpeg error: {error_msg}. "
+                f"Ensure the file is a valid ulaw file and ffmpeg is properly installed."
+            ) from e
         except FileNotFoundError:
-            raise RuntimeError("FFmpeg is required for ulaw file loading")
+            raise RuntimeError(
+                "FFmpeg is required for ulaw file loading. "
+                "Please install ffmpeg: sudo apt-get install ffmpeg (Debian/Ubuntu) "
+                "or visit https://ffmpeg.org/download.html"
+            )
         finally:
             temp_wav_path.unlink(missing_ok=True)
 

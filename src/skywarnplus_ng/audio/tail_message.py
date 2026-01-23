@@ -108,8 +108,7 @@ class TailMessageManager:
             elif ext == '.mp3':
                 return AudioSegment.from_mp3(str(file_path))
             elif ext in ['.ulaw', '.ul']:
-                # For ulaw files, pydub doesn't support them directly
-                # Convert to WAV using ffmpeg first, then load
+                # For ulaw files, convert to WAV using ffmpeg first, then load
                 try:
                     # Create temporary WAV file
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -137,22 +136,35 @@ class TailMessageManager:
                     # Clean up temporary file
                     try:
                         temp_wav_path.unlink()
-                    except Exception:
-                        pass
+                    except OSError as e:
+                        logger.debug(f"Failed to cleanup temp file {temp_wav_path}: {e}")
                     
                     return audio
                 except subprocess.CalledProcessError as e:
                     error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
-                    logger.error(f"Failed to convert ulaw file {file_path} to WAV: {error_msg}")
+                    logger.error(
+                        f"Failed to convert ulaw file {file_path} to WAV: {error_msg}. "
+                        f"Ensure the file is a valid ulaw file and ffmpeg is properly installed."
+                    )
                     return None
                 except FileNotFoundError:
-                    logger.error("FFmpeg not found - cannot load ulaw files")
+                    logger.error(
+                        "FFmpeg not found - cannot load ulaw files. "
+                        "Please install ffmpeg: sudo apt-get install ffmpeg (Debian/Ubuntu)"
+                    )
                     return None
             else:
                 # Try to auto-detect
-                return AudioSegment.from_file(str(file_path))
-        except Exception as e:
+                try:
+                    return AudioSegment.from_file(str(file_path))
+                except (FileNotFoundError, RuntimeError) as e:
+                    logger.error(f"Failed to load audio file {file_path}: {e}")
+                    return None
+        except (FileNotFoundError, RuntimeError) as e:
             logger.error(f"Failed to load audio file {file_path}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error loading audio file {file_path}: {e}", exc_info=True)
             return None
 
     def _generate_alert_text_segment(self, alert: WeatherAlert) -> str:
