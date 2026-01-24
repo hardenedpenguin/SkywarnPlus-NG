@@ -2,9 +2,12 @@
 
 Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
-[![SkywarnPlus-NG Dashboard](SkywarnPlus-ng.png)](SkywarnPlus-ng.png) [![SkywarnPlus-NG Dashboard](SkywarnPlus-ng-1.png)](SkywarnPlus-ng-1.png)
+<p align="center">
+  <a href="SkywarnPlus-ng.png"><img src="SkywarnPlus-ng.png" alt="SkywarnPlus-NG Dashboard" width="400"></a>
+  <a href="SkywarnPlus-ng-1.png"><img src="SkywarnPlus-ng-1.png" alt="SkywarnPlus-NG Dashboard" width="400"></a>
+</p>
 
-*Click the images above to view the full dashboard screenshots*
+*Click the thumbnails above to view full-size dashboard screenshots*
 
 ## About
 
