@@ -9,7 +9,15 @@ This script helps diagnose issues with Piper TTS by:
 4. Verifying output file creation
 
 Usage:
-    python3 scripts/test_piper.py [model_path]
+    # From install directory (use venv Python; piper-tts is not in system Python):
+    venv/bin/python3 scripts/test_piper.py [model_path]
+
+    # model_path optional when run from install dir: defaults to piper/en_US-amy-low.onnx
+    venv/bin/python3 scripts/test_piper.py
+    venv/bin/python3 scripts/test_piper.py piper/en_US-amy-low.onnx
+
+    # With absolute path:
+    venv/bin/python3 scripts/test_piper.py /var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx
 """
 
 import sys
@@ -170,16 +178,26 @@ def main():
     # Test import
     success, piper_voice_class = test_piper_import()
     if not success:
+        print("\n  Hint: Use the venv Python (e.g. venv/bin/python3) when run from the install dir.")
         sys.exit(1)
-    
-    # Get model path
+
+    # Get model path: explicit arg, or default when run from install dir
     if len(sys.argv) > 1:
         model_path = Path(sys.argv[1])
     else:
-        print("\nModel path not provided.")
-        print("Usage: python3 scripts/test_piper.py [model_path]")
-        print("Example: python3 scripts/test_piper.py /opt/piper/en_US-amy-medium.onnx")
-        sys.exit(1)
+        cwd = Path.cwd()
+        for candidate in ("piper/en_US-amy-low.onnx", "piper/en_US-amy-medium.onnx"):
+            p = (cwd / candidate).resolve()
+            if p.exists():
+                model_path = p
+                print(f"\nNo model path given; using install default: {model_path}")
+                break
+        else:
+            print("\nModel path not provided.")
+            print("Usage: venv/bin/python3 scripts/test_piper.py [model_path]")
+            print("  When run from install dir, model_path defaults to piper/en_US-amy-low.onnx")
+            print("Example: venv/bin/python3 scripts/test_piper.py piper/en_US-amy-low.onnx")
+            sys.exit(1)
     
     # Test model loading
     success, voice = test_model_loading(model_path, piper_voice_class)
