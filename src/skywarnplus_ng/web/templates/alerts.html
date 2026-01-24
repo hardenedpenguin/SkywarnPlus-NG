@@ -1,8 +1,17 @@
 {% extends "base.html" %}
 
+{% block breadcrumbs %}
+<nav class="mb-4 text-sm" aria-label="Breadcrumb">
+    <ol class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+        <li><a href="{{ base_path|default('') }}/" class="hover:text-gray-700 dark:hover:text-gray-300">Dashboard</a></li>
+        <li><span aria-hidden="true">/</span></li>
+        <li class="text-gray-900 dark:text-white font-medium" aria-current="page">Active Alerts</li>
+    </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
-    <!-- Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Active Alerts</h1>
         <p class="text-gray-600 dark:text-gray-400">Current weather alerts and their status</p>
@@ -67,24 +76,24 @@
         </div>
     </div>
 
-    <!-- Controls -->
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div class="flex items-center space-x-4">
-            <button onclick="refreshAlerts()" class="btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
-                </svg>
-                Refresh
+            <span id="alerts-ws-indicator" class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span id="alerts-ws-dot" class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+                <span id="alerts-ws-text">Paused</span>
+            </span>
+            <button type="button" id="alerts-refresh-btn" onclick="refreshAlerts()" class="btn-secondary">
+                <svg id="alerts-refresh-icon" class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                <span id="alerts-refresh-text">Refresh</span>
             </button>
-            
+            <span id="alerts-updated" class="text-sm text-gray-500 dark:text-gray-400 hidden">Updated <span id="alerts-updated-ago">—</span></span>
             <div class="flex items-center space-x-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Auto-refresh:</label>
                 <input type="checkbox" id="auto-refresh" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                 <span id="refresh-interval" class="text-sm text-gray-500 dark:text-gray-400">30s</span>
             </div>
         </div>
-        
-        <div class="flex items-center space-x-2">
+        <div class="flex flex-wrap items-center gap-2">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</label>
             <select id="severity-filter" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                 <option value="">All Severities</option>
@@ -93,16 +102,25 @@
                 <option value="Moderate">Moderate</option>
                 <option value="Minor">Minor</option>
             </select>
+            <input type="search" id="alerts-search" placeholder="Search event, area, headline…" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm w-48 max-w-full">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort:</label>
+            <select id="alerts-sort" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                <option value="severity">Severity</option>
+                <option value="effective">Time (effective)</option>
+                <option value="area">Area</option>
+            </select>
         </div>
     </div>
 
-    <!-- Alerts List -->
     <div class="card">
         <div id="alerts-container">
             <div class="text-center py-8">
                 <div class="loading-spinner mx-auto mb-4"></div>
                 <p class="text-gray-500 dark:text-gray-400">Loading alerts...</p>
             </div>
+        </div>
+        <div id="alerts-load-more" class="hidden mt-4 text-center">
+            <button type="button" id="alerts-load-more-btn" onclick="alertsLoadMore()" class="btn-secondary">Load more</button>
         </div>
     </div>
 </div>
@@ -112,6 +130,9 @@
 <script>
     let refreshInterval = null;
     let autoRefreshEnabled = false;
+    let alertsCache = [];
+    let alertsPage = 1;
+    const ALERTS_PAGE_SIZE = 10;
 
     // Format timestamp
     function formatTimestamp(timestamp) {
@@ -185,24 +206,49 @@
     function renderAlerts(alerts) {
         const container = document.getElementById('alerts-container');
         
-        if (alerts.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Active Alerts</h3>
-                    <p class="text-gray-500 dark:text-gray-400">There are currently no active weather alerts.</p>
-                </div>
-            `;
+        var severityFilter = (document.getElementById('severity-filter') || {}).value || '';
+        var searchQ = ((document.getElementById('alerts-search') || {}).value || '').toLowerCase().trim();
+        var sortBy = (document.getElementById('alerts-sort') || {}).value || 'severity';
+        var filtered = severityFilter ? alerts.filter(function(a) { return a.severity === severityFilter; }) : alerts;
+        if (searchQ) {
+            filtered = filtered.filter(function(a) {
+                var ev = (a.event || '').toLowerCase();
+                var ar = (a.area_desc || '').toLowerCase();
+                var hl = (a.headline || '').toLowerCase();
+                return ev.indexOf(searchQ) !== -1 || ar.indexOf(searchQ) !== -1 || hl.indexOf(searchQ) !== -1;
+            });
+        }
+        var order = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3 };
+        if (sortBy === 'severity') {
+            filtered.sort(function(a, b) { return (order[a.severity] ?? 4) - (order[b.severity] ?? 4); });
+        } else if (sortBy === 'effective') {
+            filtered.sort(function(a, b) {
+                var ta = a.effective ? new Date(a.effective).getTime() : 0;
+                var tb = b.effective ? new Date(b.effective).getTime() : 0;
+                return tb - ta;
+            });
+        } else if (sortBy === 'area') {
+            filtered.sort(function(a, b) {
+                var aa = (a.area_desc || '').toLowerCase();
+                var bb = (b.area_desc || '').toLowerCase();
+                return aa.localeCompare(bb);
+            });
+        }
+        var total = filtered.length;
+        var page = alertsPage;
+        var show = filtered.slice(0, page * ALERTS_PAGE_SIZE);
+        var hasMore = total > show.length;
+
+        if (total === 0) {
+            var basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
+            var filterMsg = alerts.length > 0 ? 'No alerts match your search or filter.' : 'There are no active alerts for your configured counties.';
+            container.innerHTML = '<div class="text-center py-12"><div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center"><svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg></div><h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">' + (alerts.length > 0 ? 'No matching alerts' : 'No active weather alerts') + '</h3><p class="text-gray-500 dark:text-gray-400 mb-4">' + filterMsg + '</p><a href="' + basePath + '/configuration" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Add counties in Configuration</a><span class="text-gray-400 mx-2">·</span><a href="' + basePath + '/alerts/history" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">View alert history</a></div>';
+            var lm = document.getElementById('alerts-load-more');
+            if (lm) lm.classList.add('hidden');
             return;
         }
 
-        // Filter alerts by severity
-        const severityFilter = document.getElementById('severity-filter').value;
-        const filteredAlerts = severityFilter ? alerts.filter(a => a.severity === severityFilter) : alerts;
-
-        const alertsHtml = filteredAlerts.map(alert => `
+        const alertsHtml = show.map(alert => `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-4 last:mb-0 hover:shadow-md transition-shadow">
                 <div class="flex items-start justify-between mb-4">
                     <div class="flex-1">
@@ -279,24 +325,65 @@
         `).join('');
 
         container.innerHTML = alertsHtml;
-    }
-
-    // Load alerts
-    async function loadAlerts() {
-        try {
-            const response = await apiCall('/api/alerts');
-            updateAlertSummary(response.alerts);
-            renderAlerts(response.alerts);
-        } catch (error) {
-            console.error('Failed to load alerts:', error);
-            showNotification('Failed to load alerts', 'error');
+        var lm = document.getElementById('alerts-load-more');
+        var lmb = document.getElementById('alerts-load-more-btn');
+        if (lm && lmb) {
+            if (hasMore) { lm.classList.remove('hidden'); lmb.textContent = 'Load more (' + (total - show.length) + ' remaining)'; }
+            else { lm.classList.add('hidden'); }
         }
     }
 
-    // Refresh alerts
+    function applyAlertsFilters() {
+        alertsPage = 1;
+        renderAlerts(alertsCache);
+    }
+
+    function alertsLoadMore() {
+        alertsPage++;
+        renderAlerts(alertsCache);
+    }
+
+    async function loadAlerts(showUpdated, opts) {
+        opts = opts || {};
+        try {
+            var response = await apiCall('/api/alerts', {}, !opts.noToast);
+            var list = Array.isArray(response) ? response : (response.alerts || []);
+            alertsCache = list;
+            alertsPage = 1;
+            updateAlertSummary(list);
+            renderAlerts(list);
+            if (showUpdated) {
+                var u = document.getElementById('alerts-updated');
+                var a = document.getElementById('alerts-updated-ago');
+                if (u) u.classList.remove('hidden');
+                if (a) a.textContent = 'just now';
+            }
+        } catch (error) {
+            if (opts.noToast && opts.retry) {
+                showNotification(error.message || 'Failed to load alerts', 'error', 0, { retry: opts.retry });
+            } else if (!opts.noToast) {
+                showNotification('Failed to load alerts', 'error');
+            }
+            throw error;
+        }
+    }
+
     async function refreshAlerts() {
-        await loadAlerts();
-        showNotification('Alerts refreshed', 'success');
+        var btn = document.getElementById('alerts-refresh-btn');
+        var icon = document.getElementById('alerts-refresh-icon');
+        var text = document.getElementById('alerts-refresh-text');
+        try {
+            if (btn) btn.disabled = true;
+            if (icon) icon.classList.add('animate-spin');
+            if (text) text.textContent = 'Refreshing…';
+            await loadAlerts(true, { noToast: true, retry: refreshAlerts });
+            showNotification('Alerts refreshed', 'success');
+        } catch (_) {}
+        finally {
+            if (btn) btn.disabled = false;
+            if (icon) icon.classList.remove('animate-spin');
+            if (text) text.textContent = 'Refresh';
+        }
     }
 
     // Auto-refresh toggle
@@ -316,9 +403,8 @@
         }
     }
 
-    // Filter change handler
     function onFilterChange() {
-        loadAlerts();
+        applyAlertsFilters();
     }
 
 
@@ -328,13 +414,24 @@
         renderAlerts(alerts);
     };
 
-    // Initialize
+    function updateAlertsLiveIndicator(connected) {
+        var d = document.getElementById('alerts-ws-dot');
+        var t = document.getElementById('alerts-ws-text');
+        if (d) d.className = 'w-2 h-2 rounded-full ' + (connected ? 'bg-green-500' : 'bg-gray-400');
+        if (t) t.textContent = connected ? 'Live' : 'Paused';
+    }
     document.addEventListener('DOMContentLoaded', function() {
         loadAlerts();
-        
-        // Set up event listeners
-        document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
-        document.getElementById('severity-filter').addEventListener('change', onFilterChange);
+        updateAlertsLiveIndicator(!!window.wsConnected);
+        window.addEventListener('ws-state-change', function(e) { updateAlertsLiveIndicator(!!e.detail.connected); });
+        var ar = document.getElementById('auto-refresh');
+        if (ar) ar.addEventListener('change', toggleAutoRefresh);
+        var sf = document.getElementById('severity-filter');
+        if (sf) sf.addEventListener('change', onFilterChange);
+        var searchEl = document.getElementById('alerts-search');
+        if (searchEl) searchEl.addEventListener('input', applyAlertsFilters);
+        var sortEl = document.getElementById('alerts-sort');
+        if (sortEl) sortEl.addEventListener('change', onFilterChange);
     });
 
     // Cleanup on page unload

@@ -1,60 +1,87 @@
 {% extends "base.html" %}
 
+{% block breadcrumbs %}
+<nav class="mb-4 text-sm" aria-label="Breadcrumb">
+    <ol class="flex items-center gap-2 text-gray-500 dark:text-gray-400 flex-wrap">
+        <li><a href="{{ base_path|default('') }}/" class="hover:text-gray-700 dark:hover:text-gray-300">Dashboard</a></li>
+        <li><span aria-hidden="true">/</span></li>
+        <li><a href="{{ base_path|default('') }}/configuration" class="hover:text-gray-700 dark:hover:text-gray-300">Configuration</a></li>
+        <li><span aria-hidden="true">/</span></li>
+        <li id="config-breadcrumb-tab" class="text-gray-900 dark:text-white font-medium" aria-current="page">Core Settings</li>
+    </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
-<div class="fade-in">
+<div class="fade-in pb-24">
+    <!-- Getting started -->
+    <div class="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <p class="text-sm text-blue-800 dark:text-blue-200"><strong>Getting started:</strong> 1. Add counties (Counties tab) → 2. Configure NWS API if needed → 3. Set up Asterisk &amp; Audio (optional) → 4. Save configuration.</p>
+    </div>
+
     <!-- Header -->
-    <div class="mb-8">
+    <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Configuration</h1>
         <p class="text-gray-600 dark:text-gray-400">Manage all aspects of SkywarnPlus-NG configuration</p>
     </div>
 
-    <!-- Configuration Tabs -->
-    <div class="mb-8">
+    <!-- Mobile: Jump to section dropdown -->
+    <div class="md:hidden mb-4">
+        <label for="config-section-select" class="sr-only">Jump to section</label>
+        <select id="config-section-select" onchange="showTab(this.value)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500">
+            <option value="core">Core Settings</option>
+            <option value="nws">NWS API</option>
+            <option value="counties">Counties</option>
+            <option value="asterisk">Asterisk</option>
+            <option value="audio">Audio &amp; TTS</option>
+            <option value="alerts">Alert Behavior</option>
+            <option value="filtering">Filtering</option>
+            <option value="scripts">Scripts</option>
+            <option value="logging">Logging</option>
+            <option value="database">Database</option>
+            <option value="monitoring">Monitoring</option>
+            <option value="notifications">Notifications</option>
+            <option value="subscribers">Subscribers</option>
+            <option value="templates">Templates</option>
+        </select>
+    </div>
+
+    <!-- Two-level tabs (desktop): primary groups + secondary sections -->
+    <div class="mb-6 hidden md:block">
         <div class="border-b border-gray-200 dark:border-gray-700">
-            <nav class="-mb-px flex space-x-8">
-                <button onclick="showTab('core')" id="tab-core" class="tab-button active py-2 px-1 border-b-2 font-medium text-sm">
-                    Core Settings
-                </button>
-                <button onclick="showTab('nws')" id="tab-nws" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    NWS API
-                </button>
-                <button onclick="showTab('counties')" id="tab-counties" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Counties
-                </button>
-                <button onclick="showTab('asterisk')" id="tab-asterisk" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Asterisk
-                </button>
-                <button onclick="showTab('audio')" id="tab-audio" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Audio & TTS
-                </button>
-                <button onclick="showTab('alerts')" id="tab-alerts" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Alert Behavior
-                </button>
-                <button onclick="showTab('filtering')" id="tab-filtering" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Filtering
-                </button>
-                <button onclick="showTab('scripts')" id="tab-scripts" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Scripts
-                </button>
-                <button onclick="showTab('logging')" id="tab-logging" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Logging
-                </button>
-                <button onclick="showTab('database')" id="tab-database" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Database
-                </button>
-                <button onclick="showTab('monitoring')" id="tab-monitoring" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Monitoring
-                </button>
-                <button onclick="showTab('notifications')" id="tab-notifications" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Notifications
-                </button>
-                <button onclick="showTab('subscribers')" id="tab-subscribers" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Subscribers
-                </button>
-                <button onclick="showTab('templates')" id="tab-templates" class="tab-button py-2 px-1 border-b-2 font-medium text-sm">
-                    Templates
-                </button>
+            <nav class="-mb-px flex flex-wrap gap-x-1" role="tablist" aria-label="Configuration groups" id="config-primary-tabs">
+                <button type="button" role="tab" data-group="general" onclick="showConfigGroup('general')" id="primary-general" class="config-primary-tab active py-2 px-3 rounded-t font-medium text-sm border-b-2 border-blue-500 text-blue-600">General</button>
+                <button type="button" role="tab" data-group="asterisk" onclick="showConfigGroup('asterisk')" id="primary-asterisk" class="config-primary-tab py-2 px-3 rounded-t font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Asterisk &amp; Audio</button>
+                <button type="button" role="tab" data-group="alerts" onclick="showConfigGroup('alerts')" id="primary-alerts" class="config-primary-tab py-2 px-3 rounded-t font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Alerts</button>
+                <button type="button" role="tab" data-group="notifications" onclick="showConfigGroup('notifications')" id="primary-notifications" class="config-primary-tab py-2 px-3 rounded-t font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Notifications</button>
+                <button type="button" role="tab" data-group="system" onclick="showConfigGroup('system')" id="primary-system" class="config-primary-tab py-2 px-3 rounded-t font-medium text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">System</button>
             </nav>
+            <div id="config-secondary-row" class="flex flex-wrap gap-x-2 gap-y-1 pt-2 pb-1 border-b border-gray-200 dark:border-gray-700 -mb-px">
+                <nav id="secondary-general" class="secondary-tabs flex flex-wrap gap-x-2" role="tablist" aria-label="General sections">
+                    <button type="button" role="tab" onclick="showTab('core')" id="tab-core" class="tab-button active py-1.5 px-2 border-b-2 font-medium text-sm whitespace-nowrap border-blue-500 text-blue-600">Core</button>
+                    <button type="button" role="tab" onclick="showTab('nws')" id="tab-nws" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">NWS API</button>
+                    <button type="button" role="tab" onclick="showTab('counties')" id="tab-counties" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Counties</button>
+                </nav>
+                <nav id="secondary-asterisk" class="secondary-tabs hidden flex flex-wrap gap-x-2" role="tablist" aria-label="Asterisk &amp; Audio">
+                    <button type="button" role="tab" onclick="showTab('asterisk')" id="tab-asterisk" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Asterisk</button>
+                    <button type="button" role="tab" onclick="showTab('audio')" id="tab-audio" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Audio &amp; TTS</button>
+                </nav>
+                <nav id="secondary-alerts" class="secondary-tabs hidden flex flex-wrap gap-x-2" role="tablist" aria-label="Alerts">
+                    <button type="button" role="tab" onclick="showTab('alerts')" id="tab-alerts" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Alert Behavior</button>
+                    <button type="button" role="tab" onclick="showTab('filtering')" id="tab-filtering" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Filtering</button>
+                    <button type="button" role="tab" onclick="showTab('scripts')" id="tab-scripts" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Scripts</button>
+                </nav>
+                <nav id="secondary-notifications" class="secondary-tabs hidden flex flex-wrap gap-x-2" role="tablist" aria-label="Notifications">
+                    <button type="button" role="tab" onclick="showTab('notifications')" id="tab-notifications" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Notifications</button>
+                    <button type="button" role="tab" onclick="showTab('subscribers')" id="tab-subscribers" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Subscribers</button>
+                    <button type="button" role="tab" onclick="showTab('templates')" id="tab-templates" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Templates</button>
+                </nav>
+                <nav id="secondary-system" class="secondary-tabs hidden flex flex-wrap gap-x-2" role="tablist" aria-label="System">
+                    <button type="button" role="tab" onclick="showTab('logging')" id="tab-logging" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Logging</button>
+                    <button type="button" role="tab" onclick="showTab('database')" id="tab-database" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Database</button>
+                    <button type="button" role="tab" onclick="showTab('monitoring')" id="tab-monitoring" class="tab-button py-1.5 px-2 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700">Monitoring</button>
+                </nav>
+            </div>
         </div>
     </div>
 
@@ -184,9 +211,10 @@
                     </div>
                     
                     <div>
-                        <label for="asterisk_playback_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Playback Mode
-                        </label>
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <label for="asterisk_playback_mode" class="text-sm font-medium text-gray-700 dark:text-gray-300">Playback Mode</label>
+                            <span class="info-tooltip cursor-help" title="Local: playback only on this node. Global: broadcast to all linked Asterisk nodes." aria-label="Playback mode help">ℹ️</span>
+                        </div>
                         <select id="asterisk_playback_mode" name="asterisk.playback_mode" 
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                             <option value="local">Local (default)</option>
@@ -639,17 +667,18 @@
                     </div>
                     
                     <div>
-                        <label for="alerts_time_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Time Type
-                        </label>
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <label for="alerts_time_type" class="text-sm font-medium text-gray-700 dark:text-gray-300">Time Type</label>
+                            <span class="info-tooltip" title="Onset: when conditions begin. Effective: when alert was issued (recommended for watches)." aria-label="Time type help">ℹ️</span>
+                        </div>
                         <select id="alerts_time_type" name="alerts.time_type" 
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                             <option value="onset">Onset Time</option>
                             <option value="effective">Effective Time</option>
                         </select>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            <strong>Onset Time:</strong> Uses when weather conditions actually begin. May filter out watches issued in advance (e.g., Extreme Cold Watch issued today but conditions start tomorrow).<br>
-                            <strong>Effective Time:</strong> Uses when the alert was issued. Includes all active alerts even if conditions haven't started yet. Recommended for watches.
+                            <strong>Onset Time:</strong> Uses when weather conditions actually begin. May filter out watches issued in advance.<br>
+                            <strong>Effective Time:</strong> Uses when the alert was issued. Recommended for watches.
                         </p>
                     </div>
                     
@@ -1401,7 +1430,7 @@
                     </div>
                     
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <table class="table-cards-mobile min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
@@ -1729,40 +1758,29 @@
         </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="mt-8 flex justify-between">
-        <div class="flex space-x-4">
-            <button onclick="resetConfig()" class="btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
-                </svg>
-                Reset to Defaults
-            </button>
-            
-            <button onclick="backupConfig()" class="btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
-                </svg>
-                Backup Config
-            </button>
-        </div>
-        
-        <div class="flex space-x-4">
-            <button onclick="previewConfig()" class="btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-                </svg>
-                Preview
-            </button>
-            
-            <button onclick="saveConfig()" class="btn-primary">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                </svg>
-                Save Configuration
-            </button>
-        </div>
+</div>
+
+<!-- Sticky save bar (always visible at bottom) -->
+<div id="config-sticky-bar" class="fixed bottom-0 right-0 z-40 flex items-center justify-between gap-4 px-4 py-3 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] sticky-bar-offset">
+    <div id="config-unsaved-hint" class="hidden text-sm text-amber-600 dark:text-amber-400 font-medium">You have unsaved changes.</div>
+    <div class="flex-1 md:flex-none"></div>
+    <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="resetConfig()" class="btn-secondary text-sm">
+            <svg class="w-4 h-4 mr-1.5 inline" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+            Reset
+        </button>
+        <button type="button" onclick="backupConfig()" class="btn-secondary text-sm">
+            <svg class="w-4 h-4 mr-1.5 inline" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path></svg>
+            Backup
+        </button>
+        <button type="button" onclick="previewConfig()" class="btn-secondary text-sm">
+            <svg class="w-4 h-4 mr-1.5 inline" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path></svg>
+            Preview
+        </button>
+        <button type="button" id="config-save-btn" onclick="saveConfig()" class="btn-primary text-sm">
+            <svg class="w-4 h-4 mr-1.5 inline" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+            Save Configuration
+        </button>
     </div>
 </div>
 {% endblock %}
@@ -1792,6 +1810,30 @@
     let templatesCache = [];
     let editingSubscriberId = null;
     let editingTemplateId = null;
+    let configFormDirty = false;
+    let configFormLoading = false;
+
+    // Unsaved changes: track form edits
+    function markConfigDirty() {
+        if (configFormLoading) return;
+        configFormDirty = true;
+        const hint = document.getElementById('config-unsaved-hint');
+        if (hint) hint.classList.remove('hidden');
+    }
+    function clearConfigDirty() {
+        configFormDirty = false;
+        const hint = document.getElementById('config-unsaved-hint');
+        if (hint) hint.classList.add('hidden');
+    }
+    function setupConfigDirtyListeners() {
+        const form = document.getElementById('config-form');
+        if (!form) return;
+        form.addEventListener('input', markConfigDirty);
+        form.addEventListener('change', markConfigDirty);
+        window.addEventListener('beforeunload', function(e) {
+            if (configFormDirty) { e.preventDefault(); }
+        });
+    }
 
     // Tab management
     function updateTTSEngineFields() {
@@ -1818,38 +1860,71 @@
         }
     }
     
+    var TAB_TO_GROUP = { core: 'general', nws: 'general', counties: 'general', asterisk: 'asterisk', audio: 'asterisk', alerts: 'alerts', filtering: 'alerts', scripts: 'alerts', notifications: 'notifications', subscribers: 'notifications', templates: 'notifications', logging: 'system', database: 'system', monitoring: 'system' };
+    var GROUP_FIRST = { general: 'core', asterisk: 'asterisk', alerts: 'alerts', notifications: 'notifications', system: 'logging' };
+    var TAB_LABELS = { core: 'Core Settings', nws: 'NWS API', counties: 'Counties', asterisk: 'Asterisk', audio: 'Audio & TTS', alerts: 'Alert Behavior', filtering: 'Filtering', scripts: 'Scripts', logging: 'Logging', database: 'Database', monitoring: 'Monitoring', notifications: 'Notifications', subscribers: 'Subscribers', templates: 'Templates' };
+
+    function showConfigGroup(group) {
+        if (configFormDirty && !confirm('You have unsaved changes. Switch section anyway?')) return;
+        var go = TAB_TO_GROUP[currentTab] === group ? currentTab : GROUP_FIRST[group];
+        if (go) _showTab(go);
+    }
     function showTab(tabName) {
-        // Hide all tab contents
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.add('hidden');
-        });
-        
-        // Remove active class from all tab buttons
-        document.querySelectorAll('.tab-button').forEach(btn => {
+        if (configFormDirty && !confirm('You have unsaved changes. Switch section anyway?')) return;
+        _showTab(tabName);
+    }
+    function _showTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.add('hidden'); });
+        document.querySelectorAll('.tab-button').forEach(function(btn) {
             btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
             btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            btn.setAttribute('aria-selected', 'false');
         });
-        
-        // Show selected tab content
-        document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
-        
-        // Add active class to selected tab button
-        const activeBtn = document.getElementById(`tab-${tabName}`);
-        activeBtn.classList.add('active', 'border-blue-500', 'text-blue-600');
-        activeBtn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-        
+        var content = document.getElementById('tab-content-' + tabName);
+        if (content) content.classList.remove('hidden');
+        var activeBtn = document.getElementById('tab-' + tabName);
+        if (activeBtn) {
+            activeBtn.classList.add('active', 'border-blue-500', 'text-blue-600');
+            activeBtn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            activeBtn.setAttribute('aria-selected', 'true');
+        }
+        var sel = document.getElementById('config-section-select');
+        if (sel) sel.value = tabName;
         currentTab = tabName;
+        var group = TAB_TO_GROUP[tabName];
+        if (group) {
+            document.querySelectorAll('.config-primary-tab').forEach(function(b) {
+                b.classList.remove('active', 'border-blue-500', 'text-blue-600');
+                b.classList.add('border-transparent', 'text-gray-500');
+                b.setAttribute('aria-selected', 'false');
+            });
+            var primary = document.getElementById('primary-' + group);
+            if (primary) {
+                primary.classList.add('active', 'border-blue-500', 'text-blue-600');
+                primary.classList.remove('border-transparent', 'text-gray-500');
+                primary.setAttribute('aria-selected', 'true');
+            }
+            document.querySelectorAll('.secondary-tabs').forEach(function(n) { n.classList.add('hidden'); });
+            var sec = document.getElementById('secondary-' + group);
+            if (sec) sec.classList.remove('hidden');
+        }
+        var bc = document.getElementById('config-breadcrumb-tab');
+        if (bc) bc.textContent = TAB_LABELS[tabName] || tabName;
     }
 
     // Load configuration
     async function loadConfig() {
         try {
+            configFormLoading = true;
             currentConfig = await apiCall('/api/config');
             populateForm(currentConfig);
+            clearConfigDirty();
             showNotification('Configuration loaded', 'success');
         } catch (error) {
             console.error('Failed to load configuration:', error);
             showNotification('Failed to load configuration', 'error');
+        } finally {
+            configFormLoading = false;
         }
     }
 
@@ -2614,7 +2689,13 @@
 
     // Form actions
     async function saveConfig() {
+        const saveBtn = document.getElementById('config-save-btn');
+        const saveOrig = saveBtn ? saveBtn.innerHTML : '';
         try {
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5"></span> Saving…';
+            }
             const formData = new FormData(document.getElementById('config-form'));
             const config = {};
             
@@ -2735,10 +2816,31 @@
             }
             
             // Auto-generate inject_alerts if injection is enabled (backend will handle this)
-            // Just ensure inject_alerts is set to empty array for now
             if (config.dev) {
-                if (!config.dev.inject_alerts) {
-                    config.dev.inject_alerts = [];
+                if (!config.dev.inject_alerts) config.dev.inject_alerts = [];
+            }
+
+            // Client-side validation
+            const poll = parseInt(config.poll_interval, 10);
+            if (isNaN(poll) || poll < 10 || poll > 3600) {
+                showNotification('Poll interval must be between 10 and 3600 seconds.', 'warning');
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveOrig; }
+                return;
+            }
+            if (config.nws) {
+                const t = parseInt(config.nws.timeout, 10);
+                if (!isNaN(t) && (t < 5 || t > 300)) {
+                    showNotification('NWS timeout must be between 5 and 300 seconds.', 'warning');
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveOrig; }
+                    return;
+                }
+            }
+            if (config.asterisk && config.asterisk.ami_port) {
+                const p = parseInt(config.asterisk.ami_port, 10);
+                if (!isNaN(p) && (p < 1 || p > 65535)) {
+                    showNotification('AMI port must be between 1 and 65535.', 'warning');
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveOrig; }
+                    return;
                 }
             }
             
@@ -2746,11 +2848,13 @@
                 method: 'POST',
                 body: JSON.stringify(config)
             });
-            
+            clearConfigDirty();
             showNotification('Configuration saved successfully', 'success');
         } catch (error) {
             console.error('Failed to save configuration:', error);
             showNotification('Failed to save configuration', 'error');
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveOrig; }
         }
     }
 
@@ -2903,25 +3007,11 @@
                 : 'bg-red-100 text-red-800';
         
                 row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        ${subscriber.name}
-                <div class="text-xs text-gray-500 dark:text-gray-400">${subscriber.email}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClasses}">
-                    ${status}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                ${methods}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                ${counties}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <button type="button" onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                <button type="button" onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button>
-                    </td>
+                    <td data-label="Name" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${subscriber.name}<div class="text-xs text-gray-500 dark:text-gray-400">${subscriber.email}</div></td>
+                    <td data-label="Status" class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClasses}">${status}</span></td>
+                    <td data-label="Methods" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${methods}</td>
+                    <td data-label="Counties" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${counties}</td>
+                    <td data-label="Actions" class="px-6 py-4 whitespace-nowrap text-sm font-medium"><button type="button" onclick="editSubscriber('${subscriber.subscriber_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button><button type="button" onclick="deleteSubscriber('${subscriber.subscriber_id}')" class="text-red-600 hover:text-red-900">Delete</button></td>
                 `;
         return row;
     }
@@ -3507,16 +3597,35 @@
         }
     }
 
-    // Prevent form submission on Enter key
-    document.getElementById('config-form').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
-            e.preventDefault();
-        }
+    var cf = document.getElementById('config-form');
+    if (cf) cf.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
     });
 
-    // Initialize
+    function configTabKeydown(e) {
+        var t = e.target;
+        if (t.getAttribute('role') !== 'tab' || !['ArrowLeft','ArrowRight','Enter'].includes(e.key)) return;
+        e.preventDefault();
+        if (e.key === 'Enter') {
+            if (t.onclick) t.onclick(); else t.click();
+            return;
+        }
+        var list = t.closest('[role="tablist"]');
+        if (!list) return;
+        var tabs = [].slice.call(list.querySelectorAll('[role="tab"]'));
+        var i = tabs.indexOf(t);
+        if (i < 0) return;
+        var next = e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length : (i + 1) % tabs.length;
+        tabs[next].focus();
+    }
     document.addEventListener('DOMContentLoaded', function() {
+        setupConfigDirtyListeners();
         loadConfig();
+        var primary = document.getElementById('config-primary-tabs');
+        if (primary) primary.addEventListener('keydown', configTabKeydown);
+        document.querySelectorAll('.secondary-tabs').forEach(function(n) {
+            n.addEventListener('keydown', configTabKeydown);
+        });
     });
 </script>
 {% endblock %}

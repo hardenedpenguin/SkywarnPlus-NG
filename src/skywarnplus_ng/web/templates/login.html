@@ -123,7 +123,7 @@
             </div>
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white">SkywarnPlus-NG</h2>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Weather Alert System</p>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Please sign in to access configuration settings</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Sign in to access the dashboard and configuration</p>
         </div>
 
         <div class="login-card rounded-lg p-8">
@@ -188,10 +188,10 @@
 
         <div class="text-center">
             <p class="text-xs text-gray-500 dark:text-gray-400">
-                Default credentials: admin / skywarn123
+                First time? Use <strong>admin</strong> / <strong>skywarn123</strong>, then change in Configuration.
             </p>
             <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Change these in the configuration file
+                After login you’ll go to the Dashboard. Open <strong>Configuration</strong> to set up counties and alerts.
             </p>
         </div>
     </div>
@@ -291,8 +291,15 @@
                 });
                 
                 if (response.ok) {
-                    // Redirect to configuration page
-                    window.location.href = `${basePath}/configuration`;
+                    const params = new URLSearchParams(window.location.search);
+                    let next = params.get('next') || '';
+                    if (next && next.startsWith('/') && !/^\/\/|^\w+:/.test(next)) {
+                        next = next.replace(/^\/+/, '/');
+                    } else {
+                        try { next = localStorage.getItem('lastPath') || '/'; } catch (_) { next = '/'; }
+                        if (!next || !next.startsWith('/')) next = '/';
+                    }
+                    window.location.href = basePath + (next === '/' ? '/' : next);
                 } else {
                     const error = await response.json();
                     showError(error.message || 'Login failed');

@@ -192,36 +192,32 @@
             left: 0;
             top: 0;
             z-index: 40;
-            transition: transform 0.3s ease;
+            transition: width 0.25s ease, transform 0.3s ease;
         }
-
-        .sidebar-hidden {
-            transform: translateX(-100%);
+        .sidebar.collapsed {
+            width: 4.5rem;
         }
+        .sidebar.collapsed .sidebar-text,
+        .sidebar.collapsed .sidebar-subtitle,
+        .sidebar.collapsed .sidebar-label { display: none !important; }
+        .sidebar.collapsed .px-8 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .sidebar.collapsed .flex.space-x-3 > .flex-1 { display: none !important; }
+        .sidebar.collapsed .space-y-2 a,
+        .sidebar.collapsed .space-y-2 button { justify-content: center; }
+        .sidebar-hidden { transform: translateX(-100%); }
 
         .main-content {
             margin-left: 18rem;
             min-height: 100vh;
-            transition: margin-left 0.3s ease;
+            transition: margin-left 0.25s ease;
         }
-
-        .main-content-full {
-            margin-left: 0;
-        }
-
+        body.sidebar-collapsed .main-content { margin-left: 4.5rem; }
+        .main-content-full { margin-left: 0; }
 
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            
-            .sidebar-open {
-                transform: translateX(0);
-            }
-            
-            .main-content {
-                margin-left: 0;
-            }
+            .sidebar { width: 18rem; transform: translateX(-100%); }
+            .sidebar-open { transform: translateX(0); }
+            .main-content, body.sidebar-collapsed .main-content { margin-left: 0; }
         }
 
         .loading-spinner {
@@ -232,11 +228,16 @@
             height: 1rem;
             animation: spin 1s linear infinite;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .skeleton {
+            background: linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,0.1) 50%, var(--border) 75%);
+            background-size: 200% 100%;
+            animation: skeleton 1.2s ease-in-out infinite;
+            border-radius: 0.25rem;
         }
+        [data-theme="light"] .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; }
+        @keyframes skeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
         .fade-in {
             animation: fadeIn 0.3s ease-in;
@@ -247,27 +248,75 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .notification {
+        /* Notifications: right of sidebar; adjust when sidebar collapsed */
+        #notification-container {
             position: fixed;
             top: 1rem;
+            left: 19rem;
             right: 1rem;
             z-index: 60;
-            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 22rem;
+            pointer-events: none;
+            transition: left 0.25s ease;
+        }
+        body.sidebar-collapsed #notification-container { left: 4.5rem; }
+        @media (max-width: 768px) {
+            #notification-container { left: 1rem; right: 1rem; max-width: none; }
+            body.sidebar-collapsed #notification-container { left: 1rem; }
+        }
+        .sticky-bar-offset { left: 18rem; transition: left 0.25s ease; }
+        body.sidebar-collapsed .sticky-bar-offset { left: 4.5rem; }
+        @media (max-width: 768px) {
+            .sticky-bar-offset { left: 0; }
+            body.sidebar-collapsed .sticky-bar-offset { left: 0; }
+        }
+        .notification {
+            padding: 1rem 1.25rem;
             border-radius: 0.5rem;
             color: white;
-            max-width: 20rem;
-            transform: translateX(100%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            pointer-events: auto;
+            transform: translateX(120%);
             transition: transform 0.3s ease;
         }
-
         .notification.show {
             transform: translateX(0);
         }
-
         .notification-success { background-color: var(--success-color); }
         .notification-warning { background-color: var(--warning-color); }
         .notification-error { background-color: var(--error-color); }
         .notification-info { background-color: var(--primary-color); }
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+        @media (max-width: 768px) {
+            .table-cards-mobile thead { display: none; }
+            .table-cards-mobile tbody tr {
+                display: block;
+                border: 1px solid var(--border);
+                border-radius: 0.5rem;
+                margin-bottom: 0.75rem;
+                padding: 0.75rem;
+                background: var(--surface);
+            }
+            .table-cards-mobile tbody td {
+                display: block;
+                padding: 0.25rem 0;
+                border: none;
+            }
+            .table-cards-mobile tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                display: block;
+                margin-bottom: 0.15rem;
+                font-size: 0.75rem;
+                color: var(--secondary-color);
+            }
+        }
 
         /* Comprehensive Light Theme Fixes */
         [data-theme="light"] {
@@ -467,107 +516,107 @@
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+    <!-- Skip to main content (accessibility) -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <style>
+        .skip-link {
+            position: absolute;
+            top: -100%;
+            left: 1rem;
+            z-index: 100;
+            padding: 0.75rem 1rem;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: top 0.2s ease;
+        }
+        .skip-link:focus {
+            top: 1rem;
+            outline: 2px solid white;
+            outline-offset: 2px;
+        }
+    </style>
 
     <!-- Sidebar -->
-    <nav id="sidebar" class="sidebar">
+    <nav id="sidebar" class="sidebar" aria-label="Main">
         <div class="px-8 py-6">
             <div class="flex items-center space-x-3 mb-8">
-                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
-                    </svg>
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <h1 class="text-xl font-bold whitespace-nowrap">SkywarnPlus-NG</h1>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Weather Alert System</p>
+                    <h1 class="text-xl font-bold whitespace-nowrap sidebar-text">SkywarnPlus-NG</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap sidebar-subtitle">Weather Alert System</p>
                 </div>
             </div>
+            <button type="button" id="sidebar-collapse-btn" onclick="toggleSidebar()" class="mb-4 w-full hidden md:flex items-center justify-center md:justify-start gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm" aria-label="Collapse sidebar" title="Collapse sidebar">
+                <svg id="sidebar-collapse-icon" class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                <span class="sidebar-label" id="sidebar-collapse-text">Collapse</span>
+            </button>
 
             <ul class="space-y-2">
                 <li>
-                    <a href="{{ base_path|default('') }}/" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'dashboard' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
-                        </svg>
-                        <span>Dashboard</span>
+                    <a href="{{ base_path|default('') }}/" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'dashboard' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'dashboard' %}aria-current="page"{% endif %} title="Dashboard">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path></svg>
+                        <span class="sidebar-label">Dashboard</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/alerts" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>Active Alerts</span>
+                    <a href="{{ base_path|default('') }}/alerts" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'alerts' %}aria-current="page"{% endif %} title="Active Alerts">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">Active Alerts</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/alerts/history" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts_history' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>Alert History</span>
+                    <a href="{{ base_path|default('') }}/alerts/history" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'alerts_history' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'alerts_history' %}aria-current="page"{% endif %} title="Alert History">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">Alert History</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/configuration" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'configuration' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>Configuration</span>
+                    <a href="{{ base_path|default('') }}/configuration" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'configuration' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'configuration' %}aria-current="page"{% endif %} title="Configuration">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">Configuration</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/health" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'health' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>System Health</span>
+                    <a href="{{ base_path|default('') }}/health" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'health' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'health' %}aria-current="page"{% endif %} title="System Health">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">System Health</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/logs" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'logs' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>Logs</span>
+                    <a href="{{ base_path|default('') }}/logs" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'logs' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'logs' %}aria-current="page"{% endif %} title="Logs">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">Logs</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/database" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'database' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path>
-                        </svg>
-                        <span>Database</span>
+                    <a href="{{ base_path|default('') }}/database" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'database' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'database' %}aria-current="page"{% endif %} title="Database">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"></path></svg>
+                        <span class="sidebar-label">Database</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{{ base_path|default('') }}/metrics" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'metrics' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
-                        </svg>
-                        <span>Metrics</span>
+                    <a href="{{ base_path|default('') }}/metrics" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'metrics' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'metrics' %}aria-current="page"{% endif %} title="Metrics">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
+                        <span class="sidebar-label">Metrics</span>
                     </a>
                 </li>
             </ul>
             
-            <!-- Bottom Actions -->
             <div class="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div class="space-y-2">
-                    <button onclick="toggleTheme()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400">
-                        <svg id="sidebar-sun-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" style="display: none;">
-                            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
-                        </svg>
-                        <svg id="sidebar-moon-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                        </svg>
-                        <span>Toggle Theme</span>
+                    <button type="button" onclick="toggleTheme()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400" aria-label="Toggle theme" title="Toggle theme">
+                        <svg id="sidebar-sun-icon" class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style="display: none;"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path></svg>
+                        <svg id="sidebar-moon-icon" class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                        <span class="sidebar-label">Toggle Theme</span>
                     </button>
-                    {% if page == 'configuration' %}
-                    <button onclick="logout()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"></path>
-                        </svg>
-                        <span>Logout</span>
+                    {% if is_authenticated %}
+                    <button type="button" onclick="logout()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-left" aria-label="Log out" title="Log out">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">Logout</span>
                     </button>
                     {% endif %}
                 </div>
@@ -583,14 +632,14 @@
     </button>
 
     <!-- Main Content -->
-    <main id="main-content" class="main-content">
+    <main id="main-content" class="main-content" tabindex="-1">
         <div class="p-6">
+            {% block breadcrumbs %}{% endblock %}
             {% block content %}{% endblock %}
         </div>
     </main>
 
-    <!-- Notification Container -->
-    <div id="notification-container"></div>
+    <div id="notification-container" role="region" aria-live="polite" aria-label="Notifications"></div>
 
     <!-- JavaScript -->
     <script>
@@ -635,45 +684,88 @@
 
         // Mobile menu toggle
         function toggleMobileMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('main-content');
-            
-            sidebar.classList.toggle('sidebar-open');
+            document.getElementById('sidebar').classList.toggle('sidebar-open');
         }
 
-        // Notification system
-        function showNotification(message, type = 'info', duration = 5000) {
+        // Collapsible sidebar (desktop)
+        function toggleSidebar() {
+            const collapsed = document.body.classList.toggle('sidebar-collapsed');
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('sidebar-collapse-icon');
+            const text = document.getElementById('sidebar-collapse-text');
+            const btn = document.getElementById('sidebar-collapse-btn');
+            if (collapsed) {
+                sidebar.classList.add('collapsed');
+                if (icon) {
+                    icon.innerHTML = '<path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>';
+                }
+                if (text) text.textContent = 'Expand';
+                if (btn) { btn.setAttribute('aria-label', 'Expand sidebar'); btn.setAttribute('title', 'Expand sidebar'); }
+            } else {
+                sidebar.classList.remove('collapsed');
+                if (icon) {
+                    icon.innerHTML = '<path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"></path>';
+                }
+                if (text) text.textContent = 'Collapse';
+                if (btn) { btn.setAttribute('aria-label', 'Collapse sidebar'); btn.setAttribute('title', 'Collapse sidebar'); }
+            }
+            try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch (_) {}
+        }
+        function loadSidebarState() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === '1' && window.matchMedia('(min-width: 768px)').matches) {
+                    toggleSidebar();
+                }
+            } catch (_) {}
+        }
+
+        const NOTIFICATION_MAX = 3;
+        function showNotification(message, type, duration, opts) {
+            if (typeof type !== 'string') type = 'info';
+            if (typeof duration !== 'number') duration = 5000;
+            opts = opts || {};
             const container = document.getElementById('notification-container');
+            while (container && container.children.length >= NOTIFICATION_MAX) {
+                const oldest = container.querySelector('.notification');
+                if (oldest) oldest.remove();
+            }
             const notification = document.createElement('div');
-            
-            notification.className = `notification notification-${type}`;
-            notification.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
-                </div>
-            `;
-            
-            container.appendChild(notification);
-            
-            // Show notification
-            setTimeout(() => {
-                notification.classList.add('show');
-            }, 100);
-            
-            // Auto remove
+            notification.className = 'notification notification-' + type;
+            notification.setAttribute('role', 'alert');
+            const esc = (s) => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between gap-3 flex-wrap';
+            const msg = document.createElement('span');
+            msg.innerHTML = esc(message);
+            const actions = document.createElement('span');
+            actions.className = 'flex items-center gap-2';
+            if (type === 'error' && typeof opts.retry === 'function') {
+                const retryBtn = document.createElement('button');
+                retryBtn.type = 'button';
+                retryBtn.className = 'px-2 py-0.5 rounded border border-white/60 hover:bg-white/20 text-sm';
+                retryBtn.textContent = 'Try again';
+                retryBtn.addEventListener('click', function() {
+                    notification.remove();
+                    opts.retry();
+                });
+                actions.appendChild(retryBtn);
+            }
+            const dismissBtn = document.createElement('button');
+            dismissBtn.type = 'button';
+            dismissBtn.className = 'flex-shrink-0 p-1 rounded hover:bg-white/20 transition';
+            dismissBtn.setAttribute('aria-label', 'Dismiss');
+            dismissBtn.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>';
+            dismissBtn.addEventListener('click', function() { notification.remove(); });
+            actions.appendChild(dismissBtn);
+            row.appendChild(msg);
+            row.appendChild(actions);
+            notification.appendChild(row);
+            if (container) container.appendChild(notification);
+            requestAnimationFrame(function() { notification.classList.add('show'); });
             if (duration > 0) {
-                setTimeout(() => {
+                setTimeout(function() {
                     notification.classList.remove('show');
-                    setTimeout(() => {
-                        if (notification.parentElement) {
-                            notification.remove();
-                        }
-                    }, 300);
+                    setTimeout(function() { notification.remove(); }, 300);
                 }, duration);
             }
         }
@@ -687,32 +779,41 @@
             return templateBasePath;
         }
 
-        // API helper
-        async function apiCall(endpoint, options = {}) {
+        // API helper with user-friendly error messages
+        async function apiCall(endpoint, options = {}, showErrorToast = true) {
+            const basePath = getBasePath();
+            const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+            const fullEndpoint = endpoint.startsWith('http') ? endpoint : `${basePath}${normalizedEndpoint}`;
             try {
-                const basePath = getBasePath();
-                // Ensure endpoint starts with / if basePath is provided
-                const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-                const fullEndpoint = endpoint.startsWith('http') ? endpoint : `${basePath}${normalizedEndpoint}`;
-                
-                console.debug('API call:', { basePath, endpoint, fullEndpoint });
-                
                 const response = await fetch(fullEndpoint, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    },
+                    headers: { 'Content-Type': 'application/json', ...options.headers },
                     ...options
                 });
-                
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    let msg = '';
+                    try {
+                        const body = await response.json();
+                        msg = (body && body.error) ? body.error : '';
+                    } catch (_) { /* ignore */ }
+                    if (response.status === 401) {
+                        msg = 'Session expired. Please log in again.';
+                    } else if (response.status === 403) {
+                        msg = msg || 'You don’t have permission to do that.';
+                    } else if (response.status >= 500) {
+                        msg = msg || 'Something went wrong on the server. Please try again or check the logs.';
+                    } else if (response.status >= 400) {
+                        msg = msg || `Request failed: ${response.status} ${response.statusText}`;
+                    }
+                    const err = new Error(msg || `HTTP ${response.status}`);
+                    err.status = response.status;
+                    throw err;
                 }
-                
                 return await response.json();
             } catch (error) {
                 console.error('API call failed:', error);
-                showNotification(`API Error: ${error.message}`, 'error');
+                if (error.message && (showErrorToast || (options && options.retry))) {
+                    showNotification(error.message, 'error', options && options.retry ? 0 : 5000, options && options.retry ? { retry: options.retry } : {});
+                }
                 throw error;
             }
         }
@@ -736,20 +837,17 @@
         let reconnectInterval = null;
 
         function connectWebSocket() {
-            const basePath = getBasePath();
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
-            
-            console.debug('WebSocket connection:', { basePath, wsUrl });
-            
+            window.wsConnected = false;
+            var basePath = getBasePath();
+            var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            var wsUrl = protocol + '//' + window.location.host + basePath + '/ws';
             ws = new WebSocket(wsUrl);
             
             ws.onopen = function() {
                 console.log('WebSocket connected');
-                if (reconnectInterval) {
-                    clearInterval(reconnectInterval);
-                    reconnectInterval = null;
-                }
+                if (reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+                window.wsConnected = true;
+                try { window.dispatchEvent(new CustomEvent('ws-state-change', { detail: { connected: true } })); } catch (_) {}
             };
             
             ws.onmessage = function(event) {
@@ -759,10 +857,9 @@
             
             ws.onclose = function() {
                 console.log('WebSocket disconnected');
-                // Reconnect after 5 seconds
-                if (!reconnectInterval) {
-                    reconnectInterval = setInterval(connectWebSocket, 5000);
-                }
+                window.wsConnected = false;
+                try { window.dispatchEvent(new CustomEvent('ws-state-change', { detail: { connected: false } })); } catch (_) {}
+                if (!reconnectInterval) reconnectInterval = setInterval(connectWebSocket, 5000);
             };
             
             ws.onerror = function(error) {
@@ -791,10 +888,14 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadTheme();
+            loadSidebarState();
             connectWebSocket();
-            
-            // Mobile menu button
-            document.getElementById('mobile-menu-btn').addEventListener('click', toggleMobileMenu);
+            try {
+                var p = window.location.pathname;
+                if (p && p !== '/login') localStorage.setItem('lastPath', p);
+            } catch (_) {}
+            var menuBtn = document.getElementById('mobile-menu-btn');
+            if (menuBtn) menuBtn.addEventListener('click', toggleMobileMenu);
             
             // Close mobile menu when clicking outside
             document.addEventListener('click', function(event) {

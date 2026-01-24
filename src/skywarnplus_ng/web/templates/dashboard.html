@@ -1,67 +1,65 @@
 {% extends "base.html" %}
 
+{% block breadcrumbs %}
+<nav class="mb-4 text-sm" aria-label="Breadcrumb">
+    <ol class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+        <li class="text-gray-900 dark:text-white font-medium" aria-current="page">Dashboard</li>
+    </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
     <!-- Header -->
-    <div class="mb-8">
+    <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Dashboard</h1>
         <p class="text-gray-600 dark:text-gray-400">SkywarnPlus-NG Weather Alert System Overview</p>
+        <a href="{{ base_path|default('') }}/configuration" class="inline-flex items-center mt-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path></svg>
+            Configure counties and alerts
+        </a>
     </div>
 
-    <!-- Status Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- System Status -->
-        <div class="card">
+        <div class="card" id="card-status">
             <div class="flex items-center justify-between">
-                <div>
+                <div class="flex-1">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</p>
-                    <p id="system-status" class="text-2xl font-bold text-gray-900 dark:text-white">Loading...</p>
+                    <p id="system-status" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-24 align-middle"></span></p>
                 </div>
                 <div id="system-status-indicator" class="status-indicator status-unknown"></div>
             </div>
         </div>
-
-        <!-- Active Alerts -->
-        <div class="card">
+        <div class="card" id="card-alerts">
             <div class="flex items-center justify-between">
-                <div>
+                <div class="flex-1">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Active Alerts</p>
-                    <p id="active-alerts-count" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                    <p id="active-alerts-count" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-12 align-middle"></span></p>
                 </div>
                 <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                    </svg>
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
                 </div>
             </div>
         </div>
-
-        <!-- Uptime -->
-        <div class="card">
+        <div class="card" id="card-uptime">
             <div class="flex items-center justify-between">
-                <div>
+                <div class="flex-1">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
-                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white">0h 0m</p>
+                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-16 align-middle"></span></p>
                 </div>
                 <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
-                    </svg>
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
                 </div>
             </div>
         </div>
-
-        <!-- Last Poll -->
-        <div class="card">
+        <div class="card" id="card-poll">
             <div class="flex items-center justify-between">
-                <div>
+                <div class="flex-1">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last Poll</p>
-                    <p id="last-poll" class="text-2xl font-bold text-gray-900 dark:text-white">Never</p>
+                    <p id="last-poll" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-20 align-middle"></span></p>
                 </div>
                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
-                    </svg>
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
                 </div>
             </div>
         </div>
@@ -72,20 +70,26 @@
         <!-- Active Alerts -->
         <div class="lg:col-span-2">
             <div class="card">
-                <div class="flex items-center justify-between mb-6">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Active Alerts</h2>
-                    <button onclick="refreshAlerts()" class="btn-secondary text-sm">
-                        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
-                        </svg>
-                        Refresh
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <span id="ws-live-indicator" class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <span id="ws-live-dot" class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
+                            <span id="ws-live-text">Paused</span>
+                        </span>
+                        <span id="alerts-updated" class="text-xs text-gray-500 dark:text-gray-400 hidden">Updated <span id="alerts-updated-ago">—</span></span>
+                        <button type="button" id="dashboard-refresh-btn" onclick="refreshAlerts()" class="btn-secondary text-sm">
+                            <svg id="refresh-icon" class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                            <span id="refresh-text">Refresh</span>
+                        </button>
+                    </div>
                 </div>
-                
                 <div id="alerts-container">
-                    <div class="text-center py-8">
-                        <div class="loading-spinner mx-auto mb-4"></div>
-                        <p class="text-gray-500 dark:text-gray-400">Loading alerts...</p>
+                    <div id="alerts-loading" class="space-y-4 py-4">
+                        <div class="skeleton h-24 w-full rounded-lg"></div>
+                        <div class="skeleton h-24 w-full rounded-lg"></div>
+                        <div class="skeleton h-24 w-full rounded-lg"></div>
+                        <p class="text-center text-sm text-gray-500 dark:text-gray-400">Loading alerts…</p>
                     </div>
                 </div>
             </div>
@@ -190,12 +194,23 @@
         const container = document.getElementById('alerts-container');
         
         if (alerts.length === 0) {
+            const basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
             container.innerHTML = `
-                <div class="text-center py-8">
-                    <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    <p class="text-gray-500 dark:text-gray-400">No active alerts</p>
+                <div class="text-center py-10">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <p class="text-lg font-medium text-gray-900 dark:text-white mb-1">No active weather alerts</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">There are no active alerts for your configured counties.</p>
+                    <a href="${basePath}/configuration" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                        Add counties in Configuration
+                    </a>
+                    <span class="text-gray-400 dark:text-gray-500 mx-2">·</span>
+                    <a href="${basePath}/alerts/history" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                        View alert history
+                    </a>
                 </div>
             `;
             return;
@@ -355,39 +370,58 @@
     // Load dashboard data
     async function loadDashboardData() {
         try {
-            // Load system status
             const status = await apiCall('/api/status');
             updateSystemStatus(status);
             updateActiveAlertsCount(status.active_alerts);
             updateUptime(status.uptime_seconds);
             updateLastPoll(status.last_poll);
 
-            // Load active alerts
-            const alerts = await apiCall('/api/alerts');
-            renderAlerts(alerts.alerts);
+            const alertsResp = await apiCall('/api/alerts');
+            const alertsList = Array.isArray(alertsResp) ? alertsResp : (alertsResp.alerts || []);
+            renderAlerts(alertsList);
 
-            // Load health status
             const health = await apiCall('/api/health');
             renderHealthComponents(health.components);
 
-            // Load recent activity
             const activity = await apiCall('/api/activity?limit=10');
-            renderRecentActivity(activity.activities);
+            renderRecentActivity(activity.activities || []);
 
+            var u = document.getElementById('alerts-updated');
+            var a = document.getElementById('alerts-updated-ago');
+            if (u && a) {
+                u.classList.remove('hidden');
+                a.textContent = status.last_poll ? formatRelativeTime(status.last_poll) : 'just now';
+            }
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
         }
     }
 
-    // Refresh alerts
+    // Refresh alerts (with loading state and "Updated" hint)
     async function refreshAlerts() {
+        const btn = document.getElementById('dashboard-refresh-btn');
+        const icon = document.getElementById('refresh-icon');
+        const text = document.getElementById('refresh-text');
+        const updatedEl = document.getElementById('alerts-updated');
+        const agoEl = document.getElementById('alerts-updated-ago');
         try {
-            const alerts = await apiCall('/api/alerts');
-            renderAlerts(alerts.alerts);
-            updateActiveAlertsCount(alerts.count);
+            if (btn) { btn.disabled = true; }
+            if (icon) icon.classList.add('animate-spin');
+            if (text) text.textContent = 'Refreshing…';
+            const data = await apiCall('/api/alerts', { showErrorToast: false }, false);
+            const alerts = Array.isArray(data) ? data : (data.alerts || []);
+            const count = data.count !== undefined ? data.count : alerts.length;
+            renderAlerts(alerts);
+            updateActiveAlertsCount(count);
+            if (updatedEl) updatedEl.classList.remove('hidden');
+            if (agoEl) agoEl.textContent = 'just now';
             showNotification('Alerts refreshed', 'success');
         } catch (error) {
-            console.error('Failed to refresh alerts:', error);
+            showNotification(error.message || 'Failed to refresh alerts', 'error', 0, { retry: refreshAlerts });
+        } finally {
+            if (btn) btn.disabled = false;
+            if (icon) icon.classList.remove('animate-spin');
+            if (text) text.textContent = 'Refresh';
         }
     }
 
@@ -404,12 +438,17 @@
         updateLastPoll(status.last_poll);
     };
 
-    // Initialize dashboard
+    function updateLiveIndicator(connected) {
+        var dot = document.getElementById('ws-live-dot');
+        var text = document.getElementById('ws-live-text');
+        if (dot) dot.className = 'w-2 h-2 rounded-full ' + (connected ? 'bg-green-500' : 'bg-gray-400');
+        if (text) text.textContent = connected ? 'Live' : 'Paused';
+    }
     document.addEventListener('DOMContentLoaded', function() {
         loadDashboardData();
-        
-        // Refresh data every 30 seconds
         refreshInterval = setInterval(loadDashboardData, 30000);
+        updateLiveIndicator(!!window.wsConnected);
+        window.addEventListener('ws-state-change', function(e) { updateLiveIndicator(!!e.detail.connected); });
     });
 
     // Cleanup on page unload

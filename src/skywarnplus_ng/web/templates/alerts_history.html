@@ -1,24 +1,29 @@
 {% extends "base.html" %}
 
+{% block breadcrumbs %}
+<nav class="mb-4 text-sm" aria-label="Breadcrumb">
+    <ol class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+        <li><a href="{{ base_path|default('') }}/" class="hover:text-gray-700 dark:hover:text-gray-300">Dashboard</a></li>
+        <li><span aria-hidden="true">/</span></li>
+        <li class="text-gray-900 dark:text-white font-medium" aria-current="page">Alert History</li>
+    </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
-    <!-- Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Alert History</h1>
         <p class="text-gray-600 dark:text-gray-400">Historical weather alerts and their processing status</p>
     </div>
 
-    <!-- Controls -->
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div class="flex items-center space-x-4">
-            <button onclick="refreshHistory()" class="btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path>
-                </svg>
-                Refresh
+            <button type="button" id="history-refresh-btn" onclick="refreshHistory()" class="btn-secondary">
+                <svg id="history-refresh-icon" class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                <span id="history-refresh-text">Refresh</span>
             </button>
         </div>
-        
         <div class="flex items-center space-x-4">
             <div class="flex items-center space-x-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Time Range:</label>
@@ -40,10 +45,17 @@
                     <option value="Minor">Minor</option>
                 </select>
             </div>
+            <input type="search" id="history-search" placeholder="Search event, area…" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm w-40 max-w-full">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort:</label>
+            <select id="history-sort" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                <option value="processed">Processed (newest)</option>
+                <option value="effective">Effective</option>
+                <option value="severity">Severity</option>
+                <option value="area">Area</option>
+            </select>
         </div>
     </div>
 
-    <!-- History List -->
     <div class="card">
         <div id="history-container">
             <div class="text-center py-8">
@@ -51,49 +63,90 @@
                 <p class="text-gray-500 dark:text-gray-400">Loading alert history...</p>
             </div>
         </div>
+        <div id="history-load-more" class="hidden mt-4 text-center">
+            <button type="button" id="history-load-more-btn" onclick="historyLoadMore()" class="btn-secondary">Load more</button>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Load alert history
+    var historyCache = [];
+    var historyPage = 1;
+    var HISTORY_PAGE_SIZE = 10;
+
     async function loadHistory() {
         try {
-            const timeRange = document.getElementById('time-range').value;
-            const severity = document.getElementById('severity-filter').value;
-            
-            let url = `/api/alerts/history?hours=${timeRange}`;
-            if (severity) {
-                url += `&severity=${severity}`;
-            }
-            
-            const response = await apiCall(url);
-            renderHistory(response.alerts);
+            var timeRange = document.getElementById('time-range').value;
+            var severity = document.getElementById('severity-filter').value;
+            var url = '/api/alerts/history?hours=' + timeRange;
+            if (severity) url += '&severity=' + encodeURIComponent(severity);
+            var response = await apiCall(url, {}, false);
+            historyCache = response.alerts || [];
+            historyPage = 1;
+            applyHistoryFilters();
         } catch (error) {
-            console.error('Failed to load alert history:', error);
-            showNotification('Failed to load alert history', 'error');
+            showNotification(error.message || 'Failed to load alert history', 'error', 0, { retry: loadHistory });
         }
     }
 
-    // Render history
+    function applyHistoryFilters() {
+        historyPage = 1;
+        renderHistory(historyCache);
+    }
+
+    function historyLoadMore() {
+        historyPage++;
+        renderHistory(historyCache);
+    }
+
     function renderHistory(alerts) {
-        const container = document.getElementById('history-container');
-        
-        if (alerts.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Alert History</h3>
-                    <p class="text-gray-500 dark:text-gray-400">No alerts found for the selected time range and filters.</p>
-                </div>
-            `;
+        var container = document.getElementById('history-container');
+        var searchQ = ((document.getElementById('history-search') || {}).value || '').toLowerCase().trim();
+        var sortBy = (document.getElementById('history-sort') || {}).value || 'processed';
+        var filtered = searchQ ? alerts.filter(function(a) {
+            var ev = (a.event || '').toLowerCase();
+            var ar = (a.area_desc || '').toLowerCase();
+            return ev.indexOf(searchQ) !== -1 || ar.indexOf(searchQ) !== -1;
+        }) : alerts;
+        var order = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3 };
+        if (sortBy === 'severity') {
+            filtered.sort(function(a, b) { return (order[a.severity] ?? 4) - (order[b.severity] ?? 4); });
+        } else if (sortBy === 'processed') {
+            filtered.sort(function(a, b) {
+                var ta = a.processed_at ? new Date(a.processed_at).getTime() : 0;
+                var tb = b.processed_at ? new Date(b.processed_at).getTime() : 0;
+                return tb - ta;
+            });
+        } else if (sortBy === 'effective') {
+            filtered.sort(function(a, b) {
+                var ta = (a.effective_time ? new Date(a.effective_time).getTime() : 0);
+                var tb = (b.effective_time ? new Date(b.effective_time).getTime() : 0);
+                return tb - ta;
+            });
+        } else if (sortBy === 'area') {
+            filtered.sort(function(a, b) {
+                var aa = (a.area_desc || '').toLowerCase();
+                var bb = (b.area_desc || '').toLowerCase();
+                return aa.localeCompare(bb);
+            });
+        }
+        var total = filtered.length;
+        var show = filtered.slice(0, historyPage * HISTORY_PAGE_SIZE);
+        var hasMore = total > show.length;
+
+        if (total === 0) {
+            var basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
+            var msg = alerts.length > 0 ? 'No alerts match your search.' : 'No alerts found for the selected time range and filters.';
+            container.innerHTML = '<div class="text-center py-12"><div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><svg class="w-8 h-8 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg></div><h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">' + (alerts.length > 0 ? 'No matching history' : 'No alert history') + '</h3><p class="text-gray-500 dark:text-gray-400 mb-4">' + msg + '</p><a href="' + basePath + '/configuration" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Configure counties</a><span class="text-gray-400 mx-2">·</span><a href="' + basePath + '/alerts" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">View active alerts</a></div>';
+            var lm = document.getElementById('history-load-more');
+            if (lm) lm.classList.add('hidden');
             return;
         }
 
-        const historyHtml = alerts.map(alert => `
+        var historyHtml = show.map(function(alert) {
+            return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 last:mb-0">
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
@@ -121,15 +174,34 @@
                     </div>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         container.innerHTML = historyHtml;
+        var lm = document.getElementById('history-load-more');
+        var lmb = document.getElementById('history-load-more-btn');
+        if (lm && lmb) {
+            if (hasMore) { lm.classList.remove('hidden'); lmb.textContent = 'Load more (' + (total - show.length) + ' remaining)'; }
+            else lm.classList.add('hidden');
+        }
     }
 
     // Refresh history
     async function refreshHistory() {
-        await loadHistory();
-        showNotification('Alert history refreshed', 'success');
+        var btn = document.getElementById('history-refresh-btn');
+        var icon = document.getElementById('history-refresh-icon');
+        var text = document.getElementById('history-refresh-text');
+        try {
+            if (btn) btn.disabled = true;
+            if (icon) icon.classList.add('animate-spin');
+            if (text) text.textContent = 'Refreshing…';
+            await loadHistory();
+            showNotification('Alert history refreshed', 'success');
+        } finally {
+            if (btn) btn.disabled = false;
+            if (icon) icon.classList.remove('animate-spin');
+            if (text) text.textContent = 'Refresh';
+        }
     }
 
     // Format timestamp
@@ -139,13 +211,16 @@
         return date.toLocaleString();
     }
 
-    // Initialize
     document.addEventListener('DOMContentLoaded', function() {
         loadHistory();
-        
-        // Set up event listeners
-        document.getElementById('time-range').addEventListener('change', loadHistory);
-        document.getElementById('severity-filter').addEventListener('change', loadHistory);
+        var tr = document.getElementById('time-range');
+        var sf = document.getElementById('severity-filter');
+        if (tr) tr.addEventListener('change', loadHistory);
+        if (sf) sf.addEventListener('change', loadHistory);
+        var searchEl = document.getElementById('history-search');
+        if (searchEl) searchEl.addEventListener('input', applyHistoryFilters);
+        var sortEl = document.getElementById('history-sort');
+        if (sortEl) sortEl.addEventListener('change', applyHistoryFilters);
     });
 </script>
 {% endblock %}

@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import hashlib
+from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Set
@@ -348,13 +349,14 @@ class WebDashboard:
             # For API requests, return JSON error
             if request.path.startswith('/api/'):
                 return web.json_response({'error': 'Authentication required to access configuration'}, status=401)
-            # For configuration page requests, redirect to login
+            # For configuration page requests, redirect to login with ?next= for post-login redirect
             else:
-                # Get base_path from app storage (normalized) or fallback to config
                 base_path = request.app.get('base_path', '') or self.config.monitoring.http_server.base_path or ''
                 if base_path and not base_path.startswith('/'):
                     base_path = '/' + base_path
-                return web.Response(status=302, headers={'Location': f'{base_path}/login'})
+                next_path = request.path or '/'
+                loc = f'{base_path}/login?next={quote(next_path, safe="")}'
+                return web.Response(status=302, headers={'Location': loc})
         return None
 
     def require_auth(self, handler):
@@ -500,7 +502,8 @@ class WebDashboard:
         content = template.render(
             title="SkywarnPlus-NG Dashboard",
             page="dashboard",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -510,7 +513,8 @@ class WebDashboard:
         content = template.render(
             title="Active Alerts - SkywarnPlus-NG",
             page="alerts",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -520,7 +524,8 @@ class WebDashboard:
         content = template.render(
             title="Alert History - SkywarnPlus-NG",
             page="alerts_history",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -530,7 +535,8 @@ class WebDashboard:
         content = template.render(
             title="Configuration - SkywarnPlus-NG",
             page="configuration",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -540,7 +546,8 @@ class WebDashboard:
         content = template.render(
             title="System Health - SkywarnPlus-NG",
             page="health",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -550,7 +557,8 @@ class WebDashboard:
         content = template.render(
             title="Application Logs - SkywarnPlus-NG",
             page="logs",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -560,7 +568,8 @@ class WebDashboard:
         content = template.render(
             title="Database - SkywarnPlus-NG",
             page="database",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -570,7 +579,8 @@ class WebDashboard:
         content = template.render(
             title="Metrics - SkywarnPlus-NG",
             page="metrics",
-            config=self.config.model_dump()
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request)
         )
         return web.Response(text=content, content_type='text/html')
 
@@ -2151,13 +2161,16 @@ class WebDashboard:
 
     async def login_handler(self, request: Request) -> Response:
         """Handle login page."""
-        # If already authenticated, redirect to configuration page
         if await self._is_authenticated(request):
-            # Get base_path from app storage (normalized) or fallback to config
             base_path = request.app.get('base_path', '') or self.config.monitoring.http_server.base_path or ''
             if base_path and not base_path.startswith('/'):
                 base_path = '/' + base_path
-            return web.Response(status=302, headers={'Location': f'{base_path}/configuration'})
+            next_path = request.query.get('next', '').strip()
+            if next_path and next_path.startswith('/') and not next_path.startswith('//'):
+                loc = f'{base_path}{next_path}' if base_path else next_path
+            else:
+                loc = f'{base_path}/' if base_path else '/'
+            return web.Response(status=302, headers={'Location': loc})
             
         template = self.template_env.get_template('login.html')
         content = template.render(title="Login - Configuration Access")
