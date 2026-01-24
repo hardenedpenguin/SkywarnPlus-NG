@@ -74,10 +74,6 @@ class AsteriskConfig(BaseModel):
     nodes: List[int | NodeConfig] = Field(default_factory=list, description="Target node numbers or node configurations with per-node counties")
     audio_delay: int = Field(0, description="Audio delay in milliseconds")
     playback_mode: str = Field("local", description="Playback mode: 'local' (default) or 'global' for rpt playback")
-    ami_host: str = Field("127.0.0.1", description="Asterisk AMI host")
-    ami_port: int = Field(5038, description="Asterisk AMI port")
-    ami_username: str = Field("", description="Asterisk AMI username")
-    ami_secret: str = Field("", description="Asterisk AMI secret/password")
     courtesy_tones: CourtesyToneConfig = Field(default_factory=CourtesyToneConfig, description="Courtesy tone configuration")
     id_change: IDChangeConfig = Field(default_factory=IDChangeConfig, description="ID change configuration")
     
