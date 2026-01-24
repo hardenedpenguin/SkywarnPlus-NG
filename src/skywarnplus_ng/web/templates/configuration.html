@@ -1917,6 +1917,7 @@
         try {
             configFormLoading = true;
             currentConfig = await apiCall('/api/config');
+            window.currentConfig = currentConfig;  // Make available globally
             populateForm(currentConfig);
             clearConfigDirty();
             showNotification('Configuration loaded', 'success');
@@ -2320,27 +2321,69 @@
     function addNode() {
         const container = document.getElementById('nodes-container');
         const currentNodes = container.children.length;
-        addNodeRow('', currentNodes);
+        addNodeRow({number: '', counties: null}, currentNodes);
     }
 
     function addNodeRow(node, index) {
         const container = document.getElementById('nodes-container');
         const row = document.createElement('div');
-        row.className = 'flex items-center space-x-2 mb-2';
+        row.className = 'mb-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50';
+        
+        // Handle both old format (int) and new format (object with number and counties)
+        let nodeNumber = '';
+        let nodeCounties = null;
+        
+        if (typeof node === 'number') {
+            nodeNumber = node;
+            nodeCounties = null;  // null means monitor all counties
+        } else if (typeof node === 'object' && node !== null) {
+            nodeNumber = node.number || '';
+            nodeCounties = node.counties || null;
+        }
+        
+        // Get available counties from config for the multi-select
+        const availableCounties = window.currentConfig?.counties || [];
+        const countiesOptions = availableCounties.map(c => {
+            const isSelected = nodeCounties && Array.isArray(nodeCounties) && nodeCounties.includes(c.code);
+            return `<option value="${esc(c.code)}" ${isSelected ? 'selected' : ''}>${esc(c.code)} - ${esc(c.name || c.code)}</option>`;
+        }).join('');
+        
         row.innerHTML = `
-            <input type="number" name="asterisk.nodes[${index}]" value="${node}" min="1" max="999999" 
-                   class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-            <button type="button" onclick="removeNodeRow(this)" class="btn-secondary text-sm">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                </svg>
-            </button>
+            <div class="flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Node Number</label>
+                    <input type="number" name="asterisk.nodes[${index}].number" value="${nodeNumber}" min="1" max="999999" 
+                           class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                           placeholder="546050">
+                </div>
+                <div class="flex-grow">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Monitored Counties
+                        <span class="text-gray-500 font-normal">(leave empty to monitor all)</span>
+                    </label>
+                    <select multiple name="asterisk.nodes[${index}].counties" 
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                            style="min-height: 80px;">
+                        ${countiesOptions}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Hold Ctrl/Cmd to select multiple. Leave empty to monitor all enabled counties.
+                    </p>
+                </div>
+                <div class="flex-shrink-0 pt-6">
+                    <button type="button" onclick="removeNodeRow(this)" class="btn-secondary text-sm">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
         `;
         container.appendChild(row);
     }
 
     function removeNodeRow(button) {
-        button.closest('.flex').remove();
+        button.closest('.mb-4').remove();
     }
 
     // Courtesy tone alerts management
@@ -2699,8 +2742,23 @@
             const formData = new FormData(document.getElementById('config-form'));
             const config = {};
             
+            // First pass: collect multi-select values (like counties)
+            const multiSelectValues = {};
+            for (const [key, value] of formData.entries()) {
+                if (key.includes('.counties')) {
+                    if (!multiSelectValues[key]) {
+                        multiSelectValues[key] = [];
+                    }
+                    multiSelectValues[key].push(value);
+                }
+            }
+            
             // Convert form data to nested object
             for (const [key, value] of formData.entries()) {
+                // Skip multi-select fields on first encounter - we'll handle them after
+                if (key.includes('.counties') && multiSelectValues[key] && multiSelectValues[key].indexOf(value) !== multiSelectValues[key].length - 1) {
+                    continue;
+                }
                 // Handle array notation like "asterisk.nodes[0]" or "counties[0].code"
                 if (key.includes('[') && key.includes(']')) {
                     const arrayMatch = key.match(/^(.+)\[(\d+)\](.*)$/);
@@ -2746,7 +2804,11 @@
                             
                             // Set nested value
                             const finalKey = nestedKeys[nestedKeys.length - 1];
-                            if (value === 'on') {
+                            if (finalKey === 'counties' && multiSelectValues[key]) {
+                                // Handle multi-select counties field
+                                const selectedCounties = multiSelectValues[key];
+                                nestedCurrent[finalKey] = selectedCounties.length > 0 ? selectedCounties : null;
+                            } else if (value === 'on') {
                                 nestedCurrent[finalKey] = true;
                             } else if (value === 'off') {
                                 nestedCurrent[finalKey] = false;

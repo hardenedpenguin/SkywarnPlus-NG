@@ -103,9 +103,19 @@ Configuration is managed through the web dashboard, which provides an intuitive 
 4. Log in with default credentials: `admin / skywarn123`
 5. Navigate to the **Configuration** tab to configure all settings
 
+### Multi-Node Deployments
+
+If you run multiple nodes serving different locations from one server, you can configure which counties each node monitors:
+
+- **Web UI**: Go to Configuration > Asterisk, select counties for each node (leave empty to monitor all)
+- **Config File**: See `config/default.yaml` for examples of per-node county configuration
+
+Example: Node 546050 monitors counties A & B, while Node 546051 monitors counties B & C. When an alert comes in for county A, only Node 546050 announces it.
+
 ## Features
 
 - **Weather Alerts**: Real-time NWS alert monitoring and voice announcements
+- **Per-Node Counties**: Configure different county zones for each node in multi-node deployments (useful for nodes serving different geographic locations from one server)
 - **SkyDescribe DTMF**: On-demand weather descriptions for active alerts via DTMF codes (*1, *2, *3, etc.)
 - **Web Dashboard**: Modern, responsive web interface with:
   - Two-level configuration tabs for better organization

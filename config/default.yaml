@@ -25,7 +25,19 @@ counties:
 # Asterisk configuration
 asterisk:
   enabled: true
+  # Simple format: All nodes monitor all enabled counties
   nodes: [546050]  # Add your node numbers here (example: 546050)
+  
+  # Advanced format: Configure specific counties per node (for multiple nodes serving different locations)
+  # Uncomment and modify the example below to use per-node county monitoring:
+  # nodes:
+  #   - number: 546050
+  #     counties: ["TXC039", "TXC201"]  # This node only monitors Brazoria and Galveston counties
+  #   - number: 546051
+  #     counties: ["TXC201", "TXC167"]  # This node only monitors Galveston and Harris counties
+  #   - number: 546052
+  #     counties: null  # Or omit 'counties' entirely - this node monitors ALL enabled counties
+  
   audio_delay: 0  # Delay in milliseconds before playing audio
   playback_mode: "local"  # Playback mode: "local" (default) or "global" for rpt playback
   ami_host: "127.0.0.1"  # Asterisk AMI host

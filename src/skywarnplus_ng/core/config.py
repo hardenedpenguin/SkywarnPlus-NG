@@ -60,11 +60,18 @@ class IDChangeConfig(BaseModel):
     )
 
 
+class NodeConfig(BaseModel):
+    """Node configuration with optional per-node county monitoring."""
+
+    number: int = Field(..., description="Node number")
+    counties: Optional[List[str]] = Field(None, description="County codes this node monitors (e.g., ['TXC039', 'TXC201']). If null/empty, node monitors all enabled counties.")
+
+
 class AsteriskConfig(BaseModel):
     """Asterisk configuration."""
 
     enabled: bool = Field(True, description="Enable Asterisk integration")
-    nodes: List[int] = Field(default_factory=list, description="Target node numbers")
+    nodes: List[int | NodeConfig] = Field(default_factory=list, description="Target node numbers or node configurations with per-node counties")
     audio_delay: int = Field(0, description="Audio delay in milliseconds")
     playback_mode: str = Field("local", description="Playback mode: 'local' (default) or 'global' for rpt playback")
     ami_host: str = Field("127.0.0.1", description="Asterisk AMI host")
@@ -73,6 +80,34 @@ class AsteriskConfig(BaseModel):
     ami_secret: str = Field("", description="Asterisk AMI secret/password")
     courtesy_tones: CourtesyToneConfig = Field(default_factory=CourtesyToneConfig, description="Courtesy tone configuration")
     id_change: IDChangeConfig = Field(default_factory=IDChangeConfig, description="ID change configuration")
+    
+    def get_nodes_list(self) -> List[int]:
+        """Get list of all node numbers regardless of format."""
+        result = []
+        for node in self.nodes:
+            if isinstance(node, int):
+                result.append(node)
+            elif isinstance(node, NodeConfig):
+                result.append(node.number)
+            elif isinstance(node, dict):
+                result.append(node.get('number', node.get('node', 0)))
+        return result
+    
+    def get_node_config(self, node_number: int) -> Optional[NodeConfig]:
+        """Get configuration for a specific node."""
+        for node in self.nodes:
+            if isinstance(node, NodeConfig) and node.number == node_number:
+                return node
+            elif isinstance(node, dict) and node.get('number') == node_number:
+                return NodeConfig(**node)
+        return None
+    
+    def get_counties_for_node(self, node_number: int) -> Optional[List[str]]:
+        """Get county codes for a specific node. Returns None if node monitors all counties."""
+        node_config = self.get_node_config(node_number)
+        if node_config and node_config.counties:
+            return node_config.counties
+        return None
 
 
 class TTSConfig(BaseModel):
@@ -324,6 +359,137 @@ class AppConfig(BaseSettings):
         config = cls(**yaml_data)
         config._normalize_paths(config_path.parent)
         return config
+
+    def get_nodes_for_counties(self, county_codes: List[str]) -> List[int]:
+        """
+        Get list of node numbers that should receive alerts for the given counties.
+        
+        Args:
+            county_codes: List of county codes from an alert
+            
+        Returns:
+            List of node numbers that monitor any of the specified counties
+        """
+        if not county_codes:
+            return []
+        
+        result = []
+        for node in self.asterisk.nodes:
+            if isinstance(node, int):
+                # Simple int format means monitor all counties
+                result.append(node)
+            elif isinstance(node, NodeConfig):
+                # Check if node has specific counties configured
+                if node.counties:
+                    # Node has specific counties - check for overlap
+                    if any(county in node.counties for county in county_codes):
+                        result.append(node.number)
+                else:
+                    # Node has no counties specified, monitors all
+                    result.append(node.number)
+            elif isinstance(node, dict):
+                # Dictionary format (for backward compatibility)
+                node_number = node.get('number', 0)
+                node_counties = node.get('counties')
+                if node_counties:
+                    if any(county in node_counties for county in county_codes):
+                        result.append(node_number)
+                else:
+                    result.append(node_number)
+        
+        return list(set(result))  # Remove duplicates
+    
+    def get_all_monitored_counties(self) -> List[str]:
+        """
+        Get list of all county codes that should be monitored based on node configurations.
+        
+        Returns:
+            List of unique county codes that at least one node monitors
+        """
+        monitored = set()
+        
+        # Check if any node monitors all counties (simple int or NodeConfig with no counties)
+        monitors_all = False
+        for node in self.asterisk.nodes:
+            if isinstance(node, int):
+                monitors_all = True
+                break
+            elif isinstance(node, NodeConfig) and not node.counties:
+                monitors_all = True
+                break
+            elif isinstance(node, dict) and not node.get('counties'):
+                monitors_all = True
+                break
+        
+        if monitors_all:
+            # At least one node monitors all counties, return all enabled counties
+            return [c.code for c in self.counties if c.enabled]
+        
+        # Otherwise, collect specific counties from node configurations
+        for node in self.asterisk.nodes:
+            if isinstance(node, NodeConfig) and node.counties:
+                monitored.update(node.counties)
+            elif isinstance(node, dict) and node.get('counties'):
+                monitored.update(node.get('counties'))
+        
+        # Filter to only enabled counties
+        enabled_codes = {c.code for c in self.counties if c.enabled}
+        return list(monitored & enabled_codes)
+    
+    def validate_node_county_mapping(self) -> List[str]:
+        """
+        Validate node-county configuration and return list of warnings/errors.
+        
+        Returns:
+            List of validation warning messages (empty if all valid)
+        """
+        warnings = []
+        
+        if not self.asterisk.nodes:
+            return warnings
+        
+        # Get all enabled county codes
+        enabled_counties = {c.code for c in self.counties if c.enabled}
+        
+        # Get all monitored counties
+        monitored_counties = set(self.get_all_monitored_counties())
+        
+        # Check for enabled counties that no node monitors
+        unmonitored = enabled_counties - monitored_counties
+        if unmonitored:
+            warnings.append(
+                f"The following enabled counties are not monitored by any node: {', '.join(sorted(unmonitored))}"
+            )
+        
+        # Check for node configurations referencing invalid counties
+        for node in self.asterisk.nodes:
+            node_number = None
+            node_counties = None
+            
+            if isinstance(node, NodeConfig):
+                node_number = node.number
+                node_counties = node.counties
+            elif isinstance(node, dict):
+                node_number = node.get('number', 'unknown')
+                node_counties = node.get('counties')
+            
+            if node_counties:
+                # Check for invalid county codes
+                invalid_counties = set(node_counties) - {c.code for c in self.counties}
+                if invalid_counties:
+                    warnings.append(
+                        f"Node {node_number} references invalid county codes: {', '.join(sorted(invalid_counties))}"
+                    )
+                
+                # Check for disabled counties
+                disabled_counties = set(node_counties) - enabled_counties
+                disabled_counties = disabled_counties - invalid_counties  # Don't double-report invalid ones
+                if disabled_counties:
+                    warnings.append(
+                        f"Node {node_number} monitors disabled counties: {', '.join(sorted(disabled_counties))}"
+                    )
+        
+        return warnings
 
     def _normalize_paths(self, base_dir: Path) -> None:
         """

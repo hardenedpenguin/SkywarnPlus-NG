@@ -387,27 +387,42 @@ class AsteriskManager:
         Returns:
             List of node numbers where playback started successfully
         """
-        if not self.config.nodes:
-            logger.warning("No nodes configured for audio playback")
+        # Get all node numbers (handles both int and NodeConfig formats)
+        all_nodes = self.config.get_nodes_list()
+        return await self.play_audio_on_nodes(audio_path, all_nodes)
+
+    async def play_audio_on_nodes(self, audio_path: Path, node_numbers: List[int]) -> List[int]:
+        """
+        Play audio file on specific nodes.
+
+        Args:
+            audio_path: Path to audio file
+            node_numbers: List of node numbers to play audio on
+
+        Returns:
+            List of node numbers where playback started successfully
+        """
+        if not node_numbers:
+            logger.warning("No nodes specified for audio playback")
             return []
         
-        logger.info(f"Playing audio on {len(self.config.nodes)} nodes: {audio_path}")
+        logger.info(f"Playing audio on {len(node_numbers)} nodes: {audio_path}")
         
-        # Play audio on all nodes concurrently
+        # Play audio on specified nodes concurrently
         tasks = [
             self.play_audio_on_node(node, audio_path) 
-            for node in self.config.nodes
+            for node in node_numbers
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         successful_nodes = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.error(f"Error playing audio on node {self.config.nodes[i]}: {result}")
+                logger.error(f"Error playing audio on node {node_numbers[i]}: {result}")
             elif result:
-                successful_nodes.append(self.config.nodes[i])
+                successful_nodes.append(node_numbers[i])
         
-        logger.info(f"Audio playback started on {len(successful_nodes)}/{len(self.config.nodes)} nodes")
+        logger.info(f"Audio playback started on {len(successful_nodes)}/{len(node_numbers)} nodes")
         return successful_nodes
 
     async def stop_audio_on_node(self, node_number: int) -> bool:

@@ -47,6 +47,13 @@ class SkywarnPlusApplication:
             config: Application configuration
         """
         self.config = config
+        
+        # Validate node-county mapping and log warnings
+        validation_warnings = config.validate_node_county_mapping()
+        if validation_warnings:
+            for warning in validation_warnings:
+                logger.warning(f"Configuration validation: {warning}")
+        
         self.state_manager = ApplicationState(
             state_file=config.data_dir / "state.json"
         )
@@ -286,11 +293,11 @@ class SkywarnPlusApplication:
         # Initialize filter chain
         self.filter_chain = FilterChain("MainFilterChain")
         
-        # Add geographic filter
+        # Add geographic filter - uses all counties monitored by at least one node
         geo_filter = GeographicFilter(
             name="GeographicFilter",
             enabled=True,
-            allowed_counties=[c.code for c in self.config.counties if c.enabled],
+            allowed_counties=self.config.get_all_monitored_counties(),
             blocked_counties=[]
         )
         self.filter_chain.add_filter(geo_filter)
@@ -557,10 +564,10 @@ class SkywarnPlusApplication:
             # Update poll time
             self.state_manager.update_poll_time(self.state)
             
-            # Get county codes from configuration
-            county_codes = [county.code for county in self.config.counties if county.enabled]
+            # Get county codes from configuration - includes per-node county filtering
+            county_codes = self.config.get_all_monitored_counties()
             if not county_codes:
-                logger.warning("No enabled counties configured")
+                logger.warning("No enabled counties configured or no nodes monitoring any counties")
                 return
 
             # Fetch alerts from NWS
@@ -1496,8 +1503,16 @@ class SkywarnPlusApplication:
                 logger.error(f"Audio file is empty: {audio_path}")
                 return []
             
-            # Play audio on all configured Asterisk nodes
-            successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)
+            # Determine which nodes should receive this alert based on counties
+            target_nodes = self.config.get_nodes_for_counties(county_codes_list)
+            if not target_nodes:
+                logger.warning(f"No nodes configured to monitor counties {county_codes_list} - skipping announcement")
+                return []
+            
+            logger.info(f"Alert {alert.event} will be sent to {len(target_nodes)} nodes: {target_nodes}")
+            
+            # Play audio on target nodes
+            successful_nodes = await self.asterisk_manager.play_audio_on_nodes(audio_path, target_nodes)
             
             if successful_nodes:
                 logger.info(f"Alert audio playing on {len(successful_nodes)} nodes: {successful_nodes}")
