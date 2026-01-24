@@ -14,11 +14,11 @@ SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://githu
 
 ```bash
 # Download the signed release tarball
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.3/skywarnplus-ng-1.0.3.tar.gz
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.4/skywarnplus-ng-1.0.4.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
-tar -xzf skywarnplus-ng-1.0.3.tar.gz
-cd skywarnplus-ng-1.0.3
+tar -xzf skywarnplus-ng-1.0.4.tar.gz
+cd skywarnplus-ng-1.0.4
 ./install.sh
 
 # Enable and start the service
@@ -52,15 +52,15 @@ All of the above are installed automatically when you run `install.sh` on a clea
 
 1. **Download & Verify**
 ```bash
-   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.3/skywarnplus-ng-1.0.3.tar.gz
-   sha256sum skywarnplus-ng-1.0.3.tar.gz
+   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.4/skywarnplus-ng-1.0.4.tar.gz
+   sha256sum skywarnplus-ng-1.0.4.tar.gz
    ```
    Compare the checksum against the value published on the release page.
 
 2. **Extract & Install**
 ```bash
-   tar -xzf skywarnplus-ng-1.0.3.tar.gz
-   cd skywarnplus-ng-1.0.3
+   tar -xzf skywarnplus-ng-1.0.4.tar.gz
+   cd skywarnplus-ng-1.0.4
    ./install.sh
    ```
    The installer creates the service account, virtualenv, systemd unit, logrotate config, and copies sounds/scripts.
@@ -87,13 +87,7 @@ All of the above are installed automatically when you run `install.sh` on a clea
    > All configuration changes made through the web interface are automatically saved to `/etc/skywarnplus-ng/config.yaml`. You can also edit the YAML file directly if preferred, but the web interface provides a user-friendly alternative.
 
 5. **Reverse Proxy (optional)**
-   When fronting with Apache/Nginx under `/skywarnplus-ng`, set `monitoring.http_server.base_path: "/skywarnplus-ng"` in `config.yaml`, ensure static assets are proxied, and forward WebSocket upgrades to `/ws`. [Nginx Proxy Manager](nginx-proxy-manager-guide.md) 
-
-## Requirements
-
-- Python 3.11+
-- Asterisk/app_rpt (optional, for voice announcements)
-- Network access (for NWS API)
+   When fronting with Apache/Nginx under `/skywarnplus-ng`, set `monitoring.http_server.base_path: "/skywarnplus-ng"` in `config.yaml`, ensure static assets are proxied, and forward WebSocket upgrades to `/ws`. [Nginx Proxy Manager](nginx-proxy-manager-guide.md)
 
 ## Configuration
 
@@ -110,13 +104,19 @@ Configuration is managed through the web dashboard, which provides an intuitive 
 
 - **Weather Alerts**: Real-time NWS alert monitoring and voice announcements
 - **SkyDescribe DTMF**: On-demand weather descriptions for active alerts via DTMF codes (*1, *2, *3, etc.)
-- **Web Dashboard**: Modern web interface for monitoring, configuration, and management
+- **Web Dashboard**: Modern, responsive web interface with:
+  - Two-level configuration tabs for better organization
+  - Collapsible sidebar (desktop)
+  - Search, sort, and pagination on alerts
+  - Live WebSocket connection indicator
+  - Skeleton loaders and enhanced error handling
+  - Mobile-optimized responsive design
 - **Tail Messages**: Continuous alert announcements via tail message system
 - **Courtesy Tones**: Automatic tone switching based on alert status
 - **ID Changes**: Dynamic node ID switching for weather alerts
 - **AlertScript**: Execute commands (BASH/DTMF) on alert detection
 - **County Audio**: Play county-specific audio files in announcements
-- **PushOver**: Mobile push notifications for alerts
+- **Notifications**: Email, Pushover, and webhook notifications for alerts
 
 ## DTMF Commands
 
