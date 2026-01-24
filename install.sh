@@ -20,6 +20,11 @@ CONFIG_DIR="/etc/skywarnplus-ng"
 TMP_AUDIO_DIR="/tmp/skywarnplus-ng-audio"
 VENV_PATH="${INSTALL_ROOT}/venv"
 VENV_PYTHON="${VENV_PATH}/bin/python"
+PIPER_MODEL_DIR="${INSTALL_ROOT}/piper"
+# Piper voice: "low" (smaller, faster) or "medium" (better quality). Set PIPER_QUALITY=medium to use medium.
+PIPER_QUALITY="${PIPER_QUALITY:-low}"
+PIPER_MODEL="en_US-amy-${PIPER_QUALITY}"
+PIPER_BASE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/${PIPER_QUALITY}"
 
 # System paths
 SYSTEMD_SERVICE="/etc/systemd/system/skywarnplus-ng.service"
@@ -130,7 +135,8 @@ install_system_dependencies() {
         libsndfile1 \
         portaudio19-dev \
         ffmpeg \
-        sox
+        sox \
+        curl
     
     print_success "System dependencies installed"
 }
@@ -139,7 +145,7 @@ create_directories() {
     print_section "Creating application directories"
     
     # Main application directories
-    sudo mkdir -p "${INSTALL_ROOT}"/{descriptions,audio,data,scripts}
+    sudo mkdir -p "${INSTALL_ROOT}"/{descriptions,audio,data,scripts,piper}
     sudo mkdir -p "${INSTALL_ROOT}/src/skywarnplus_ng/web/static"
     sudo mkdir -p "${LOG_DIR}"
     sudo mkdir -p "${CONFIG_DIR}"
@@ -156,6 +162,42 @@ create_directories() {
     sudo chmod 755 "${INSTALL_ROOT}/descriptions"
     
     print_success "Directories created and permissions set"
+}
+
+install_piper_model() {
+    print_section "Installing Piper TTS voice model (en_US-amy-${PIPER_QUALITY})"
+    
+    if [ "${PIPER_QUALITY}" != "low" ] && [ "${PIPER_QUALITY}" != "medium" ]; then
+        print_warning "PIPER_QUALITY must be 'low' or 'medium'; got '${PIPER_QUALITY}'. Using 'low'."
+        PIPER_QUALITY="low"
+        PIPER_MODEL="en_US-amy-low"
+        PIPER_BASE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/low"
+    fi
+    
+    local onnx="${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx"
+    local json="${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx.json"
+    
+    if [ -f "${onnx}" ] && [ -f "${json}" ]; then
+        print_success "Piper model already present: ${onnx}"
+        return 0
+    fi
+    
+    if ! command -v curl &>/dev/null; then
+        print_warning "curl not found. Skipping Piper model download. Install manually to ${PIPER_MODEL_DIR}."
+        return 1
+    fi
+    
+    echo "Downloading ${PIPER_MODEL}.onnx and .onnx.json from Hugging Face..."
+    if sudo curl -f -L -o "${onnx}" "${PIPER_BASE_URL}/${PIPER_MODEL}.onnx" && \
+       sudo curl -f -L -o "${json}" "${PIPER_BASE_URL}/${PIPER_MODEL}.onnx.json"; then
+        set_ownership "${PIPER_MODEL_DIR}"
+        print_success "Piper model installed at ${PIPER_MODEL_DIR}"
+        return 0
+    else
+        print_warning "Piper model download failed. TTS will use gTTS. You can add a model later to ${PIPER_MODEL_DIR}."
+        sudo rm -f "${onnx}" "${json}"
+        return 1
+    fi
 }
 
 install_sound_files() {
@@ -355,6 +397,13 @@ print_completion_message() {
     echo "- Audio files: ${INSTALL_ROOT}/SOUNDS/"
     echo "- Web dashboard: http://localhost:${WEB_PORT} or via reverse proxy"
     echo ""
+    if [ -f "${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx" ]; then
+        echo "Piper TTS (optional):"
+        echo "- Model installed at: ${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx"
+        echo "- In the Web UI Configuration tab, select Piper TTS; the model path defaults to this."
+        echo "- Use PIPER_QUALITY=medium before install to use en_US-amy-medium instead of low."
+        echo ""
+    fi
 }
 
 # ============================================================================
@@ -372,6 +421,7 @@ main() {
     # Installation steps
     install_system_dependencies
     create_directories
+    install_piper_model
     install_sound_files
     copy_source_files
     install_python_dependencies

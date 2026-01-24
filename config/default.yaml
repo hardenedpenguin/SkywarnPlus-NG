@@ -67,7 +67,7 @@ audio:
     tld: "com"
     slow: false
     # Piper TTS settings (only used when engine is "piper")
-    model_path: null  # Path to Piper TTS model file (.onnx), e.g., "/path/to/en_US-lessac-medium.onnx"
+    model_path: null  # Path to Piper TTS model file (.onnx). Install script installs en_US-amy to /var/lib/skywarnplus-ng/piper/
     speed: 1.0  # Speech speed for Piper (1.0 = normal, >1.0 = faster, <1.0 = slower)
     # Common settings
     output_format: "ulaw"  # ulaw format for Asterisk compatibility

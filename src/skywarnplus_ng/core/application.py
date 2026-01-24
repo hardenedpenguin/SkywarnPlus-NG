@@ -15,6 +15,7 @@ from .state import ApplicationState
 from .models import WeatherAlert, AlertStatus
 from ..api.nws_client import NWSClient, NWSClientError
 from ..audio.manager import AudioManager, AudioManagerError
+from ..audio.tts_engine import TTSEngineError
 from ..audio.tail_message import TailMessageManager, TailMessageError
 from ..asterisk.manager import AsteriskManager, AsteriskError
 from ..asterisk.courtesy_tone import CourtesyToneManager, CourtesyToneError
@@ -101,7 +102,7 @@ class SkywarnPlusApplication:
         try:
             self.audio_manager = AudioManager(self.config.audio)
             logger.info("Audio manager initialized successfully")
-        except AudioManagerError as e:
+        except (AudioManagerError, TTSEngineError) as e:
             logger.error(f"Failed to initialize audio manager: {e}")
             logger.warning("Audio features will be disabled")
             self.audio_manager = None
@@ -511,8 +512,11 @@ class SkywarnPlusApplication:
         if self.nws_client:
             await self.nws_client.close()
         
-        # Save final state
-        self.state_manager.save_state(self.state)
+        # Save final state (only if we initialized far enough to load it)
+        if hasattr(self, "state") and self.state is not None:
+            self.state_manager.save_state(self.state)
+        else:
+            logger.debug("Skipping state save (application did not fully initialize)")
         logger.info("Application shutdown complete")
 
     async def run(self) -> None:

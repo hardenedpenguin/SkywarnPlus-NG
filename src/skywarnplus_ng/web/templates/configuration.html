@@ -491,9 +491,9 @@
                             </label>
                             <input type="text" id="tts_model_path" name="audio.tts.model_path" 
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
-                                   placeholder="/path/to/model.onnx">
+                                   placeholder="/var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx">
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Path to Piper TTS model file (.onnx). The corresponding .onnx.json file should be in the same directory.
+                                Path to Piper TTS model file (.onnx). Defaults to the install script&apos;s en_US-amy-low location when empty. The .onnx.json file must be in the same directory.
                             </p>
                         </div>
                         
@@ -1787,6 +1787,23 @@
         });
     }
 
+    // Escape HTML for safe use in attributes and text (used by addNodeRow, etc.)
+    function esc(s) {
+        return (s || '').toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // Default Piper model path (install script puts en_US-amy here; API may provide piper_default_model_path)
+    function getDefaultPiperModelPath(config) {
+        if (config?.piper_default_model_path) return config.piper_default_model_path;
+        const d = String(config?.data_dir || '/var/lib/skywarnplus-ng/data').replace(/\/$/, '');
+        const base = d.endsWith('/data') ? d.slice(0, -5) : d.split('/').slice(0, -1).join('/');
+        return (base || '/var/lib/skywarnplus-ng') + '/piper/en_US-amy-low.onnx';
+    }
+
     // Tab management
     function updateTTSEngineFields() {
         const engine = document.getElementById('tts_engine').value;
@@ -1809,6 +1826,11 @@
             piperFields.forEach(field => {
                 field.style.display = 'block';
             });
+            // Default model path to installed location when user selects Piper and path is empty
+            const pathEl = document.getElementById('tts_model_path');
+            if (pathEl && !pathEl.value.trim()) {
+                pathEl.value = getDefaultPiperModelPath(window.currentConfig || {});
+            }
         }
     }
     
@@ -1928,7 +1950,11 @@
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
         document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
-        document.getElementById('tts_model_path').value = config.audio?.tts?.model_path || '';
+        const engine = config.audio?.tts?.engine || 'gtts';
+        const modelPath = config.audio?.tts?.model_path;
+        document.getElementById('tts_model_path').value = (engine === 'piper' && !modelPath)
+            ? getDefaultPiperModelPath(config)
+            : (modelPath || '');
         document.getElementById('tts_speed').value = config.audio?.tts?.speed || 1.0;
         document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'ulaw';
         document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 8000;

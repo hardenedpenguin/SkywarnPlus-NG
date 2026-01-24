@@ -58,59 +58,90 @@ def test_model_loading(model_path: Path, piper_voice_class):
         traceback.print_exc()
         return False, None
 
+def _synthesize_v13(voice, text: str, output_path: Path) -> bool:
+    """Piper 1.3+ API: synthesize(text, syn_config) yields AudioChunk; write WAV."""
+    import inspect
+    import wave
+    from piper.config import SynthesisConfig
+
+    sig = inspect.signature(voice.synthesize)
+    params = list(sig.parameters.keys())
+    if "syn_config" not in params:
+        return False
+
+    cfg = SynthesisConfig(length_scale=1.0)
+    chunks = list(voice.synthesize(text, cfg))
+    if not chunks:
+        return False
+
+    c = chunks[0]
+    with wave.open(str(output_path), "wb") as wav:
+        wav.setnchannels(c.sample_channels)
+        wav.setsampwidth(c.sample_width)
+        wav.setframerate(c.sample_rate)
+        for ch in chunks:
+            wav.writeframes(ch.audio_int16_bytes)
+    return True
+
+
+def _synthesize_legacy(voice, text: str, output_path: Path) -> bool:
+    """Legacy Piper API: synthesize(text, file_handle, ...)."""
+    import inspect
+
+    sig = inspect.signature(voice.synthesize)
+    params = list(sig.parameters.keys())
+    with open(output_path, "wb") as f:
+        if "length_scale" in params:
+            voice.synthesize(text, f, length_scale=1.0)
+        elif "speed" in params:
+            voice.synthesize(text, f, speed=1.0)
+        else:
+            voice.synthesize(text, f)
+    return True
+
+
 def test_synthesis(voice, test_text: str = "Test", timeout: int = 10):
     """Test synthesis with a short text."""
     print(f"\nTesting synthesis with text: '{test_text}'")
     print(f"  Timeout: {timeout} seconds")
-    
+
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
         temp_path = Path(temp_file.name)
-    
+
     try:
         print("  Starting synthesis...")
         start_time = time.time()
-        
-        # Attempt synthesis
-        with open(temp_path, "wb") as audio_file:
-            # Try to get the API signature
-            import inspect
-            try:
-                sig = inspect.signature(voice.synthesize)
-                params = list(sig.parameters.keys())
-                print(f"  API signature parameters: {params}")
-                
-                # Try different parameter combinations
-                if len(params) == 2:  # Just text and file
-                    voice.synthesize(test_text, audio_file)
-                elif 'length_scale' in params:
-                    voice.synthesize(test_text, audio_file, length_scale=1.0)
-                elif 'speed' in params:
-                    voice.synthesize(test_text, audio_file, speed=1.0)
-                else:
-                    # Try basic call
-                    voice.synthesize(test_text, audio_file)
-            except Exception as e:
-                print(f"  ✗ Error checking API signature: {e}")
-                # Try basic call anyway
-                voice.synthesize(test_text, audio_file)
-        
+
+        import inspect
+        sig = inspect.signature(voice.synthesize)
+        params = list(sig.parameters.keys())
+        print(f"  API signature parameters: {params}")
+
+        if "syn_config" in params:
+            ok = _synthesize_v13(voice, test_text, temp_path)
+        else:
+            ok = _synthesize_legacy(voice, test_text, temp_path)
+
+        if not ok:
+            print("  ✗ Synthesis produced no output")
+            temp_path.unlink(missing_ok=True)
+            return False
+
         elapsed = time.time() - start_time
         print(f"  Synthesis completed in {elapsed:.2f} seconds")
-        
-        # Check output file
+
         if not temp_path.exists():
             print("  ✗ Output file was not created")
             return False
-        
+
         file_size = temp_path.stat().st_size
         if file_size == 0:
             print("  ✗ Output file is empty")
             temp_path.unlink()
             return False
-        
+
         print(f"  ✓ Output file created: {temp_path} ({file_size} bytes)")
-        
-        # Try to validate it's a valid WAV file
+
         try:
             from pydub import AudioSegment
             audio = AudioSegment.from_wav(str(temp_path))
@@ -118,21 +149,16 @@ def test_synthesis(voice, test_text: str = "Test", timeout: int = 10):
             print(f"  ✓ Valid WAV file: {duration:.2f} seconds, {audio.frame_rate} Hz, {audio.channels} channel(s)")
         except Exception as e:
             print(f"  ⚠ Could not validate WAV file: {e}")
-        
-        # Clean up
+
         temp_path.unlink()
         return True
-        
+
     except Exception as e:
-        elapsed = time.time() - start_time if 'start_time' in locals() else 0
+        elapsed = time.time() - start_time if "start_time" in locals() else 0
         print(f"  ✗ Synthesis failed after {elapsed:.2f} seconds: {e}")
         import traceback
         traceback.print_exc()
-        
-        # Clean up
-        if temp_path.exists():
-            temp_path.unlink()
-        
+        temp_path.unlink(missing_ok=True)
         return False
 
 def main():

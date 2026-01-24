@@ -344,8 +344,11 @@ class PiperTSEngine:
         if not PIPER_AVAILABLE:
             raise TTSEngineError("Piper TTS library is not installed. Install with: pip install piper-tts")
         
-        if not self.config.model_path:
-            raise TTSEngineError("Model path is required for Piper TTS")
+        if not self.config.model_path or not str(self.config.model_path).strip():
+            raise TTSEngineError(
+                "Model path is required for Piper TTS. Set audio.tts.model_path in config to the path "
+                "of your .onnx voice model file, or use audio.tts.engine: gtts for cloud TTS."
+            )
         
         model_path = Path(self.config.model_path)
         if not model_path.exists():
@@ -412,61 +415,74 @@ class PiperTSEngine:
             raise TTSEngineError("Piper voice model not loaded")
         
         try:
-            # Piper synthesizes to WAV format
-            # Check if the output file exists and is writable
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Open file in binary write mode
+            import inspect
+
+            sig = inspect.signature(self.voice.synthesize)
+            params = list(sig.parameters.keys())
+            logger.debug(f"Piper synthesize signature: {params}")
+
+            # piper-tts 1.3+ uses (text, syn_config) and yields AudioChunk; no file param
+            if "syn_config" in params:
+                self._synthesize_to_wav_v13(text, output_path)
+                return
+
+            # Legacy API: synthesize(text, file_handle, ...)
             with open(output_path, "wb") as audio_file:
                 try:
-                    # Try calling synthesize - check API signature
-                    # Some versions of piper-tts use different parameter names
-                    import inspect
-                    sig = inspect.signature(self.voice.synthesize)
-                    params = list(sig.parameters.keys())
-                    
-                    logger.debug(f"Piper synthesize signature: {params}")
-                    
-                    # Try calling with common parameter combinations
-                    if 'length_scale' in params:
+                    if "length_scale" in params:
                         self.voice.synthesize(text, audio_file, length_scale=self.config.speed)
-                    elif 'speed' in params:
+                    elif "speed" in params:
                         self.voice.synthesize(text, audio_file, speed=self.config.speed)
                     else:
-                        # No speed parameter - just synthesize
                         self.voice.synthesize(text, audio_file)
-                        
-                except TypeError as e:
-                    # If parameter names don't match, try with just text and file
-                    logger.debug(f"TypeError with parameters, trying basic call: {e}")
+                except TypeError:
                     try:
                         self.voice.synthesize(text, audio_file)
                     except Exception as e2:
-                        logger.error(f"Piper synthesize failed even with basic call: {e2}")
                         raise TTSEngineError(f"Piper synthesis failed: {e2}") from e2
                 except Exception as e:
-                    logger.error(f"Piper synthesis failed with exception: {e}")
-                    logger.error(f"Exception type: {type(e).__name__}")
                     raise TTSEngineError(f"Piper synthesis failed: {e}") from e
-            
-            # Verify the file was created and has content
-            if not output_path.exists():
-                raise TTSEngineError(f"Piper did not create output file: {output_path}")
-            
-            file_size = output_path.stat().st_size
-            if file_size == 0:
-                raise TTSEngineError(f"Piper created empty output file: {output_path}")
-            
-            logger.debug(f"Piper synthesized {file_size} bytes to {output_path}")
-            
+
+            self._verify_wav_output(output_path)
         except TTSEngineError:
             raise
         except Exception as e:
             logger.error(f"Piper synthesis failed: {e}")
-            logger.error(f"Exception type: {type(e).__name__}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise TTSEngineError(f"Piper synthesis failed: {e}") from e
+
+    def _synthesize_to_wav_v13(self, text: str, output_path: Path) -> None:
+        """Piper 1.3+ API: synthesize(text, syn_config) yields AudioChunk; write WAV."""
+        try:
+            from piper.config import SynthesisConfig
+            import wave
+        except ImportError as e:
+            raise TTSEngineError(f"Piper 1.3+ requires piper.config.SynthesisConfig: {e}") from e
+
+        cfg = SynthesisConfig(length_scale=self.config.speed)
+        chunks = list(self.voice.synthesize(text, cfg))
+        if not chunks:
+            raise TTSEngineError("Piper synthesize yielded no audio chunks")
+
+        c = chunks[0]
+        with wave.open(str(output_path), "wb") as wav:
+            wav.setnchannels(c.sample_channels)
+            wav.setsampwidth(c.sample_width)
+            wav.setframerate(c.sample_rate)
+            for ch in chunks:
+                wav.writeframes(ch.audio_int16_bytes)
+
+        self._verify_wav_output(output_path)
+
+    def _verify_wav_output(self, output_path: Path) -> None:
+        if not output_path.exists():
+            raise TTSEngineError(f"Piper did not create output file: {output_path}")
+        size = output_path.stat().st_size
+        if size == 0:
+            raise TTSEngineError(f"Piper created empty output file: {output_path}")
+        logger.debug(f"Piper synthesized {size} bytes to {output_path}")
 
     def synthesize(self, text: str, output_path: Path) -> Path:
         """

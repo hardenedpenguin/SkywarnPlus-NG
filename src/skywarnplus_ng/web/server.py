@@ -716,6 +716,20 @@ class WebDashboard:
             status['has_alerts'] = len(alerts_data) > 0
             status['alerts'] = alerts_data
             
+            # Ensure asterisk_nodes is JSON-serializable (int | NodeConfig -> int | dict)
+            status['asterisk_nodes'] = self._serialize_asterisk_nodes(status.get('asterisk_nodes', []))
+            
+            # Convert datetime/path in status to JSON-friendly types
+            def _json_friendly(obj):
+                if hasattr(obj, 'isoformat'):
+                    return obj.isoformat()
+                if hasattr(obj, '__fspath__'):
+                    return str(obj)
+                return obj
+            for key in ('last_poll', 'last_all_clear'):
+                if key in status and status[key] is not None:
+                    status[key] = _json_friendly(status[key])
+            
             return web.json_response(status)
         except Exception as e:
             logger.error(f"Error getting status: {e}")
@@ -1053,6 +1067,17 @@ class WebDashboard:
                 except Exception as e:
                     logger.error(f"Failed to get additional system info: {e}")
             
+            # Sanitize component details for JSON (e.g. Asterisk stores nodes with NodeConfig)
+            def _sanitize_details(details):
+                if not details or not isinstance(details, dict):
+                    return details
+                out = dict(details)
+                if "nodes" in out and out["nodes"] is not None:
+                    out["nodes"] = self._serialize_asterisk_nodes(
+                        out["nodes"] if isinstance(out["nodes"], list) else [out["nodes"]]
+                    )
+                return out
+
             # Convert to dict format with enhanced data
             health_data = {
                 "overall_status": health_status.overall_status.value,
@@ -1067,7 +1092,7 @@ class WebDashboard:
                         "message": comp.message,
                         "response_time_ms": comp.response_time_ms,
                         "last_check": comp.last_check.isoformat() if hasattr(comp, 'last_check') else None,
-                        "details": getattr(comp, 'details', None)
+                        "details": _sanitize_details(getattr(comp, 'details', None))
                     }
                     for comp in health_status.components
                 ],
@@ -1212,7 +1237,7 @@ class WebDashboard:
             # Add system status activities
             if self.app:
                 try:
-                    status = await self.app.get_status()
+                    status = self.app.get_status()
                     
                     # Add NWS connection status
                     if status.get("nws_connected"):
@@ -1556,6 +1581,22 @@ class WebDashboard:
             return web.json_response({"error": str(e)}, status=500)
 
     # Configuration API
+    def _serialize_asterisk_nodes(self, raw_nodes):
+        """Convert asterisk.nodes (int | NodeConfig) to JSON-serializable list."""
+        out = []
+        for n in raw_nodes or []:
+            if isinstance(n, int):
+                out.append(n)
+            elif hasattr(n, 'model_dump'):
+                out.append(n.model_dump())
+            elif isinstance(n, dict):
+                out.append(n)
+            elif hasattr(n, 'number'):
+                out.append({'number': n.number, 'counties': getattr(n, 'counties', None)})
+            else:
+                continue
+        return out
+
     async def api_config_get_handler(self, request: Request) -> Response:
         """Handle API config get endpoint."""
         try:
@@ -1574,6 +1615,26 @@ class WebDashboard:
                     return obj
             
             serializable_config = convert_paths(config_dict)
+            
+            # Ensure asterisk.nodes is JSON-serializable (NodeConfig -> dict)
+            if 'asterisk' in serializable_config and 'nodes' in serializable_config['asterisk']:
+                raw = serializable_config['asterisk']['nodes']
+                serializable_config['asterisk']['nodes'] = self._serialize_asterisk_nodes(
+                    raw if isinstance(raw, list) else [raw]
+                )
+            
+            # Default Piper model path for UI: install script puts en_US-amy here (low or medium)
+            data_dir = self.config.data_dir
+            if data_dir:
+                base = Path(str(data_dir)).resolve().parent / "piper"
+                for name in ("en_US-amy-medium.onnx", "en_US-amy-low.onnx"):
+                    p = base / name
+                    if p.exists():
+                        serializable_config["piper_default_model_path"] = str(p)
+                        break
+                else:
+                    serializable_config["piper_default_model_path"] = str(base / "en_US-amy-low.onnx")
+            
             return web.json_response(serializable_config)
         except Exception as e:
             logger.error(f"Error getting config: {e}")
@@ -1634,6 +1695,42 @@ class WebDashboard:
                         if isinstance(data['alerts']['tail_message_suffix'], str) and data['alerts']['tail_message_suffix'].strip() == '':
                             data['alerts']['tail_message_suffix'] = None
                 
+                # Normalize empty numeric strings from form (form sends '' for untouched fields)
+                _numeric_defaults = {
+                    'audio': {'tts': {'speed': 1.0, 'sample_rate': 22050, 'bit_rate': 128}},
+                    'filtering': {'max_alerts': 99},
+                    'scripts': {'default_timeout': 30},
+                    'database': {'cleanup_interval_hours': 24, 'retention_days': 30, 'backup_interval_hours': 24},
+                    'monitoring': {
+                        'health_check_interval': 60,
+                        'http_server': {'port': 8100, 'auth': {'session_timeout_hours': 24}},
+                        'metrics': {'retention_days': 7},
+                    },
+                    'pushover': {'priority': 0, 'timeout_seconds': 30},
+                }
+
+                def _fix_empty_numerics(d, defs, cfg):
+                    if not isinstance(d, dict):
+                        return d
+                    out = {}
+                    for k, v in d.items():
+                        subdef = defs.get(k) if isinstance(defs, dict) else None
+                        subcfg = getattr(cfg, k, None) if hasattr(cfg, k) else None
+                        if isinstance(v, dict):
+                            out[k] = _fix_empty_numerics(v, subdef or {}, subcfg or type('_', (), {})())
+                        elif isinstance(v, str) and v.strip() == '':
+                            if isinstance(subdef, (int, float)):
+                                out[k] = subdef
+                            elif subcfg is not None and isinstance(subcfg, (int, float)):
+                                out[k] = subcfg
+                            else:
+                                out[k] = v
+                        else:
+                            out[k] = v
+                    return out
+
+                data = _fix_empty_numerics(data, _numeric_defaults, self.config)
+
                 # Create new config from the received data
                 from ..core.config import AppConfig
                 updated_config = AppConfig(**data)

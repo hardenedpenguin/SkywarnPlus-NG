@@ -103,6 +103,12 @@ Configuration is managed through the web dashboard, which provides an intuitive 
 4. Log in with default credentials: `admin / skywarn123`
 5. Navigate to the **Configuration** tab to configure all settings
 
+### Piper TTS (optional)
+
+The installer downloads the **en_US-amy** Piper voice model to `/var/lib/skywarnplus-ng/piper/`. TTS defaults to **gTTS**. To use Piper, select **Piper TTS** in the Web UI Configuration tab; the model path defaults to the installed location when empty.
+
+To install the **medium** quality variant instead of **low**, run `PIPER_QUALITY=medium ./install.sh`.
+
 ### Multi-Node Deployments
 
 If you run multiple nodes serving different locations from one server, you can configure which counties each node monitors:
