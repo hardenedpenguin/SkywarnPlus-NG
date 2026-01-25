@@ -156,8 +156,8 @@ async def handle_describe_command(config_path=None, index_or_title=None):
             max_words=config.skydescribe.max_words
         )
         
-        # Get asterisk nodes from config
-        asterisk_nodes = config.asterisk.nodes if config.asterisk.enabled else None
+        # Get asterisk node numbers (list of ints) for playback
+        asterisk_nodes = config.asterisk.get_nodes_list() if config.asterisk.enabled else None
         
         # Call describe_by_index_or_title
         audio_file = describe_manager.describe_by_index_or_title(

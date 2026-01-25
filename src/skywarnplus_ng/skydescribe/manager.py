@@ -671,22 +671,8 @@ class SkyDescribeManager:
         if playback_path.endswith(('.wav', '.mp3', '.gsm', '.ulaw', '.ul')):
             playback_path = playback_path.rsplit('.', 1)[0]
         
-        # Verify asterisk user can read the file
-        try:
-            check_result = subprocess.run(
-                ["sudo", "-n", "-u", "asterisk", "test", "-r", str(audio_path.resolve())],
-                capture_output=True,
-                timeout=5
-            )
-            if check_result.returncode != 0:
-                logger.warning(f"SkyDescribe: Asterisk user may not be able to read file: {audio_path}")
-        except Exception as e:
-            logger.debug(f"SkyDescribe: Could not verify file accessibility: {e}")
-        
-        asterisk_path = "/usr/sbin/asterisk"
-        
-        # Check if we're already running as asterisk user (no sudo needed)
         import os
+        # Check if we're already running as asterisk user (no sudo needed)
         current_user = os.getenv("USER") or os.getenv("USERNAME") or ""
         try:
             import pwd
@@ -697,47 +683,47 @@ class SkyDescribeManager:
             except KeyError:
                 is_asterisk_user = False
         except (ImportError, AttributeError):
-            # Fallback: check username
             is_asterisk_user = (current_user == "asterisk")
         
+        # Verify we can read the file (skip sudo when already asterisk; asterisk often not in sudoers)
+        if not os.access(audio_path, os.R_OK):
+            logger.warning(f"SkyDescribe: Cannot read audio file: {audio_path}")
+        
+        asterisk_path = "/usr/sbin/asterisk"
+        
+        # Normalize node to int (in case raw config.asterisk.nodes was passed)
+        def _node_num(n):
+            return int(getattr(n, "number", n) if not isinstance(n, int) else n)
+        
         for node in nodes:
-            logger.info("SkyDescribe: Broadcasting description on node %s.", node)
+            node_num = _node_num(node)
+            logger.info("SkyDescribe: Broadcasting description on node %s.", node_num)
             
             if playback_mode.lower() == "global":
-                asterisk_cmd = f"rpt playback {node} {playback_path}"
+                asterisk_cmd = f"rpt playback {node_num} {playback_path}"
             else:
-                asterisk_cmd = f"rpt localplay {node} {playback_path}"
+                asterisk_cmd = f"rpt localplay {node_num} {playback_path}"
             
             try:
-                # If already running as asterisk user, don't use sudo
                 if is_asterisk_user:
-                    logger.debug("SkyDescribe: Running as asterisk user, skipping sudo: %s -rx '%s'", asterisk_path, asterisk_cmd)
+                    logger.debug("SkyDescribe: Running as asterisk user: %s -rx '%s'", asterisk_path, asterisk_cmd)
                     cmd = [asterisk_path, "-rx", asterisk_cmd]
                 else:
                     logger.debug("SkyDescribe: Running via sudo: sudo -n -u asterisk %s -rx '%s'", asterisk_path, asterisk_cmd)
                     cmd = ["sudo", "-n", "-u", "asterisk", asterisk_path, "-rx", asterisk_cmd]
                 
-                # Set cwd to /tmp to avoid permission issues with current directory
-                result = subprocess.run(
+                # Fire-and-forget: rpt localplay blocks until playback finishes (~30s+).
+                # Use Popen so describe returns immediately; audio continues playing.
+                # Use audio file's directory as cwd; Asterisk can fail with "Unable to access
+                # the running directory" when cwd is /tmp (permission or path resolution).
+                work_dir = str(audio_path.parent)
+
+                proc = subprocess.Popen(
                     cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    timeout=30,
-                    check=False,
-                    cwd="/tmp"  # Run from /tmp to avoid permission issues
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    cwd=work_dir,
                 )
-                
-                if result.returncode == 0:
-                    logger.info(f"SkyDescribe: Successfully started playback on node {node}")
-                    if result.stdout:
-                        logger.debug(f"SkyDescribe: stdout: {result.stdout.decode('utf-8', errors='replace')}")
-                else:
-                    logger.error(f"SkyDescribe: Playback command failed on node {node} (return code: {result.returncode})")
-                    if result.stdout:
-                        logger.error(f"SkyDescribe: stdout: {result.stdout.decode('utf-8', errors='replace')}")
-                    if result.stderr:
-                        logger.error(f"SkyDescribe: stderr: {result.stderr.decode('utf-8', errors='replace')}")
-            except subprocess.TimeoutExpired:
-                logger.error(f"SkyDescribe: Subprocess timeout for command on node {node}")
+                logger.info("SkyDescribe: Started playback on node %s (pid %s) cwd=%s", node_num, proc.pid, work_dir)
             except Exception as e:
-                logger.error(f"SkyDescribe: Subprocess error for command on node {node}: {e}")
+                logger.error("SkyDescribe: Failed to start playback on node %s: %s", node_num, e)
