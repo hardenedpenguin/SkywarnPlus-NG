@@ -210,8 +210,9 @@ class TailMessageManager:
                 silence = AudioSegment.silent(duration=100)
                 combined_sound = self._convert_audio_format(silence)
             else:
-                # Build tail message from alerts
-                combined_sound = AudioSegment.empty()
+                # Build tail message from alerts (use 1ms silence as accumulator;
+                # AudioData rejects empty, and we append separator/alert/silence below)
+                combined_sound = AudioSegment.silent(duration=1)
                 
                 # Load separator sound if available
                 separator_path = self.audio_config.sounds_path / self.audio_config.separator_sound

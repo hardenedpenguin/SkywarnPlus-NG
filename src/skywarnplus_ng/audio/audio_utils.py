@@ -384,8 +384,8 @@ class AudioData:
         
         num_samples = int(duration * sample_rate / 1000)
         if num_samples == 0:
-            return AudioData.empty()
-        
+            # AudioData rejects empty arrays; use 1 sample to avoid ValueError
+            num_samples = 1
         silence_data = np.zeros(num_samples, dtype=np.float32)
         return AudioData(silence_data, sample_rate, 1)
     

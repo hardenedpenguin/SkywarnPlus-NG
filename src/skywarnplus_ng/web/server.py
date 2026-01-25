@@ -698,7 +698,7 @@ class WebDashboard:
             alerts_by_node: Dict[str, Dict[str, Any]] = {}
             if self.app and hasattr(self.app, 'config') and self.app.config.asterisk.enabled:
                 for node in self.app.config.asterisk.get_nodes_list():
-                    node_counties = self.app.config.get_counties_for_node(node)
+                    node_counties = self.app.config.asterisk.get_counties_for_node(node)
                     allowed = set(node_counties) if node_counties else set(county_code_to_name.keys())
                     node_alerts = build_alerts_data(allowed)
                     alerts_by_node[str(node)] = {
