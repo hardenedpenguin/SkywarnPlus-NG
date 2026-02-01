@@ -112,12 +112,6 @@ scripts:
       args: ["$ALERT_EVENT", "$ALERT_AREA"]
       timeout: 20
       enabled: true
-  # All-clear script
-  all_clear_script:
-    command: "/usr/local/bin/clear-status.sh"
-    args: ["all_clear"]
-    timeout: 10
-    enabled: true
 
 # Logging configuration
 logging:

@@ -279,7 +279,7 @@ class AudioManager:
             Path to generated audio file, or None if generation failed
         """
         try:
-            all_clear_text = "All clear. No active weather alerts at this time."
+            all_clear_text = "The National Weather Service has cleared all alerts."
             logger.info("Generating all-clear audio")
             
             # Generate unique filename

@@ -343,7 +343,7 @@ class SkyDescribeManager:
     async def generate_all_clear_description(self) -> Optional[DescriptionAudio]:
         """Generate all-clear description audio."""
         try:
-            text = "All weather alerts have been cleared. There are no active weather warnings or watches in your area at this time."
+            text = "The National Weather Service has cleared all alerts."
             
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             filename = f"all_clear_{timestamp}.{self.audio_manager.config.tts.output_format}"

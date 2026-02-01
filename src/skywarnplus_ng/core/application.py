@@ -962,14 +962,6 @@ class SkywarnPlusApplication:
         if self.config.alerts.say_all_clear:
             await self._announce_all_clear()
         
-        # Execute all-clear script
-        if self.script_manager:
-            script_success = await self.script_manager.execute_all_clear_script()
-            if script_success:
-                logger.info("All-clear script executed successfully")
-            else:
-                logger.warning("All-clear script failed")
-        
         # Send PushOver all-clear notification if enabled
         if self.config.pushover.enabled and self.config.pushover.api_token and self.config.pushover.user_key:
             try:
