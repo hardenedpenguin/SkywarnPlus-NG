@@ -705,6 +705,19 @@ class WebDashboard:
                         'has_alerts': len(node_alerts) > 0,
                         'alerts': node_alerts,
                     }
+
+            # Supermon compatibility: ?nodes=546051,546055,546056 requests status for specific nodes.
+            # Ensure every requested node has an alerts_by_node entry (use per-node data if available,
+            # otherwise global alerts). This fixes "doesn't return properly for all configured nodes".
+            nodes_param = request.query.get('nodes', '').strip()
+            if nodes_param:
+                requested = [str(n).strip() for n in nodes_param.split(',') if n and str(n).strip().isdigit()]
+                global_alerts = build_alerts_data(None)
+                global_entry = {'has_alerts': len(global_alerts) > 0, 'alerts': global_alerts}
+                for node_key in requested:
+                    if node_key and node_key not in alerts_by_node:
+                        alerts_by_node[node_key] = global_entry
+
             status['alerts_by_node'] = alerts_by_node
 
             # Ensure asterisk_nodes is JSON-serializable (int | NodeConfig -> int | dict)
