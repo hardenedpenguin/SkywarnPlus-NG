@@ -324,7 +324,16 @@ class WebDashboard:
 
     def _verify_password(self, password: str, stored: str) -> bool:
         """Verify a password against stored value (bcrypt hash or legacy plaintext)."""
+        if stored is None:
+            return False
+        password = password.strip() if isinstance(password, str) else ""
+        stored = stored.strip() if isinstance(stored, str) else ""
+        if not password or not stored:
+            return False
         if stored.startswith("$2") and len(stored) > 20:
+            # Accept $2y$ (PHP/supermon-ng) by normalizing to $2b$ for Python bcrypt
+            if stored.startswith("$2y$"):
+                stored = "$2b$" + stored[4:]
             digest = hashlib.sha256(password.encode()).hexdigest()
             try:
                 if bcrypt_lib.checkpw(digest.encode("utf-8"), stored.encode("utf-8")):
@@ -1735,6 +1744,9 @@ class WebDashboard:
                                 if not new_password or (isinstance(new_password, str) and new_password.strip() == ""):
                                     auth["password"] = self.config.monitoring.http_server.auth.password
                                     logger.info("Keeping current password (new password was empty)")
+                                elif self._is_bcrypt_hash(new_password):
+                                    # Already hashed by _ensure_auth_password_hashed_in_dict; do not hash again
+                                    pass
                                 else:
                                     raw = new_password.strip() if isinstance(new_password, str) else str(new_password)
                                     auth["password"] = self._hash_password(raw)
@@ -1844,6 +1856,19 @@ class WebDashboard:
                     auth["password"] = pwd if isinstance(pwd, str) else ""
                 except Exception as e:
                     logger.warning("Could not set hashed auth password for write: %s", e)
+
+                # Quote auth password in YAML so bcrypt hash ($2b$...) is read back correctly
+                try:
+                    from ruamel.yaml.scalarstring import DoubleQuotedScalarString
+                    mon = serializable_config.get("monitoring")
+                    if isinstance(mon, dict):
+                        http = mon.get("http_server")
+                        if isinstance(http, dict):
+                            auth = http.get("auth")
+                            if isinstance(auth, dict) and isinstance(auth.get("password"), str):
+                                auth["password"] = DoubleQuotedScalarString(auth["password"])
+                except Exception:
+                    pass
 
                 # Write to file
                 with open(config_path, 'w') as f:
