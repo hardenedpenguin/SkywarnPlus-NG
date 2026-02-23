@@ -14,6 +14,12 @@ from ruamel.yaml import YAML
 logger = logging.getLogger(__name__)
 
 
+class ConfigError(Exception):
+    """Raised when configuration cannot be loaded or is invalid."""
+
+    pass
+
+
 class NWSApiConfig(BaseModel):
     """NWS API configuration."""
 
@@ -346,13 +352,26 @@ class AppConfig(BaseSettings):
             config = cls()
             config._normalize_paths(Path.cwd())
             return config
-        
-        yaml = YAML(typ='safe')
-        with open(config_path, 'r') as f:
-            yaml_data = yaml.load(f)
-        
-        # Create config from YAML data
-        config = cls(**yaml_data)
+
+        try:
+            yaml = YAML(typ='safe')
+            with open(config_path, 'r') as f:
+                yaml_data = yaml.load(f)
+        except OSError as e:
+            raise ConfigError(f"Cannot read config file {config_path}: {e}") from e
+        except Exception as e:
+            raise ConfigError(f"Invalid YAML in {config_path}: {e}") from e
+
+        if not isinstance(yaml_data, dict):
+            raise ConfigError(
+                f"Config file {config_path} must contain a YAML mapping (dict), got {type(yaml_data).__name__}"
+            )
+
+        try:
+            config = cls(**yaml_data)
+        except Exception as e:
+            raise ConfigError(f"Invalid configuration in {config_path}: {e}") from e
+
         config._normalize_paths(config_path.parent)
         return config
 

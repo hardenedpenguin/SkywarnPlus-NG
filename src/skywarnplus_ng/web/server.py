@@ -3,13 +3,15 @@ Professional web dashboard server for SkywarnPlus-NG.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import re
 import secrets
-import hashlib
 from urllib.parse import quote
+
+import bcrypt as bcrypt_lib
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Set
@@ -315,12 +317,51 @@ class WebDashboard:
         )
 
     def _hash_password(self, password: str) -> str:
-        """Hash a password using SHA-256."""
-        return hashlib.sha256(password.encode()).hexdigest()
+        """Hash a password using SHA-256 then bcrypt (avoids bcrypt 72-byte limit). Uses bcrypt package directly to avoid passlib init issues with bcrypt 5.x."""
+        digest = hashlib.sha256(password.encode()).hexdigest()
+        hashed = bcrypt_lib.hashpw(digest.encode("utf-8"), bcrypt_lib.gensalt())
+        return hashed.decode("utf-8")
 
-    def _verify_password(self, password: str, hashed: str) -> bool:
-        """Verify a password against its hash."""
-        return self._hash_password(password) == hashed
+    def _verify_password(self, password: str, stored: str) -> bool:
+        """Verify a password against stored value (bcrypt hash or legacy plaintext)."""
+        if stored.startswith("$2") and len(stored) > 20:
+            digest = hashlib.sha256(password.encode()).hexdigest()
+            try:
+                if bcrypt_lib.checkpw(digest.encode("utf-8"), stored.encode("utf-8")):
+                    return True
+            except Exception:
+                pass
+            try:
+                return bcrypt_lib.checkpw(password.encode("utf-8"), stored.encode("utf-8"))
+            except Exception:
+                return False
+        return password == stored
+
+    def _is_bcrypt_hash(self, s: str) -> bool:
+        """Return True if s looks like a bcrypt hash (never write plaintext)."""
+        return isinstance(s, str) and len(s) > 20 and s.startswith("$2")
+
+    def _ensure_auth_password_hashed_in_dict(self, d: dict) -> None:
+        """Replace dashboard auth password with hash if it looks like plaintext. Mutates d."""
+        try:
+            mon = d.get("monitoring")
+            if not isinstance(mon, dict):
+                return
+            http = mon.get("http_server")
+            if not isinstance(http, dict):
+                return
+            auth = http.get("auth")
+            if not isinstance(auth, dict):
+                return
+            pwd = auth.get("password")
+            if not isinstance(pwd, str) or not pwd:
+                return
+            if self._is_bcrypt_hash(pwd):
+                return
+            auth["password"] = self._hash_password(pwd)
+            logger.info("Hashed dashboard auth password before persist")
+        except Exception as e:
+            logger.warning("Could not hash auth password in dict: %s", e)
 
     async def _is_authenticated(self, request: Request) -> bool:
         """Check if the user is authenticated."""
@@ -1424,16 +1465,23 @@ class WebDashboard:
             
             # Calculate system metrics (mock data for now)
             import psutil
+            cpu_usage = 0.0
+            memory_usage = 0.0
+            disk_usage = 0.0
             try:
                 cpu_usage = psutil.cpu_percent(interval=0.1)
+            except Exception as e:
+                logger.debug("CPU metric unavailable: %s", e)
+            try:
                 memory_info = psutil.virtual_memory()
-                disk_info = psutil.disk_usage('/')
                 memory_usage = memory_info.percent
+            except Exception as e:
+                logger.debug("Memory metric unavailable: %s", e)
+            try:
+                disk_info = psutil.disk_usage('/')
                 disk_usage = (disk_info.used / disk_info.total) * 100
-            except:
-                cpu_usage = 0.0
-                memory_usage = 0.0
-                disk_usage = 0.0
+            except Exception as e:
+                logger.debug("Disk metric unavailable: %s", e)
             
             # Flatten data for frontend compatibility
             flattened_metrics = {
@@ -1536,6 +1584,8 @@ class WebDashboard:
             try:
                 if request.content_type == 'application/json' and request.content_length and request.content_length > 0:
                     data = await request.json()
+                    if not isinstance(data, dict):
+                        data = {}
                 else:
                     data = {}
             except Exception:
@@ -1648,7 +1698,12 @@ class WebDashboard:
         """Handle API config update endpoint."""
         try:
             data = await request.json()
-            
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            # Hash dashboard auth password if present and plaintext (so we never persist plaintext)
+            self._ensure_auth_password_hashed_in_dict(data)
+
             # Import required modules for YAML handling
             from ruamel.yaml import YAML
             from pathlib import Path
@@ -1667,19 +1722,25 @@ class WebDashboard:
                     data['monitoring']['http_server']['base_path'] = self.config.monitoring.http_server.base_path or ''
                     logger.info(f"Preserving base_path: {data['monitoring']['http_server']['base_path']}")
                 
-                # Handle password updates - if password is empty, keep the current password
-                if ('monitoring' in data and 
-                    'http_server' in data['monitoring'] and 
-                    'auth' in data['monitoring']['http_server'] and
-                    'password' in data['monitoring']['http_server']['auth']):
-                    
-                    new_password = data['monitoring']['http_server']['auth']['password']
-                    if not new_password or new_password.strip() == '':
-                        # Keep current password if new one is empty
-                        data['monitoring']['http_server']['auth']['password'] = self.config.monitoring.http_server.auth.password
-                        logger.info("Keeping current password (new password was empty)")
-                    else:
-                        logger.info("Updating password")
+                # Handle password updates - if password is empty, keep the current password.
+                # Hash any non-empty password before AppConfig sees it (avoids bcrypt 72-byte error).
+                try:
+                    mon = data.get("monitoring")
+                    if isinstance(mon, dict):
+                        http = mon.get("http_server")
+                        if isinstance(http, dict):
+                            auth = http.get("auth")
+                            if isinstance(auth, dict) and "password" in auth:
+                                new_password = auth["password"]
+                                if not new_password or (isinstance(new_password, str) and new_password.strip() == ""):
+                                    auth["password"] = self.config.monitoring.http_server.auth.password
+                                    logger.info("Keeping current password (new password was empty)")
+                                else:
+                                    raw = new_password.strip() if isinstance(new_password, str) else str(new_password)
+                                    auth["password"] = self._hash_password(raw)
+                                    logger.info("Updating password (stored as bcrypt hash)")
+                except Exception as e:
+                    logger.warning("Could not process password update: %s", e)
                 
                 # Handle PushOver credentials - keep current values if empty
                 if 'pushover' in data:
@@ -1766,7 +1827,24 @@ class WebDashboard:
                         return obj
                 
                 serializable_config = convert_paths_for_yaml(config_dict)
-                
+
+                # Never write plaintext dashboard auth password: take from config, hash if needed, force into dict
+                try:
+                    pwd = getattr(
+                        getattr(getattr(updated_config.monitoring, "http_server", None), "auth", None),
+                        "password",
+                        "",
+                    )
+                    if isinstance(pwd, str) and pwd and not self._is_bcrypt_hash(pwd):
+                        pwd = self._hash_password(pwd)
+                        updated_config.monitoring.http_server.auth.password = pwd
+                    mon = serializable_config.setdefault("monitoring", {})
+                    http = mon.setdefault("http_server", {})
+                    auth = http.setdefault("auth", {})
+                    auth["password"] = pwd if isinstance(pwd, str) else ""
+                except Exception as e:
+                    logger.warning("Could not set hashed auth password for write: %s", e)
+
                 # Write to file
                 with open(config_path, 'w') as f:
                     yaml.dump(serializable_config, f)
@@ -1873,7 +1951,10 @@ class WebDashboard:
                         if c.get('code') == county_code:
                             config_data['counties'][i]['audio_file'] = filename
                             break
-                
+
+                # Never write plaintext dashboard auth password to disk
+                self._ensure_auth_password_hashed_in_dict(config_data)
+
                 with open(config_path, "w") as f:
                     yaml.dump(config_data, f)
                 
@@ -1919,7 +2000,9 @@ class WebDashboard:
         """Handle email connection test."""
         try:
             data = await request.json()
-            
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
             # Import notification modules
             from ..notifications.email import EmailNotifier, EmailConfig, EmailProvider
             
@@ -1975,6 +2058,8 @@ class WebDashboard:
         """Handle add subscriber endpoint."""
         try:
             data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
             subscriber_id = data.get('subscriber_id') or str(uuid.uuid4())
             name = (data.get('name') or '').strip()
             email = (data.get('email') or '').strip()
@@ -2028,7 +2113,9 @@ class WebDashboard:
         try:
             subscriber_id = request.match_info['subscriber_id']
             data = await request.json()
-            
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
             # Get existing subscriber
             subscriber_manager = self._get_subscriber_manager()
             subscriber = subscriber_manager.get_subscriber(subscriber_id)
@@ -2131,7 +2218,9 @@ class WebDashboard:
         """Handle add template endpoint."""
         try:
             data = await request.json()
-            
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
             template_engine = self._get_template_engine()
             template_type_value = (data.get('template_type') or 'email').lower()
             format_value = (data.get('format') or 'text').lower()
@@ -2169,7 +2258,9 @@ class WebDashboard:
         try:
             template_id = request.match_info['template_id']
             data = await request.json()
-            
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
             template_engine = self._get_template_engine()
             template = template_engine.get_template(template_id)
             
@@ -2281,6 +2372,8 @@ class WebDashboard:
         """Handle API login endpoint."""
         try:
             data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
             username = data.get('username', '').strip()
             password = data.get('password', '')
             remember = data.get('remember', False)
@@ -2290,8 +2383,8 @@ class WebDashboard:
             
             # Check credentials
             auth_config = self.config.monitoring.http_server.auth
-            if (username == auth_config.username and 
-                password == auth_config.password):
+            if (username == auth_config.username and
+                self._verify_password(password, auth_config.password)):
                 
                 # Create session
                 session = await new_session(request)
@@ -2335,7 +2428,14 @@ class WebDashboard:
         try:
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
-                    data = json.loads(msg.data)
+                    try:
+                        data = json.loads(msg.data)
+                    except json.JSONDecodeError as e:
+                        logger.warning("WebSocket invalid JSON from client: %s", e)
+                        continue
+                    if not isinstance(data, dict):
+                        logger.warning("WebSocket message body is not an object, ignoring")
+                        continue
                     await self._handle_websocket_message(ws, data)
                 elif msg.type == WSMsgType.ERROR:
                     logger.error(f"WebSocket error: {ws.exception()}")

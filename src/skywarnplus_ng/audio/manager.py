@@ -237,8 +237,8 @@ class AudioManager:
                 # Force filesystem sync
                 try:
                     os.sync()  # Sync filesystem buffers
-                except:
-                    pass  # os.sync might not be available on all systems
+                except (OSError, AttributeError):
+                    pass  # os.sync may raise OSError or be missing on some systems
                 
                 # Small delay to ensure filesystem has the file
                 time.sleep(0.1)

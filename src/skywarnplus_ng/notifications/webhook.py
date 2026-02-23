@@ -17,6 +17,12 @@ from ..core.models import WeatherAlert
 logger = logging.getLogger(__name__)
 
 
+class WebhookDeliveryError(Exception):
+    """Raised when webhook delivery fails after all retries."""
+
+    pass
+
+
 class WebhookProvider(Enum):
     """Supported webhook providers."""
     SLACK = "slack"
@@ -542,7 +548,9 @@ class WebhookNotifier:
                 await asyncio.sleep(self.config.retry_delay_seconds)
         
         # All attempts failed
-        raise Exception(f"Webhook failed after {self.config.retry_count + 1} attempts. Last error: {last_error}")
+        raise WebhookDeliveryError(
+            f"Webhook failed after {self.config.retry_count + 1} attempts. Last error: {last_error}"
+        )
     
     async def test_webhook(self) -> bool:
         """Test webhook connection."""

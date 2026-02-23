@@ -139,11 +139,20 @@ class NWSClient:
 
     def _parse_datetime(self, dt_str: str) -> datetime:
         """Parse ISO datetime string to datetime object."""
-        return parser.isoparse(dt_str)
+        try:
+            return parser.isoparse(dt_str)
+        except (ValueError, TypeError) as e:
+            raise NWSClientError(f"Invalid datetime {dt_str!r}: {e}") from e
 
     def _parse_alert(self, feature: Dict[str, Any]) -> WeatherAlert:
         """Parse a GeoJSON feature into a WeatherAlert."""
-        props = feature["properties"]
+        props = feature.get("properties")
+        if not isinstance(props, dict):
+            raise NWSClientError("Feature missing or invalid 'properties'")
+
+        for key in ("sent", "effective", "expires", "id", "event"):
+            if key not in props or props[key] is None:
+                raise NWSClientError(f"Feature properties missing required field: {key}")
 
         # Parse timestamps
         sent = self._parse_datetime(props["sent"])
@@ -151,16 +160,16 @@ class NWSClient:
         expires = self._parse_datetime(props["expires"])
 
         onset = None
-        if "onset" in props:
+        if "onset" in props and props["onset"] is not None:
             onset = self._parse_datetime(props["onset"])
 
         ends = None
-        if "ends" in props:
+        if "ends" in props and props["ends"] is not None:
             ends = self._parse_datetime(props["ends"])
 
         # Extract geocode (county codes)
-        geocode = props.get("geocode", {})
-        county_codes = geocode.get("UGC", [])
+        geocode = props.get("geocode") if isinstance(props.get("geocode"), dict) else {}
+        county_codes = geocode.get("UGC", []) if isinstance(geocode.get("UGC"), list) else []
 
         return WeatherAlert(
             id=props["id"],
@@ -246,13 +255,17 @@ class NWSClient:
 
         for feature in data.get("features", []):
             try:
-                alert_id = feature["properties"].get("id")
+                props = feature.get("properties") if isinstance(feature, dict) else None
+                alert_id = props.get("id") if isinstance(props, dict) else None
                 if alert_id in seen_alert_ids:
                     continue  # Skip duplicate alerts
 
                 alert = self._parse_alert(feature)
                 alerts.append(alert)
                 seen_alert_ids.add(alert_id)
+            except NWSClientError as e:
+                logger.debug("Skipping invalid alert feature: %s", e)
+                continue
             except Exception as e:
                 logger.error(f"Failed to parse alert: {e}")
                 continue
@@ -319,13 +332,17 @@ class NWSClient:
 
         for feature in data.get("features", []):
             try:
-                alert_id = feature["properties"].get("id")
+                props = feature.get("properties") if isinstance(feature, dict) else None
+                alert_id = props.get("id") if isinstance(props, dict) else None
                 if alert_id in seen_alert_ids:
                     continue
 
                 alert = self._parse_alert(feature)
                 alerts.append(alert)
                 seen_alert_ids.add(alert_id)
+            except NWSClientError as e:
+                logger.debug("Skipping invalid alert feature: %s", e)
+                continue
             except Exception as e:
                 logger.error(f"Failed to parse alert: {e}")
                 continue
