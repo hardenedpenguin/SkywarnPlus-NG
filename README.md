@@ -1,5 +1,7 @@
 # SkywarnPlus-NG
 
+![GitHub total downloads](https://img.shields.io/github/downloads/hardenedpenguin/SkywarnPlus-NG/total?style=flat-square)
+
 Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
 <p align="center">
