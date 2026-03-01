@@ -15,15 +15,20 @@ Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
 SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) project by [Mason Nelson (N5LSN/WRKF394)](https://github.com/Mason10198). This rewrite modernizes the codebase, adds a web dashboard, and improves maintainability while preserving the core concept and functionality of the original project. We extend our gratitude to Mason Nelson for the original idea and implementation that inspired this project.
 
+### What's New in 1.0.5
+
+- **Dashboard login**: Fixed bcrypt password hashing (replaced passlib with direct bcrypt), double-hashing bug, and YAML handling for stored hashes. Supports `$2y$` hashes for supermon-ng/PHP compatibility.
+- **Security**: Passwords are now hashed with bcrypt and SHA-256 pre-hashing; plaintext passwords are never written to config.
+
 ## Quick Start
 
 ```bash
 # Download the signed release tarball
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.4/skywarnplus-ng-1.0.4.tar.gz
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.5/skywarnplus-ng-1.0.5.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
-tar -xzf skywarnplus-ng-1.0.4.tar.gz
-cd skywarnplus-ng-1.0.4
+tar -xzf skywarnplus-ng-1.0.5.tar.gz
+cd skywarnplus-ng-1.0.5
 ./install.sh
 
 # Enable and start the service
@@ -57,15 +62,15 @@ All of the above are installed automatically when you run `install.sh` on a clea
 
 1. **Download & Verify**
 ```bash
-   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.4/skywarnplus-ng-1.0.4.tar.gz
-   sha256sum skywarnplus-ng-1.0.4.tar.gz
+   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.5/skywarnplus-ng-1.0.5.tar.gz
+   sha256sum skywarnplus-ng-1.0.5.tar.gz
    ```
    Compare the checksum against the value published on the release page.
 
 2. **Extract & Install**
 ```bash
-   tar -xzf skywarnplus-ng-1.0.4.tar.gz
-   cd skywarnplus-ng-1.0.4
+   tar -xzf skywarnplus-ng-1.0.5.tar.gz
+   cd skywarnplus-ng-1.0.5
    ./install.sh
    ```
    The installer creates the service account, virtualenv, systemd unit, logrotate config, and copies sounds/scripts.
