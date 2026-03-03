@@ -2231,7 +2231,7 @@
     function addCountyRow(code, name, enabled, index, audio_file) {
         const container = document.getElementById('counties-container');
         const row = document.createElement('div');
-        row.className = 'grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg';
+        row.className = 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg';
         row.innerHTML = `
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Code</label>
@@ -2243,28 +2243,30 @@
                 <input type="text" name="counties[${index}].name" value="${name}" 
                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Audio File (optional)</label>
-                <div class="flex gap-2">
-                    <input type="text" name="counties[${index}].audio_file" id="county_audio_${index}" value="${audio_file || ''}" 
-                           placeholder="CountyName.ulaw"
-                           class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                    <button type="button" onclick="generateCountyAudio('${code}', '${name}', ${index}, event)" 
-                            class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                            title="Generate audio file from county name">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
-                        </svg>
-                    </button>
+            <div class="flex flex-col gap-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Audio File (optional)</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <input type="text" name="counties[${index}].audio_file" id="county_audio_${index}" value="${audio_file || ''}" 
+                               placeholder="CountyName.ulaw"
+                               class="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <button type="button" onclick="generateCountyAudio('${code}', '${name}', ${index}, event)" 
+                                class="flex-shrink-0 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                title="Generate audio file from county name">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Audio file for county name (e.g., "Brazoria_County.ulaw") - Click button to generate
+                    </p>
                 </div>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Audio file for county name (e.g., "Brazoria_County.ulaw") - Click button to generate
-                </p>
-            </div>
-            <div class="flex items-center">
-                <input type="checkbox" name="counties[${index}].enabled" ${enabled ? 'checked' : ''} 
-                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+                <div class="flex items-center">
+                    <input type="checkbox" name="counties[${index}].enabled" ${enabled ? 'checked' : ''} 
+                           class="h-4 w-4 flex-shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+                </div>
             </div>
             <div class="flex items-center">
                 <button type="button" onclick="removeCountyRow(this)" class="btn-secondary text-sm">
