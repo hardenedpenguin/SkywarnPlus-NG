@@ -576,7 +576,14 @@ class SkywarnPlusApplication:
 
             # Fetch alerts from NWS
             current_alerts = await self._fetch_alerts(county_codes)
-            
+            if current_alerts is None:
+                # Fetch failed (network/API error); retain last known state
+                logger.warning("Skipping poll cycle due to fetch failure; retaining last known alert state")
+                self.state_manager.save_state(self.state)
+                if self.web_dashboard:
+                    await self.web_dashboard.broadcast_update('status_update', self.get_status())
+                return
+
             # Process alerts
             await self._process_alerts(current_alerts)
             
@@ -631,7 +638,7 @@ class SkywarnPlusApplication:
         except Exception as e:
             logger.error(f"Error in poll cycle: {e}", exc_info=True)
 
-    async def _fetch_alerts(self, county_codes: List[str]) -> List[WeatherAlert]:
+    async def _fetch_alerts(self, county_codes: List[str]) -> Optional[List[WeatherAlert]]:
         """
         Fetch alerts from NWS API or generate test alerts.
 
@@ -639,11 +646,11 @@ class SkywarnPlusApplication:
             county_codes: List of county codes to fetch alerts for
 
         Returns:
-            List of current alerts
+            List of current alerts on success, None on fetch failure (caller should retain last state).
         """
         if not self.nws_client:
             logger.error("NWS client not initialized")
-            return []
+            return None
 
         try:
             # Check for test injection mode
@@ -663,8 +670,8 @@ class SkywarnPlusApplication:
                     return injected_alerts
                 else:
                     logger.warning("DEV: No counties configured, cannot generate test alert")
-                    return []
-            
+                    return []  # Success with zero alerts
+
             # Fetch alerts for all counties concurrently
             alerts = await self.nws_client.fetch_alerts_for_zones(county_codes)
             
@@ -679,10 +686,10 @@ class SkywarnPlusApplication:
             
         except NWSClientError as e:
             logger.error(f"Failed to fetch alerts: {e}")
-            return []
+            return None
         except Exception as e:
             logger.error(f"Unexpected error fetching alerts: {e}", exc_info=True)
-            return []
+            return None
 
     async def _process_alerts(self, current_alerts: List[WeatherAlert]) -> None:
         """
@@ -725,7 +732,8 @@ class SkywarnPlusApplication:
         # Get new and expired alerts
         new_alerts = self.state_manager.get_new_alerts(self.state, processed_alerts)
         expired_alerts = self.state_manager.get_expired_alerts(self.state, processed_alerts)
-        
+        had_active_alerts = bool(self.state.get('active_alerts'))
+
         # Detect county changes (for SayAlertsChanged)
         alerts_with_county_changes = []
         if self.config.alerts.say_alerts_changed:
@@ -754,8 +762,8 @@ class SkywarnPlusApplication:
         if expired_alerts:
             await self._handle_expired_alerts(expired_alerts)
         
-        # Check for all-clear scenario
-        if not processed_alerts and self.state.get('active_alerts'):
+        # Check for all-clear scenario (we had alerts, now we have none - announce if enabled)
+        if not processed_alerts and had_active_alerts:
             await self._handle_all_clear()
 
     async def _handle_new_alerts(self, new_alerts: List[WeatherAlert], all_current_alerts: Optional[List[WeatherAlert]] = None) -> None:

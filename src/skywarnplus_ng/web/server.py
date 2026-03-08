@@ -2446,7 +2446,10 @@ class WebDashboard:
         """Handle WebSocket connections."""
         ws = web.WebSocketResponse()
         await ws.prepare(request)
-        
+        if self.config.monitoring.http_server.auth.enabled:
+            if not await self._is_authenticated(request):
+                await ws.close(code=4401, message=b"Unauthorized")
+                return ws
         self.websocket_clients.add(ws)
         logger.info(f"WebSocket client connected. Total clients: {len(self.websocket_clients)}")
         
