@@ -2514,16 +2514,29 @@ class WebDashboard:
         if not self.websocket_clients:
             return
         
-        # Helper function to serialize datetime objects
+        # Ensure status_update payload is JSON-serializable (same as API response)
+        payload = data
+        if update_type == 'status_update' and isinstance(data, dict):
+            payload = dict(data)
+            if 'asterisk_nodes' in payload:
+                payload['asterisk_nodes'] = self._serialize_asterisk_nodes(
+                    payload.get('asterisk_nodes', [])
+                )
+
+        # Helper function to serialize datetime and path-like objects
         def json_serializer(obj):
             if isinstance(obj, datetime):
                 return obj.isoformat()
+            if hasattr(obj, '__fspath__'):
+                return str(obj)
+            if hasattr(obj, 'model_dump'):
+                return obj.model_dump()
             raise TypeError(f"Type {type(obj)} not serializable")
-        
+
         try:
             message = json.dumps({
                 'type': update_type,
-                'data': data,
+                'data': payload,
                 'timestamp': datetime.now(timezone.utc).isoformat()
             }, default=json_serializer)
         except (TypeError, ValueError) as e:
