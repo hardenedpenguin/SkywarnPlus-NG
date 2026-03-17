@@ -110,6 +110,16 @@ Configuration is managed through the web dashboard, which provides an intuitive 
 4. Log in with default credentials: `admin / skywarn123`
 5. Navigate to the **Configuration** tab to configure all settings
 
+### Email notifications (Gmail)
+
+When using **Gmail** for email alerts (Configuration → Notifications), use an **App Password**, not your normal Gmail account password. Google does not allow sign-in with your regular password for SMTP/app access.
+
+1. In your Google account, turn on **2-Step Verification** (required for App Passwords).
+2. Go to **Google Account → Security → 2-Step Verification → App passwords**.
+3. Create an App Password for “Mail” (or “Other”) and use that 16-character password in SkywarnPlus-NG’s email configuration.
+
+The password field in the dashboard is for this App Password only.
+
 ### Piper TTS (optional)
 
 The installer downloads the **en_US-amy** Piper voice model to `/var/lib/skywarnplus-ng/piper/`. TTS defaults to **gTTS**. To use Piper, select **Piper TTS** in the Web UI Configuration tab; the model path defaults to the installed location when empty.
