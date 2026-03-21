@@ -780,7 +780,7 @@ class SkywarnPlusApplication:
             # Start performance timer for this alert
             timer_id = self.performance_logger.start_timer(f"alert_processing_{alert.id}") if self.performance_logger else None
             alert_start_time = datetime.now(timezone.utc)
-            
+            alert_processing_ok = False
             try:
                 # Log alert received
                 self.alert_logger.log_alert_received(
@@ -912,6 +912,7 @@ class SkywarnPlusApplication:
                     # Use mode='json' to ensure datetime objects are serialized as ISO strings
                     await self.web_dashboard.broadcast_update('alerts_update', [alert.model_dump(mode='json')])
                 
+                alert_processing_ok = True
             except Exception as e:
                 processing_time = (datetime.now(timezone.utc) - alert_start_time).total_seconds() * 1000
                 self.alert_logger.log_alert_processed(
@@ -920,9 +921,9 @@ class SkywarnPlusApplication:
                 ) if self.alert_logger else logger.error(f"Error processing alert {alert.event}: {e}")
                 raise
             finally:
-                # End performance timer
+                # End performance timer (reflect actual outcome, not always success)
                 if timer_id and self.performance_logger:
-                    self.performance_logger.end_timer(timer_id, success=True)
+                    self.performance_logger.end_timer(timer_id, success=alert_processing_ok)
 
     async def _handle_expired_alerts(self, expired_alert_ids: List[str]) -> None:
         """
