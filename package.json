@@ -1,0 +1,27 @@
+{
+  "name": "skywarnplus-ng",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SkywarnPlus-NG (optional npm deps to build dashboard Tailwind CSS)",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/skywarnplus_ng/web/static/tailwind.input.css -o ./src/skywarnplus_ng/web/static/tailwind.css --minify",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hardenedpenguin/SkywarnPlus-NG.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hardenedpenguin/SkywarnPlus-NG/issues"
+  },
+  "homepage": "https://github.com/hardenedpenguin/SkywarnPlus-NG#readme",
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

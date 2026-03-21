@@ -27,6 +27,7 @@ from websockets.exceptions import ConnectionClosed
 
 from typing import TYPE_CHECKING
 
+from .. import __version__ as _PACKAGE_VERSION
 from ..core.config import AppConfig
 from ..core.models import AlertSeverity, AlertUrgency, AlertCertainty
 from ..database.manager import DatabaseManager
@@ -157,7 +158,8 @@ class WebDashboard:
             if base_path.endswith('/'):
                 base_path = base_path.rstrip('/')
         self.template_env.globals['base_path'] = base_path
-        
+        self.template_env.globals['app_version'] = _PACKAGE_VERSION
+
         # Generate secret key if not provided
         if not self.config.monitoring.http_server.auth.secret_key:
             self.config.monitoring.http_server.auth.secret_key = secrets.token_hex(32)
@@ -2532,8 +2534,13 @@ class WebDashboard:
                     await self._handle_websocket_message(ws, data)
                 elif msg.type == WSMsgType.ERROR:
                     logger.error(f"WebSocket error: {ws.exception()}")
+        except asyncio.CancelledError:
+            raise
         except ConnectionClosed:
             pass
+        except Exception as e:
+            # aiohttp may raise other errors on disconnect; avoid noisy tracebacks
+            logger.debug("WebSocket session ended: %s", e)
         finally:
             self.websocket_clients.discard(ws)
             logger.info(f"WebSocket client disconnected. Total clients: {len(self.websocket_clients)}")
@@ -2615,6 +2622,9 @@ class WebDashboard:
             try:
                 await ws.send_str(message)
             except ConnectionClosed:
+                disconnected.add(ws)
+            except Exception as e:
+                logger.debug("WebSocket send failed, removing client: %s", e)
                 disconnected.add(ws)
         
         # Remove disconnected clients

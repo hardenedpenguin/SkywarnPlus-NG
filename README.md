@@ -189,6 +189,15 @@ sudo systemctl status skywarnplus-ng
 journalctl -u skywarnplus-ng -f
 ```
 
+## Web dashboard CSS (for developers)
+
+The dashboard ships with a pre-built Tailwind stylesheet at `src/skywarnplus_ng/web/static/tailwind.css` (no runtime CDN). If you change HTML under `src/skywarnplus_ng/web/templates/`, rebuild CSS:
+
+```bash
+npm install
+npm run build:css
+```
+
 ## License
 
 MIT License - see LICENSE file for details.

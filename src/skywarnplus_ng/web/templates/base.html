@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title }}{% endblock %} - SkywarnPlus-NG</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS (built: npm run build:css) -->
+    <link rel="stylesheet" href="{{ base_path|default('') }}/static/tailwind.css">
     
     <!-- Additional head content -->
     {% block head %}{% endblock %}
@@ -832,38 +832,117 @@
             }
         }
 
-        // WebSocket connection
-        let ws = null;
-        let reconnectInterval = null;
+        // WebSocket: one active socket, null handlers on replace, backoff reconnect, ping keepalive
+        let dashboardWebSocket = null;
+        let wsReconnectTimer = null;
+        let wsPingTimer = null;
+        let wsBackoffMs = 2000;
+        var WS_BACKOFF_CAP_MS = 60000;
+        var WS_PING_INTERVAL_MS = 25000;
+
+        function clearWsReconnectTimer() {
+            if (wsReconnectTimer) {
+                clearTimeout(wsReconnectTimer);
+                wsReconnectTimer = null;
+            }
+        }
+
+        function stopWsPing() {
+            if (wsPingTimer) {
+                clearInterval(wsPingTimer);
+                wsPingTimer = null;
+            }
+        }
+
+        function startWsPing(socket) {
+            stopWsPing();
+            wsPingTimer = setInterval(function() {
+                if (dashboardWebSocket === socket && socket.readyState === WebSocket.OPEN) {
+                    try {
+                        socket.send(JSON.stringify({ type: 'ping' }));
+                    } catch (e) { /* ignore */ }
+                }
+            }, WS_PING_INTERVAL_MS);
+        }
+
+        function teardownWebSocket() {
+            clearWsReconnectTimer();
+            stopWsPing();
+            if (dashboardWebSocket) {
+                var old = dashboardWebSocket;
+                dashboardWebSocket = null;
+                old.onopen = null;
+                old.onclose = null;
+                old.onerror = null;
+                old.onmessage = null;
+                try {
+                    if (old.readyState === WebSocket.OPEN || old.readyState === WebSocket.CONNECTING) {
+                        old.close();
+                    }
+                } catch (e) { /* ignore */ }
+            }
+        }
+
+        function scheduleWsReconnect() {
+            clearWsReconnectTimer();
+            wsReconnectTimer = setTimeout(function() {
+                wsReconnectTimer = null;
+                connectWebSocket();
+            }, wsBackoffMs);
+            wsBackoffMs = Math.min(WS_BACKOFF_CAP_MS, Math.floor(wsBackoffMs * 1.8));
+        }
 
         function connectWebSocket() {
+            teardownWebSocket();
             window.wsConnected = false;
+
             var basePath = getBasePath();
             var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             var wsUrl = protocol + '//' + window.location.host + basePath + '/ws';
-            ws = new WebSocket(wsUrl);
-            
-            ws.onopen = function() {
-                console.log('WebSocket connected');
-                if (reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+
+            var socket;
+            try {
+                socket = new WebSocket(wsUrl);
+            } catch (e) {
+                console.error('WebSocket: failed to create', e);
+                scheduleWsReconnect();
+                return;
+            }
+            dashboardWebSocket = socket;
+
+            socket.onopen = function() {
+                if (dashboardWebSocket !== socket) return;
+                wsBackoffMs = 2000;
+                clearWsReconnectTimer();
                 window.wsConnected = true;
                 try { window.dispatchEvent(new CustomEvent('ws-state-change', { detail: { connected: true } })); } catch (_) {}
+                startWsPing(socket);
             };
-            
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                handleWebSocketMessage(data);
+
+            socket.onmessage = function(event) {
+                if (dashboardWebSocket !== socket) return;
+                try {
+                    var data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (e) {
+                    console.warn('WebSocket: bad JSON message', e);
+                }
             };
-            
-            ws.onclose = function() {
-                console.log('WebSocket disconnected');
+
+            socket.onclose = function(ev) {
+                stopWsPing();
+                if (dashboardWebSocket !== socket) return;
+                dashboardWebSocket = null;
                 window.wsConnected = false;
                 try { window.dispatchEvent(new CustomEvent('ws-state-change', { detail: { connected: false } })); } catch (_) {}
-                if (!reconnectInterval) reconnectInterval = setInterval(connectWebSocket, 5000);
+                if (ev.code === 4401) {
+                    return;
+                }
+                scheduleWsReconnect();
             };
-            
-            ws.onerror = function(error) {
-                console.error('WebSocket error:', error);
+
+            socket.onerror = function() {
+                /* onclose follows; avoid duplicate handling */
             };
         }
 

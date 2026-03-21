@@ -219,6 +219,14 @@ copy_source_files() {
     if [ -f "pyproject.toml" ]; then
         copy_file_with_ownership "pyproject.toml" "${INSTALL_ROOT}/pyproject.toml"
     fi
+
+    # Pre-built dashboard stylesheet (no Node.js needed at install time; must exist in src/)
+    if [ ! -f "${INSTALL_ROOT}/src/skywarnplus_ng/web/static/tailwind.css" ]; then
+        print_warning "Dashboard stylesheet missing: src/skywarnplus_ng/web/static/tailwind.css"
+        echo "   The web UI will look broken until this file is present. If you build from git, run:"
+        echo "   npm install && npm run build:css"
+        echo "   then copy src/ again or recreate the release tarball."
+    fi
     
     print_success "Source files copied"
 }

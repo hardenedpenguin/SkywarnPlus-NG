@@ -26,6 +26,9 @@ venv/
 env/
 ENV/
 
+# Node (Tailwind dashboard CSS build)
+node_modules/
+
 # IDE
 .vscode/
 .idea/
