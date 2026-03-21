@@ -39,6 +39,8 @@ from ..notifications.subscriber import (
     SubscriptionStatus,
 )
 from ..notifications.templates import TemplateEngine, TemplateType, TemplateFormat
+from ..utils.rate_limit import SlidingWindowRateLimiter
+from ..utils.url_security import validate_public_https_webhook_url
 
 if TYPE_CHECKING:
     from ..core.application import SkywarnPlusApplication
@@ -111,9 +113,31 @@ class WebDashboard:
         self.site: Optional[web.TCPSite] = None
         self.websocket_clients: set = set()
         self.template_env: Optional[Environment] = None
-        
+        # Rate limits (per client IP): login attempts, authenticated config saves
+        self._login_rate_limit = SlidingWindowRateLimiter(max_calls=20, window_seconds=900)
+        self._config_rate_limit = SlidingWindowRateLimiter(max_calls=120, window_seconds=3600)
+
         # Setup template environment
         self._setup_templates()
+
+    @staticmethod
+    def _client_ip(request: Request) -> str:
+        """Best-effort client IP (first X-Forwarded-For hop if present)."""
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",")[0].strip()[:200] or "unknown"
+        return (request.remote or "unknown")[:200]
+
+    @staticmethod
+    def _subscriber_webhook_validation_error(url) -> Optional[str]:
+        """Return error message if webhook URL is non-empty but not allowed; else None."""
+        if url is None:
+            return None
+        s = str(url).strip()
+        if not s:
+            return None
+        ok, msg = validate_public_https_webhook_url(s)
+        return None if ok else msg
 
     def _setup_templates(self) -> None:
         """Setup Jinja2 template environment."""
@@ -1706,6 +1730,18 @@ class WebDashboard:
     async def api_config_update_handler(self, request: Request) -> Response:
         """Handle API config update endpoint."""
         try:
+            client_ip = self._client_ip(request)
+            allowed, retry_after = await self._config_rate_limit.check(client_ip)
+            if not allowed:
+                headers = {}
+                if retry_after is not None:
+                    headers["Retry-After"] = str(max(1, int(retry_after) + 1))
+                return web.json_response(
+                    {"error": "Too many configuration saves. Try again later."},
+                    status=429,
+                    headers=headers,
+                )
+
             data = await request.json()
             if not isinstance(data, dict):
                 return web.json_response({"error": "JSON body must be an object"}, status=400)
@@ -2101,7 +2137,18 @@ class WebDashboard:
                 status = SubscriptionStatus.ACTIVE
 
             preferences = self._parse_subscription_preferences(data)
-            
+
+            wh_err = self._subscriber_webhook_validation_error(data.get("webhook_url"))
+            if wh_err:
+                return web.json_response(
+                    {"success": False, "error": wh_err},
+                    status=400,
+                )
+            wh_raw = data.get("webhook_url")
+            webhook_clean = (
+                str(wh_raw).strip() if wh_raw is not None and str(wh_raw).strip() else None
+            )
+
             subscriber = Subscriber(
                 subscriber_id=subscriber_id,
                 name=name,
@@ -2109,7 +2156,7 @@ class WebDashboard:
                 status=status,
                 preferences=preferences,
                 phone=data.get('phone'),
-                webhook_url=data.get('webhook_url'),
+                webhook_url=webhook_clean,
                 push_tokens=self._normalize_list(data.get('push_tokens')),
             )
             
@@ -2161,7 +2208,13 @@ class WebDashboard:
             if 'phone' in data:
                 subscriber.phone = data['phone']
             if 'webhook_url' in data:
-                subscriber.webhook_url = data['webhook_url']
+                wh_err = self._subscriber_webhook_validation_error(data["webhook_url"])
+                if wh_err:
+                    return web.json_response({"error": wh_err}, status=400)
+                wu = data["webhook_url"]
+                subscriber.webhook_url = (
+                    str(wu).strip() if wu is not None and str(wu).strip() else None
+                )
             if 'push_tokens' in data:
                 subscriber.push_tokens = self._normalize_list(data.get('push_tokens'))
             
@@ -2396,6 +2449,18 @@ class WebDashboard:
     async def api_login_handler(self, request: Request) -> Response:
         """Handle API login endpoint."""
         try:
+            client_ip = self._client_ip(request)
+            allowed, retry_after = await self._login_rate_limit.check(client_ip)
+            if not allowed:
+                headers = {}
+                if retry_after is not None:
+                    headers["Retry-After"] = str(max(1, int(retry_after) + 1))
+                return web.json_response(
+                    {"error": "Too many login attempts. Try again later."},
+                    status=429,
+                    headers=headers,
+                )
+
             data = await request.json()
             if not isinstance(data, dict):
                 return web.json_response({"error": "JSON body must be an object"}, status=400)

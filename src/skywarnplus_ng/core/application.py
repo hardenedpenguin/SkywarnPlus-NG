@@ -874,14 +874,23 @@ class SkywarnPlusApplication:
                                 enabled=True,
                                 username="SkywarnPlus-NG"
                             )
-                            async with WebhookNotifier(webhook_cfg) as webhook:
-                                result = await webhook.send_alert_webhook(alert)
-                                if result.get("success", False):
-                                    # Mark webhook as sent to prevent duplicates
-                                    self.state_manager.mark_alert_webhook_sent(self.state, alert.id)
-                                    logger.info(f"Discord webhook notification sent for alert: {alert.event} (ID: {alert.id}) via subscriber")
-                                else:
-                                    logger.warning(f"Discord webhook notification failed for alert {alert.id}: {result.get('error', 'Unknown error')}")
+                            try:
+                                discord_notifier = WebhookNotifier(webhook_cfg)
+                            except ValueError as url_err:
+                                logger.warning(
+                                    "Discord webhook URL rejected for alert %s: %s",
+                                    alert.id,
+                                    url_err,
+                                )
+                            else:
+                                async with discord_notifier as webhook:
+                                    result = await webhook.send_alert_webhook(alert)
+                                    if result.get("success", False):
+                                        # Mark webhook as sent to prevent duplicates
+                                        self.state_manager.mark_alert_webhook_sent(self.state, alert.id)
+                                        logger.info(f"Discord webhook notification sent for alert: {alert.event} (ID: {alert.id}) via subscriber")
+                                    else:
+                                        logger.warning(f"Discord webhook notification failed for alert {alert.id}: {result.get('error', 'Unknown error')}")
                         else:
                             logger.debug(f"No matching subscriber with Discord webhook for alert: {alert.event} (ID: {alert.id})")
                 except Exception as e:

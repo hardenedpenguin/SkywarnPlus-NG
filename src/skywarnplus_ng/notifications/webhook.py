@@ -13,6 +13,7 @@ import aiohttp
 import json
 
 from ..core.models import WeatherAlert
+from ..utils.url_security import validate_public_https_webhook_url
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,9 @@ class WebhookNotifier:
     """Webhook notification system for free integrations."""
     
     def __init__(self, config: WebhookConfig):
+        ok, err = validate_public_https_webhook_url(config.webhook_url)
+        if not ok:
+            raise ValueError(err)
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{config.provider.value}")
         self.session: Optional[aiohttp.ClientSession] = None

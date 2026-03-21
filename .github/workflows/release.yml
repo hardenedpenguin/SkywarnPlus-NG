@@ -17,9 +17,13 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -61,3 +65,21 @@ jobs:
             skywarnplus-ng-${{ env.VERSION }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync README.md on main branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          sed -i "s|releases/download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|releases/download/${TAG}/skywarnplus-ng-${VERSION}.tar.gz|g" README.md
+          sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
+          sed -i "s|cd skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|cd skywarnplus-ng-${VERSION}|g" README.md
+          sed -i "s|What's New in [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|What's New in ${VERSION}|g" README.md
+          if git diff --quiet README.md; then
+            echo "README.md already matches ${TAG}; nothing to push."
+          else
+            git add README.md
+            git commit -m "docs: sync README download URLs for ${TAG}"
+            git push origin main
+          fi

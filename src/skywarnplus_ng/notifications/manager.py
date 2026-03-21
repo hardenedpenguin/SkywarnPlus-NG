@@ -401,8 +401,18 @@ This alert was sent by SkywarnPlus-NG.
             provider=WebhookProvider.GENERIC,
             webhook_url=subscriber.webhook_url
         )
-        
-        async with WebhookNotifier(webhook_config) as notifier:
+
+        try:
+            notifier_cm = WebhookNotifier(webhook_config)
+        except ValueError as e:
+            self.logger.warning(
+                "Subscriber %s webhook URL rejected: %s",
+                subscriber.subscriber_id,
+                e,
+            )
+            return {"success": False, "error": str(e)}
+
+        async with notifier_cm as notifier:
             return await notifier.send_notification_webhook(
                 title=title,
                 message=message
@@ -539,13 +549,28 @@ This alert was sent by SkywarnPlus-NG.
             provider=WebhookProvider.GENERIC,
             webhook_url=delivery.recipient
         )
-        
-        async with WebhookNotifier(webhook_config) as notifier:
+
+        try:
+            notifier_cm = WebhookNotifier(webhook_config)
+        except ValueError as e:
+            self.logger.warning(
+                "Webhook delivery %s rejected invalid URL: %s",
+                delivery.delivery_id,
+                e,
+            )
+            self.delivery_queue.update_delivery_status(
+                delivery.delivery_id,
+                DeliveryStatus.FAILED,
+                error_message=str(e),
+            )
+            return
+
+        async with notifier_cm as notifier:
             result = await notifier.send_notification_webhook(
                 title=delivery.subject,
                 message=delivery.body
             )
-            
+
             if result.get("success", False):
                 self.delivery_queue.update_delivery_status(
                     delivery.delivery_id, DeliveryStatus.SENT, response_data=result
