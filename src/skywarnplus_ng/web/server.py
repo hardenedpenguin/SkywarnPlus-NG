@@ -2511,7 +2511,14 @@ class WebDashboard:
 
     async def websocket_handler(self, request: Request) -> Response:
         """Handle WebSocket connections."""
-        ws = web.WebSocketResponse()
+        # Protocol-level PING/PONG (browser answers automatically) so reverse proxies
+        # (nginx default read timeouts, etc.) see regular upstream traffic. JSON app pings
+        # from the client can be throttled when the tab is backgrounded.
+        ws = web.WebSocketResponse(
+            receive_timeout=None,
+            heartbeat=20.0,
+            autoping=True,
+        )
         await ws.prepare(request)
         if self.config.monitoring.http_server.auth.enabled:
             if not await self._is_authenticated(request):
@@ -2634,7 +2641,8 @@ class WebDashboard:
         """Start the web dashboard server."""
         try:
             self.web_app = self.create_app()
-            self.runner = web.AppRunner(self.web_app)
+            # Long keep-alive for HTTP; behind nginx use timeouts >= proxy (see nginx-proxy-manager-guide.md)
+            self.runner = web.AppRunner(self.web_app, keepalive_timeout=3600)
             await self.runner.setup()
             
             self.site = web.TCPSite(self.runner, host, port)

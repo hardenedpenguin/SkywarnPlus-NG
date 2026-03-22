@@ -50,12 +50,17 @@ This configuration allows you to access SkywarnPlus-NG at a subpath like `https:
    proxy_set_header Upgrade $http_upgrade;
    proxy_set_header Connection "upgrade";
    proxy_buffering off;
+
+   # Long-lived WebSocket + idle dashboard: without these, nginx may close the socket every ~60s
+   proxy_connect_timeout 7d;
+   proxy_send_timeout 7d;
+   proxy_read_timeout 7d;
    ```
 
    **Important Notes:**
    - The `rewrite` rules strip the `/skywarnplus-ng` prefix before forwarding to port 8100
    - Do **NOT** include `proxy_http_version 1.1;` as it can cause SSL errors in some NPM configurations
-   - The WebSocket headers are essential for real-time weather alert updates
+   - The WebSocket headers and **timeout** directives are essential for stable real-time updates (otherwise the UI reconnects in a loop and logs fill with `/ws` lines)
 
 5. Save and access at `https://yourdomain.com/skywarnplus-ng`
 

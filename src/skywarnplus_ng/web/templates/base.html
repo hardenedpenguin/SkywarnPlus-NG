@@ -833,12 +833,14 @@
         }
 
         // WebSocket: one active socket, null handlers on replace, backoff reconnect, ping keepalive
+        var wsPageReady = false;
         let dashboardWebSocket = null;
         let wsReconnectTimer = null;
         let wsPingTimer = null;
         let wsBackoffMs = 2000;
         var WS_BACKOFF_CAP_MS = 60000;
-        var WS_PING_INTERVAL_MS = 25000;
+        /* App-level ping (backup); server also sends WS protocol pings every 20s */
+        var WS_PING_INTERVAL_MS = 15000;
 
         function clearWsReconnectTimer() {
             if (wsReconnectTimer) {
@@ -917,6 +919,10 @@
                 window.wsConnected = true;
                 try { window.dispatchEvent(new CustomEvent('ws-state-change', { detail: { connected: true } })); } catch (_) {}
                 startWsPing(socket);
+                /* Prime proxies immediately (timers may be delayed when tab is in background) */
+                try {
+                    socket.send(JSON.stringify({ type: 'ping' }));
+                } catch (e) { /* ignore */ }
             };
 
             socket.onmessage = function(event) {
@@ -959,16 +965,36 @@
                         window.updateStatus(data.data);
                     }
                     break;
+                case 'pong':
+                    break;
                 default:
-                    console.log('Unknown WebSocket message:', data);
+                    if (data.type !== 'ping') {
+                        console.log('Unknown WebSocket message:', data);
+                    }
             }
         }
+
+        // BFCache restore / tab focus: WebSocket is dead but DOMContentLoaded does not re-run
+        window.addEventListener('pageshow', function(ev) {
+            if (ev.persisted) {
+                if (!dashboardWebSocket || dashboardWebSocket.readyState !== WebSocket.OPEN) {
+                    connectWebSocket();
+                }
+            }
+        });
+        document.addEventListener('visibilitychange', function() {
+            if (!wsPageReady || document.visibilityState !== 'visible') return;
+            if (!dashboardWebSocket || dashboardWebSocket.readyState === WebSocket.CLOSED) {
+                connectWebSocket();
+            }
+        });
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadTheme();
             loadSidebarState();
             connectWebSocket();
+            wsPageReady = true;
             try {
                 var p = window.location.pathname;
                 if (p && p !== '/login') localStorage.setItem('lastPath', p);
