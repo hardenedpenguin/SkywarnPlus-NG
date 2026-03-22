@@ -17,14 +17,29 @@ SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://githu
 
 ### What's New in 1.0.5
 
-- **Dashboard login**: Fixed bcrypt password hashing (replaced passlib with direct bcrypt), double-hashing bug, and YAML handling for stored hashes. Supports `$2y$` hashes for supermon-ng/PHP compatibility.
-- **Security**: Passwords are now hashed with bcrypt and SHA-256 pre-hashing; plaintext passwords are never written to config.
+- **Dashboard login**: bcrypt password handling (including `$2y$` hashes for supermon-ng/PHP compatibility); plaintext passwords are not written to config.
+- **Dashboard**: Built-in Tailwind CSS (no production CDN), clearer WebSocket behavior behind reverse proxies, version shown on the main dashboard.
+- **Security**: Rate limits on login and config API; subscriber webhook URLs validated (HTTPS, no private/loopback hosts).
+
+## Before you install (read this first)
+
+These trip people up most often:
+
+| Topic | What to know |
+|--------|----------------|
+| **Asterisk user** | The installer expects the **`asterisk`** user to exist (standard on AllStar / Asterisk nodes). Install Asterisk first, or the script will exit with an error. |
+| **Do not run `install.sh` as root** | Run it as a normal user; the script uses `sudo` where needed. |
+| **Python** | **Python 3.11 or newer** is required. Debian 13 ships **Python 3.13**, which is what we test most. |
+| **Release tarball** | Use a [GitHub release](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) tarball. The repo includes a pre-built `tailwind.css`; if you build from a **minimal** git checkout without that file, the installer will warn you—run `npm install && npm run build:css` (see [Web dashboard CSS](#web-dashboard-css-for-developers)) and copy `src/` again, or use an official release. |
 
 ## Quick Start
 
 ```bash
-# Download the signed release tarball
+# Download the release tarball (replace version if newer)
 wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.5/skywarnplus-ng-1.0.5.tar.gz
+
+# Optional: verify checksum from the release page
+sha256sum skywarnplus-ng-1.0.5.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
 tar -xzf skywarnplus-ng-1.0.5.tar.gz
@@ -34,154 +49,153 @@ cd skywarnplus-ng-1.0.5
 # Enable and start the service
 sudo systemctl enable skywarnplus-ng
 sudo systemctl start skywarnplus-ng
-
-# Access the web dashboard to configure your installation
-# Default credentials: admin / skywarn123
-# Navigate to the Configuration tab to set up counties, alerts, and other settings
-http://localhost:8100
+sudo systemctl status skywarnplus-ng
 ```
 
-> **Note:** After installation, start the service and configure SkywarnPlus-NG through the web interface. The dashboard provides a user-friendly way to configure all settings including counties, audio options, notifications, and DTMF commands without editing YAML files manually.
->
-> **Firewall:** If accessing the web dashboard from a remote machine, ensure port 8100 is open in your firewall. For example, with `ufw`: `sudo ufw allow 8100/tcp`
+**Then open the dashboard** (on the machine or remotely if the firewall allows it):
 
-> **Heads up:** The installer targets Debian 13 (trixie) and Python 3.13. On other distros ensure the prerequisites listed below are installed before running the script.
+- URL: **`http://<host>:8100`** (default port **8100**)
+- Default login: **`admin`** / **`skywarn123`** — **change this immediately** under Configuration.
+
+> **Firewall:** For remote access, allow the dashboard port, e.g. `sudo ufw allow 8100/tcp`.
+
+> **Configuration file:** The live config is **`/etc/skywarnplus-ng/config.yaml`**. The UI saves changes there; advanced users can edit YAML directly (restart the service after manual edits if needed).
+
+## Where things live (reference)
+
+| Item | Typical path |
+|------|----------------|
+| Application code | `/var/lib/skywarnplus-ng/src/` |
+| Python virtualenv | `/var/lib/skywarnplus-ng/venv/` |
+| Config | `/etc/skywarnplus-ng/config.yaml` |
+| Data (state, tail audio, etc.) | `/var/lib/skywarnplus-ng/data/` |
+| Application log file | `/var/log/skywarnplus-ng/skywarnplus-ng.log` |
+| systemd unit | `skywarnplus-ng.service` |
+| DTMF / SkyDescribe fragment | `/etc/asterisk/custom/rpt/skydescribe.conf` |
+| Sounds (installed) | `/var/lib/skywarnplus-ng/SOUNDS/` |
+
+**CLI (after install):** the `skywarnplus-ng` console script is installed into the venv. Examples:
+
+```bash
+sudo -u asterisk /var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng --help
+# Describe first active alert (same idea as DTMF describe)
+sudo -u asterisk /var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng describe 1
+```
+
+Day-to-day operation uses **`systemctl`**; the service runs `skywarnplus_ng.cli run` with your config.
 
 ## Requirements
 
-- 64-bit Linux host (Debian 13 recommended)
-- Python 3.13 with `python3-venv`, `python3-dev`
-- GCC toolchain (`build-essential` or `gcc g++`)
-- System dependencies: `ffmpeg`, `sox`, `libsndfile1`, `libopenblas0`, `libgomp1`, `libffi-dev`, `libssl-dev`, `libasound2-dev`, `portaudio19-dev`
-- Optional: Asterisk/app_rpt node for on-air playback
-- Outbound Internet access (NWS API, optional gTTS/Pushover)
+- 64-bit Linux ( **Debian 13** is the reference platform )
+- **Python 3.11+** with `python3-venv`, `python3-dev`
+- GCC toolchain (`build-essential` or `gcc` / `g++`)
+- Packages the installer pulls on Debian: `ffmpeg`, `sox`, `libsndfile1`, `libopenblas0`, `libgomp1`, `libffi-dev`, `libssl-dev`, `libasound2-dev`, `portaudio19-dev`, `curl`, etc.
+- **`asterisk` user** (install Asterisk / ASL first)
+- Outbound Internet (NWS API; optional gTTS, Pushover, webhooks)
 
-All of the above are installed automatically when you run `install.sh` on a clean Debian 13 system. For other distributions install the equivalents using your package manager before running the installer.
+On other distributions, install the equivalent packages, then run `./install.sh`.
 
-## Installation Steps
+## Installation steps (detail)
 
-1. **Download & Verify**
-```bash
-   wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.5/skywarnplus-ng-1.0.5.tar.gz
-   sha256sum skywarnplus-ng-1.0.5.tar.gz
-   ```
-   Compare the checksum against the value published on the release page.
+1. **Download** the `.tar.gz` for your version from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). Verify **SHA256** on the release page if you use checksums.
 
-2. **Extract & Install**
-```bash
+2. **Extract and install**
+   ```bash
    tar -xzf skywarnplus-ng-1.0.5.tar.gz
    cd skywarnplus-ng-1.0.5
    ./install.sh
    ```
-   The installer creates the service account, virtualenv, systemd unit, logrotate config, and copies sounds/scripts.
+   This creates directories, copies `src/` and `pyproject.toml`, creates the venv, installs the package, seeds **`/etc/skywarnplus-ng/config.yaml`** from `config/default.yaml` **only if** that file does not exist, generates `skydescribe.conf`, installs systemd + logrotate, and tries to free port **8100** if something else is using it.
 
-3. **Start the Service**
+3. **Start the service**
    ```bash
    sudo systemctl enable skywarnplus-ng
    sudo systemctl start skywarnplus-ng
-   sudo systemctl status skywarnplus-ng
    ```
 
-4. **Configure via Web Interface**
-   - **Firewall:** If accessing remotely, ensure port 8100 is open in your firewall (e.g., `sudo ufw allow 8100/tcp`)
-   - Visit the web dashboard at `http://<hostname>:8100` (or behind your reverse proxy)
-   - Default login: `admin / skywarn123`
-   - Navigate to the **Configuration** tab to configure:
-     - County codes to monitor
-     - Asterisk node numbers (optional)
-     - TTS engine settings (gTTS or Piper)
-     - Alert notifications (Email, Pushover, Webhook)
-     - DTMF command settings
-     - All other application settings
-   
-   > All configuration changes made through the web interface are automatically saved to `/etc/skywarnplus-ng/config.yaml`. You can also edit the YAML file directly if preferred, but the web interface provides a user-friendly alternative.
+4. **Configure** — see [First-time dashboard configuration](#first-time-dashboard-configuration) below.
 
-5. **Reverse Proxy (optional)**
-   When fronting with Apache/Nginx under `/skywarnplus-ng`, set `monitoring.http_server.base_path: "/skywarnplus-ng"` in `config.yaml`, ensure static assets are proxied, and forward WebSocket upgrades to `/ws`. [Nginx Proxy Manager](nginx-proxy-manager-guide.md)
+### Reinstall / upgrade from a newer tarball
 
-## Configuration
+- Extract a **new** release directory and run `./install.sh` again.
+- If **`/etc/skywarnplus-ng/config.yaml` already exists**, the installer **keeps** your config and writes an updated example to **`config.yaml.example`** for comparison.
+- After upgrading, restart: **`sudo systemctl restart skywarnplus-ng`**.
 
-Configuration is managed through the web dashboard, which provides an intuitive interface for all settings. All changes made through the web interface are automatically saved to `/etc/skywarnplus-ng/config.yaml`.
+## First-time dashboard configuration
 
-**To configure via web dashboard:**
-1. Start the service: `sudo systemctl start skywarnplus-ng`
-2. Ensure port 8100 is open in your firewall (e.g., `sudo ufw allow 8100/tcp` for remote access)
-3. Access the dashboard: `http://<hostname>:8100`
-4. Log in with default credentials: `admin / skywarn123`
-5. Navigate to the **Configuration** tab to configure all settings
+1. Open **`http://<hostname>:8100`** (or your HTTPS reverse-proxy URL).
+2. Log in with **`admin` / `skywarn123`**, then go to **Configuration** and set a **new password** (stored as a bcrypt hash).
+3. **Counties:** Add or enable the [NWS county codes](CountyCodes.md) you need. Example codes in the default YAML are placeholders—replace with your area.
+4. **Asterisk:** Set your **node number(s)** and, if you use multiple nodes with different areas, per-node counties (see [Multi-node](#multi-node-deployments)).
+5. **Audio / TTS:** Choose **gTTS** (default) or **Piper** if you installed the Piper model during setup.
+6. **Alerts & filtering:** Tune tail message, courtesy tones, ID change, blocked events, etc., as needed.
+7. **Save** from the UI; changes go to **`/etc/skywarnplus-ng/config.yaml`**.
+
+The main dashboard shows the **running app version** (from the installed package) so you can confirm what build is live.
+
+## Configuration (concepts that confuse people)
+
+### Dashboard auth
+
+- Auth is **on** by default (`monitoring.http_server.auth` in YAML).
+- Passwords in config are **bcrypt** hashes; the UI hashes new passwords for you.
+- **Session** duration is configurable (e.g. `session_timeout_hours`).
+
+### `base_path` and reverse proxies
+
+If the app is served at **`https://example.com/skywarnplus-ng/`** (not at the domain root):
+
+1. Set **`monitoring.http_server.base_path`** to **`/skywarnplus-ng`** (leading slash, **no** trailing slash) in **`config.yaml`** or the Configuration UI.
+2. Your proxy must **strip** that prefix when forwarding to the app (so the app still sees paths like `/`, `/ws`, `/api/...`).
+3. **WebSockets** must be proxied (Upgrade headers). **Nginx** often needs long **`proxy_read_timeout` / `proxy_send_timeout`** for `/ws` or the browser will reconnect in a loop.
+
+Step-by-step for **Nginx Proxy Manager**: see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)** (includes rewrite + WebSocket + timeout snippet).
+
+After changing **`base_path` or proxy settings**, restart: **`sudo systemctl restart skywarnplus-ng`**.
+
+### Polling and NWS
+
+- **`poll_interval`** (seconds) controls how often alerts are fetched (default **60** in `default.yaml`).
+- The app identifies itself to api.weather.gov with a **`User-Agent`**; do not use a generic placeholder that violates NWS policy.
 
 ### Email notifications (Gmail)
 
-When using **Gmail** for email alerts (Configuration → Notifications), use an **App Password**, not your normal Gmail account password. Google does not allow sign-in with your regular password for SMTP/app access.
-
-1. In your Google account, turn on **2-Step Verification** (required for App Passwords).
-2. Go to **Google Account → Security → 2-Step Verification → App passwords**.
-3. Create an App Password for “Mail” (or “Other”) and use that 16-character password in SkywarnPlus-NG’s email configuration.
-
-The password field in the dashboard is for this App Password only.
+Use a Google **App Password**, not your normal Gmail password. Enable **2-Step Verification**, then create an App Password under **Security** and paste it into the dashboard email settings.
 
 ### Piper TTS (optional)
 
-The installer downloads the **en_US-amy** Piper voice model to `/var/lib/skywarnplus-ng/piper/`. TTS defaults to **gTTS**. To use Piper, select **Piper TTS** in the Web UI Configuration tab; the model path defaults to the installed location when empty.
+The installer downloads **en_US-amy** (low quality by default) under **`/var/lib/skywarnplus-ng/piper/`**. For **medium** quality: `PIPER_QUALITY=medium ./install.sh`. In the UI, select **Piper** and leave model path empty to use the default install path.
 
-To install the **medium** quality variant instead of **low**, run `PIPER_QUALITY=medium ./install.sh`.
+### Multi-node deployments
 
-### Multi-Node Deployments
+Configure which counties each Asterisk node monitors so one server can serve different regions:
 
-If you run multiple nodes serving different locations from one server, you can configure which counties each node monitors:
-
-- **Web UI**: Go to Configuration > Asterisk, select counties for each node (leave empty to monitor all)
-- **Config File**: See `config/default.yaml` for examples of per-node county configuration
-
-Example: Node 546050 monitors counties A & B, while Node 546051 monitors counties B & C. When an alert comes in for county A, only Node 546050 announces it.
+- **Web UI:** Configuration → Asterisk → per-node counties.
+- **YAML:** See commented examples in **`config/default.yaml`**.
 
 ## Features
 
 - **Weather Alerts**: Real-time NWS alert monitoring and voice announcements
-- **Per-Node Counties**: Configure different county zones for each node in multi-node deployments (useful for nodes serving different geographic locations from one server)
-- **SkyDescribe DTMF**: On-demand weather descriptions for active alerts via DTMF codes (*1, *2, *3, etc.)
-- **Web Dashboard**: Modern, responsive web interface with:
-  - Two-level configuration tabs for better organization
-  - Collapsible sidebar (desktop)
-  - Search, sort, and pagination on alerts
-  - Live WebSocket connection indicator
-  - Skeleton loaders and enhanced error handling
-  - Mobile-optimized responsive design
-- **Tail Messages**: Continuous alert announcements via tail message system
-- **Courtesy Tones**: Automatic tone switching based on alert status
-- **ID Changes**: Dynamic node ID switching for weather alerts
-- **AlertScript**: Execute commands (BASH/DTMF) on alert detection
-- **County Audio**: Play county-specific audio files in announcements
-- **Notifications**: Email, Pushover, and webhook notifications for alerts
+- **Per-Node Counties**: Different county sets per node (multi-site from one server)
+- **SkyDescribe DTMF**: On-demand descriptions for active alerts (`841`–`849` by index, plus configurable `*1`–`*5` style codes in config)
+- **Web Dashboard**: Responsive UI, live updates, health/metrics/logs/database views
+- **Tail Messages**, **Courtesy Tones**, **ID Changes**, **AlertScript**, **County Audio**
+- **Notifications**: Email, Pushover, webhooks (with HTTPS / SSRF-safe URL rules for subscriber webhooks)
 
 ## DTMF Commands
 
-SkyDescribe DTMF commands allow you to request weather information via DTMF codes on your Asterisk/app_rpt node. **Note: DTMF commands only describe currently active alerts** - expired or cancelled alerts are not accessible via DTMF.
+SkyDescribe maps **841–849** to describe active alerts **by index (1–9)**. Those codes are written to **`/etc/asterisk/custom/rpt/skydescribe.conf`** during install; you still enable the menu paths on your node (e.g. ASL-menu).
 
-The DTMF codes `841-849` are mapped to describe active alerts by index (1-9). These codes are automatically configured during installation via the `skydescribe.conf` file.
+**CLI alternative:**
 
-- `841` - Describe the 1st active alert (by index)
-- `842` - Describe the 2nd active alert (by index)
-- `843` - Describe the 3rd active alert (by index)
-- `844` - Describe the 4th active alert (by index)
-- `845` - Describe the 5th active alert (by index)
-- `846` - Describe the 6th active alert (by index)
-- `847` - Describe the 7th active alert (by index)
-- `848` - Describe the 8th active alert (by index)
-- `849` - Describe the 9th active alert (by index)
-
-**Alternative:** You can also use the CLI command directly:
 ```bash
-skywarnplus-ng describe 1                    # Describe 1st active alert
-skywarnplus-ng describe "Tornado Warning"    # Describe all alerts with this title
+skywarnplus-ng describe 1                    # 1st active alert by index
+skywarnplus-ng describe "Tornado Warning"    # All alerts with this title
 ```
 
-> **Important:** Before using DTMF commands, ensure that:
-> 1. SkywarnPlus-NG is running and monitoring your configured counties
-> 2. The `skydescribe.conf` file is properly installed in `/etc/asterisk/custom/rpt/` (automatically generated during installation)
-> 3. DTMF commands are enabled for your node in the Asterisk app_rpt menu system (ASL-menu)
+> **Important:** DTMF only describes **currently active** alerts. Ensure SkywarnPlus-NG is running, counties are configured, and SkyDescribe is enabled for your node.
 
-## Service Management
+## Service management & logs
 
 ```bash
 sudo systemctl restart skywarnplus-ng
@@ -189,9 +203,22 @@ sudo systemctl status skywarnplus-ng
 journalctl -u skywarnplus-ng -f
 ```
 
+File logging (if enabled) is under **`/var/log/skywarnplus-ng/`** per `logging.file` in config.
+
+## Common issues
+
+| Symptom | Things to check |
+|---------|------------------|
+| **`install.sh` fails: asterisk user missing** | Install Asterisk / ASL so user **`asterisk` exists**. |
+| **Port 8100 in use** | The installer tries to clear it; otherwise run `sudo ss -tulpn` and find the process on 8100, or change **`monitoring.http_server.port`** in config. |
+| **404 or wrong paths behind nginx** | **`base_path`** must match the public URL prefix; proxy must **strip** the prefix; see [nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md). |
+| **Dashboard reconnects / many `/ws` lines in logs** | Add long **`proxy_*_timeout`** for the WebSocket location and ensure **`base_path`** matches; the app sends protocol-level WebSocket pings to help idle proxies. |
+| **Cannot log in after editing YAML** | Password must be a **bcrypt** hash if set manually; easiest fix is to set password again from the UI or restore from backup. |
+| **“Dashboard stylesheet missing” during install** | Use an official release tarball or run **`npm install && npm run build:css`** before packaging (see below). |
+
 ## Web dashboard CSS (for developers)
 
-The dashboard ships with a pre-built Tailwind stylesheet at `src/skywarnplus_ng/web/static/tailwind.css` (no runtime CDN). If you change HTML under `src/skywarnplus_ng/web/templates/`, rebuild CSS:
+The dashboard ships with a pre-built Tailwind stylesheet at **`src/skywarnplus_ng/web/static/tailwind.css`** (no runtime CDN). If you change HTML under **`src/skywarnplus_ng/web/templates/`**, rebuild:
 
 ```bash
 npm install
