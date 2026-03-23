@@ -252,11 +252,12 @@ def create_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s run --config config/default.yaml    Run the main application
-  %(prog)s test-nws                           Test NWS API connection
-  %(prog)s describe 1                         Generate description for 1st alert (for rpt.conf)
-  %(prog)s describe "Tornado Warning"         Generate description by alert title
-  %(prog)s dtmf current_alerts                Test DTMF command
+  %(prog)s run --config config/default.yaml           Run from dev tree
+  %(prog)s run --config /etc/skywarnplus-ng/config.yaml Run with production config (typical install)
+  %(prog)s test-nws --config /etc/skywarnplus-ng/config.yaml
+  %(prog)s describe 1                                   Generate description for 1st alert (for rpt.conf)
+  %(prog)s describe "Tornado Warning"                   Generate description by alert title
+  %(prog)s dtmf current_alerts                          Test DTMF command
         """
     )
     
@@ -265,7 +266,7 @@ Examples:
     # Run command
     run_parser = subparsers.add_parser('run', help='Run the main application')
     run_parser.add_argument('--config', '-c', 
-                           help='Configuration file path (default: config/default.yaml)',
+                           help='Configuration file path (default: config/default.yaml; production: /etc/skywarnplus-ng/config.yaml)',
                            default='config/default.yaml')
     
     # Test NWS command

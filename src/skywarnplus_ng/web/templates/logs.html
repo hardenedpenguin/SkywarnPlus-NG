@@ -25,7 +25,12 @@
             </div>
         </div>
         
-        <div class="flex items-center space-x-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center space-x-2 min-w-[12rem] flex-1 max-w-md">
+                <label for="log-search" class="text-sm font-medium text-gray-700 dark:text-gray-300 sr-only">Search</label>
+                <input type="search" id="log-search" placeholder="Search logs…"
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm">
+            </div>
             <div class="flex items-center space-x-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Level:</label>
                 <select id="log-level" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
@@ -66,6 +71,7 @@
 <script>
     let refreshInterval = null;
     let autoRefreshEnabled = false;
+    let logSearchTimer = null;
 
     // Get log level color
     function getLogLevelColor(level) {
@@ -131,13 +137,14 @@
         try {
             const level = document.getElementById('log-level').value;
             const limit = document.getElementById('log-limit').value;
-            
-            let url = `/api/logs?limit=${limit}`;
-            if (level) {
-                url += `&level=${level}`;
-            }
-            
-            const response = await apiCall(url);
+            const qEl = document.getElementById('log-search');
+            const q = qEl ? qEl.value.trim() : '';
+
+            const params = new URLSearchParams({ limit: limit });
+            if (level) params.set('level', level);
+            if (q) params.set('q', q);
+
+            const response = await apiCall(`/api/logs?${params.toString()}`);
             renderLogs(response.logs);
         } catch (error) {
             console.error('Failed to load logs:', error);
@@ -176,6 +183,13 @@
         document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
         document.getElementById('log-level').addEventListener('change', loadLogs);
         document.getElementById('log-limit').addEventListener('change', loadLogs);
+        var searchEl = document.getElementById('log-search');
+        if (searchEl) {
+            searchEl.addEventListener('input', function() {
+                if (logSearchTimer) clearTimeout(logSearchTimer);
+                logSearchTimer = setTimeout(loadLogs, 350);
+            });
+        }
     });
 
     // Cleanup on page unload

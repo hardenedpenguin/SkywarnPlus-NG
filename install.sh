@@ -387,6 +387,8 @@ EOF
 }
 
 print_completion_message() {
+    local host_hint
+    host_hint="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo 'this-host')"
     echo ""
     echo "Installation complete!"
     echo "====================="
@@ -398,6 +400,7 @@ print_completion_message() {
     echo "4. Check status: sudo systemctl status skywarnplus-ng"
     echo "5. View logs: sudo journalctl -u skywarnplus-ng -f"
     echo "6. Web dashboard: http://localhost:${WEB_PORT}"
+    echo "   (from another machine, try: http://${host_hint}:${WEB_PORT} — firewall permitting)"
     echo ""
     echo "Asterisk integration:"
     echo "- DTMF config: ${DTMF_CONFIG} (generated during install)"

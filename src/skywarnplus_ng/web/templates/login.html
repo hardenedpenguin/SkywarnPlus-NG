@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - SkywarnPlus-NG</title>
+    <link rel="icon" href="{{ base_path|default('') }}/static/favicon.svg" type="image/svg+xml">
     
     <!-- Tailwind CSS (built: npm run build:css) -->
     <link rel="stylesheet" href="{{ base_path|default('') }}/static/tailwind.css">
@@ -124,6 +125,10 @@
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white">SkywarnPlus-NG</h2>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Weather Alert System</p>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Sign in to access the dashboard and configuration</p>
+        </div>
+
+        <div id="login-info-banner" class="hidden rounded-md p-3 text-sm bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200">
+            <span id="login-info-text"></span>
         </div>
 
         <div class="login-card rounded-lg p-8">
@@ -300,9 +305,25 @@
                         if (!next || !next.startsWith('/')) next = '/';
                     }
                     window.location.href = basePath + (next === '/' ? '/' : next);
+                } else if (response.status === 429) {
+                    const ra = response.headers.get('Retry-After');
+                    const sec = ra ? parseInt(ra, 10) : NaN;
+                    let msg = 'Too many login attempts. Please wait before trying again.';
+                    try {
+                        const err = await response.json();
+                        if (err && err.error) msg = err.error;
+                    } catch (_) {}
+                    if (!isNaN(sec) && sec > 0) {
+                        msg += ` Try again in about ${sec} second${sec === 1 ? '' : 's'}.`;
+                    }
+                    showError(msg);
                 } else {
-                    const error = await response.json();
-                    showError(error.message || 'Login failed');
+                    let msg = 'Login failed';
+                    try {
+                        const error = await response.json();
+                        msg = error.message || error.error || msg;
+                    } catch (_) {}
+                    showError(msg);
                 }
             } catch (error) {
                 showError('Network error. Please try again.');
@@ -313,6 +334,25 @@
 
         // Initialize theme on page load
         initTheme();
+
+        (function loginQueryHints() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('expired') === '1' || params.get('session') === 'expired') {
+                var ib = document.getElementById('login-info-banner');
+                var it = document.getElementById('login-info-text');
+                if (ib && it) {
+                    it.textContent = 'Your session has expired. Please sign in again.';
+                    ib.classList.remove('hidden');
+                }
+            } else if (params.get('reason') === 'required') {
+                var ib2 = document.getElementById('login-info-banner');
+                var it2 = document.getElementById('login-info-text');
+                if (ib2 && it2) {
+                    it2.textContent = 'Please sign in to access that page.';
+                    ib2.classList.remove('hidden');
+                }
+            }
+        })();
 
         // Focus username field
         document.getElementById('username').focus();

@@ -21,6 +21,38 @@
             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path></svg>
             Configure counties and alerts
         </a>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">This page refreshes every 30 seconds. For instant updates, keep a WebSocket connection open (see the Live indicator on Active Alerts).</p>
+    </div>
+
+    <!-- First-run checklist (dismiss stored in localStorage) -->
+    <div id="dashboard-first-run" class="hidden mb-6 p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+                <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Getting started checklist</p>
+                <ol class="mt-2 text-sm text-amber-800 dark:text-amber-200 list-decimal list-inside space-y-1">
+                    <li>Add at least one county in <strong>Configuration → Counties</strong></li>
+                    <li>Review <strong>NWS API</strong> and <strong>Alert behavior</strong> if needed</li>
+                    <li>Click <strong>Save configuration</strong>, then verify alerts on this dashboard</li>
+                </ol>
+            </div>
+            <button type="button" onclick="dismissFirstRunChecklist()" class="btn-secondary text-xs shrink-0">Dismiss</button>
+        </div>
+    </div>
+
+    <!-- Connectivity summary -->
+    <div id="connectivity-strip" class="mb-6 flex flex-wrap gap-3 text-sm" aria-label="Service connectivity">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-400" id="conn-nws-dot" aria-hidden="true"></span>
+            <span class="text-gray-700 dark:text-gray-300">NWS client: <strong id="conn-nws-text">—</strong></span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-400" id="conn-asterisk-dot" aria-hidden="true"></span>
+            <span class="text-gray-700 dark:text-gray-300">Asterisk: <strong id="conn-asterisk-text">—</strong></span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-400" id="conn-audio-dot" aria-hidden="true"></span>
+            <span class="text-gray-700 dark:text-gray-300">Audio: <strong id="conn-audio-text">—</strong></span>
+        </span>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -132,6 +164,59 @@
 {% block scripts %}
 <script>
     let refreshInterval = null;
+    const FIRST_RUN_KEY = 'swn_dashboard_first_run_dismissed';
+
+    function initFirstRunChecklist() {
+        try {
+            if (localStorage.getItem(FIRST_RUN_KEY) === '1') return;
+            var el = document.getElementById('dashboard-first-run');
+            if (el) el.classList.remove('hidden');
+        } catch (_) {}
+    }
+    function dismissFirstRunChecklist() {
+        try { localStorage.setItem(FIRST_RUN_KEY, '1'); } catch (_) {}
+        var el = document.getElementById('dashboard-first-run');
+        if (el) el.classList.add('hidden');
+    }
+
+    function escHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function setConnDot(id, ok) {
+        var d = document.getElementById(id);
+        if (!d) return;
+        d.className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-green-500' : 'bg-gray-400');
+    }
+
+    function updateConnectivityStrip(status) {
+        if (!status) return;
+        var nwsOk = !!status.nws_connected;
+        var astEnabled = !!status.asterisk_enabled;
+        var astOk = astEnabled && !!status.asterisk_available;
+        var audioOk = !!status.audio_available;
+
+        setConnDot('conn-nws-dot', nwsOk);
+        var nt = document.getElementById('conn-nws-text');
+        if (nt) nt.textContent = nwsOk ? 'Connected' : 'Not connected';
+
+        setConnDot('conn-asterisk-dot', astOk);
+        var at = document.getElementById('conn-asterisk-text');
+        if (at) {
+            if (!astEnabled) at.textContent = 'Disabled in config';
+            else if (astOk) at.textContent = 'Available';
+            else at.textContent = 'Not available';
+        }
+
+        setConnDot('conn-audio-dot', audioOk);
+        var ot = document.getElementById('conn-audio-text');
+        if (ot) ot.textContent = audioOk ? 'Available' : 'Not available';
+    }
 
     // Format uptime
     function formatUptime(seconds) {
@@ -175,6 +260,7 @@
             statusElement.textContent = 'Stopped';
             indicatorElement.className = 'status-indicator status-unhealthy';
         }
+        updateConnectivityStrip(status);
     }
 
     // Update active alerts count
@@ -219,7 +305,16 @@
             return;
         }
 
-        const alertsHtml = alerts.map(alert => `
+        const alertsHtml = alerts.map((alert, idx) => {
+            const desc = (alert.description || alert.area_desc || '').trim();
+            const longDesc = desc.length > 200;
+            const shortHtml = escHtml(longDesc ? (desc.substring(0, 200) + '…') : desc);
+            const fullHtml = escHtml(desc);
+            const areaLine = alert.area_desc ? `<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Area: ${escHtml(alert.area_desc)}</p>` : '';
+            const expandBlock = longDesc ? `
+                        <div id="alert-desc-full-${idx}" class="hidden text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed whitespace-pre-wrap">${fullHtml}</div>
+                        <button type="button" id="alert-desc-btn-${idx}" class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline mb-2" onclick="toggleAlertDescription(${idx})">Show full description</button>` : '';
+            return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 last:mb-0">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
@@ -230,26 +325,16 @@
                                 alert.severity === 'Moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
                                 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                             }">
-                                ${alert.severity}
+                                ${escHtml(alert.severity)}
                             </span>
                             <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                                ${alert.urgency}
+                                ${escHtml(alert.urgency)}
                             </span>
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">${alert.event}</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed">
-                            ${alert.description ? 
-                                (alert.description.length > 200 ? 
-                                    alert.description.substring(0, 200) + '...' : 
-                                    alert.description
-                                ) : 
-                                alert.area_desc
-                            }
-                        </p>
-                        ${alert.description && alert.description.length > 200 ? 
-                            `<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Area: ${alert.area_desc}</p>` : 
-                            ''
-                        }
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">${escHtml(alert.event)}</h3>
+                        <p id="alert-desc-short-${idx}" class="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed whitespace-pre-wrap">${shortHtml}</p>
+                        ${expandBlock}
+                        ${areaLine}
                         <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                             <span>Effective: ${formatTimestamp(alert.effective)}</span>
                             <span>Expires: ${formatTimestamp(alert.expires)}</span>
@@ -258,15 +343,32 @@
                     <div class="flex items-center space-x-2">
                         ${alert.announced ? '<span class="text-green-500" title="Announced">📢</span>' : ''}
                         ${alert.script_executed ? '<span class="text-blue-500" title="Script Executed">⚙️</span>' : ''}
-                        <button class="btn-secondary text-sm" title="Play announcement" onclick="playAlertAudio('${alert.id}')">
+                        <button type="button" class="btn-secondary text-sm" title="Play announcement" onclick='playAlertAudio(${JSON.stringify(String(alert.id))})'>
                             ▶️ Play
                         </button>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
         container.innerHTML = alertsHtml;
+    }
+
+    function toggleAlertDescription(idx) {
+        var full = document.getElementById('alert-desc-full-' + idx);
+        var shortEl = document.getElementById('alert-desc-short-' + idx);
+        var btn = document.getElementById('alert-desc-btn-' + idx);
+        if (!full || !shortEl || !btn) return;
+        var expanded = !full.classList.contains('hidden');
+        if (expanded) {
+            full.classList.add('hidden');
+            shortEl.classList.remove('hidden');
+            btn.textContent = 'Show full description';
+        } else {
+            full.classList.remove('hidden');
+            shortEl.classList.add('hidden');
+            btn.textContent = 'Show less';
+        }
     }
 
     async function playAlertAudio(alertId) {
@@ -294,7 +396,14 @@
     // Render health components
     function renderHealthComponents(components) {
         const container = document.getElementById('health-components');
-        
+        if (!components || !Array.isArray(components) || components.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No health check data yet</p>
+                </div>`;
+            return;
+        }
+
         const componentsHtml = components.map(comp => `
             <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                 <div class="flex items-center space-x-3">
@@ -373,20 +482,20 @@
     // Load dashboard data
     async function loadDashboardData() {
         try {
-            const status = await apiCall('/api/status');
+            const status = await apiCall('/api/status', {}, false);
             updateSystemStatus(status);
             updateActiveAlertsCount(status.active_alerts);
             updateUptime(status.uptime_seconds);
             updateLastPoll(status.last_poll);
 
-            const alertsResp = await apiCall('/api/alerts');
+            const alertsResp = await apiCall('/api/alerts', {}, false);
             const alertsList = Array.isArray(alertsResp) ? alertsResp : (alertsResp.alerts || []);
             renderAlerts(alertsList);
 
-            const health = await apiCall('/api/health');
+            const health = await apiCall('/api/health', {}, false);
             renderHealthComponents(health.components);
 
-            const activity = await apiCall('/api/activity?limit=10');
+            const activity = await apiCall('/api/activity?limit=10', {}, false);
             renderRecentActivity(activity.activities || []);
 
             var u = document.getElementById('alerts-updated');
@@ -397,6 +506,7 @@
             }
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
+            showNotification(error.message || 'Failed to load dashboard', 'error', 0, { retry: loadDashboardData });
         }
     }
 
@@ -411,7 +521,7 @@
             if (btn) { btn.disabled = true; }
             if (icon) icon.classList.add('animate-spin');
             if (text) text.textContent = 'Refreshing…';
-            const data = await apiCall('/api/alerts', { showErrorToast: false }, false);
+            const data = await apiCall('/api/alerts', {}, false);
             const alerts = Array.isArray(data) ? data : (data.alerts || []);
             const count = data.count !== undefined ? data.count : alerts.length;
             renderAlerts(alerts);
@@ -448,6 +558,7 @@
         if (text) text.textContent = connected ? 'Live' : 'Paused';
     }
     document.addEventListener('DOMContentLoaded', function() {
+        initFirstRunChecklist();
         loadDashboardData();
         refreshInterval = setInterval(loadDashboardData, 30000);
         updateLiveIndicator(!!window.wsConnected);

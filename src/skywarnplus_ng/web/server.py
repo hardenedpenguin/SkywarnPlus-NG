@@ -431,7 +431,7 @@ class WebDashboard:
                 if base_path and not base_path.startswith('/'):
                     base_path = '/' + base_path
                 next_path = request.path or '/'
-                loc = f'{base_path}/login?next={quote(next_path, safe="")}'
+                loc = f'{base_path}/login?next={quote(next_path, safe="")}&reason=required'
                 return web.Response(status=302, headers={'Location': loc})
         return None
 
@@ -1235,39 +1235,77 @@ class WebDashboard:
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_logs_handler(self, request: Request) -> Response:
-        """Handle API logs endpoint."""
+        """Handle API logs endpoint.
+
+        Query params:
+          level — empty or ALL = no level filter; otherwise minimum severity (DEBUG…CRITICAL).
+          limit — max entries returned after filtering (default 100).
+          q — optional case-insensitive substring match on JSON-serialized entry or message.
+        """
+        _LEVEL_RANK = {
+            "DEBUG": 10,
+            "INFO": 20,
+            "WARNING": 30,
+            "ERROR": 40,
+            "CRITICAL": 50,
+        }
+
+        def _entry_level(entry: dict) -> str:
+            lv = (entry.get("level") or "INFO")
+            return str(lv).upper() if isinstance(lv, str) else "INFO"
+
+        def _meets_level(entry: dict, min_level: str) -> bool:
+            if not min_level or min_level.upper() in ("ALL", ""):
+                return True
+            want = _LEVEL_RANK.get(min_level.upper(), 20)
+            got = _LEVEL_RANK.get(_entry_level(entry), 20)
+            return got >= want
+
         try:
-            # Get query parameters
-            level = request.query.get('level', 'INFO')
-            limit = int(request.query.get('limit', 100))
-            
-            # Read log file if configured
+            level_param = (request.query.get("level") or "").strip()
+            limit = int(request.query.get("limit", 100))
+            search_q = (request.query.get("q") or "").strip().lower()
+
             log_file = self.config.logging.file
             if not log_file or not log_file.exists():
                 return web.json_response({"logs": [], "count": 0})
-            
-            # Read last N lines from log file
-            with open(log_file, 'r') as f:
+
+            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
-            
-            # Filter by level and limit
-            filtered_lines = []
-            for line in lines[-limit:]:
-                if level.upper() in line.upper():
+
+            parsed = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    parsed.append(json.loads(line))
+                except json.JSONDecodeError:
+                    parsed.append({"message": line, "level": "INFO"})
+
+            filtered = [e for e in parsed if _meets_level(e, level_param)]
+            if search_q:
+                def _matches(e: dict) -> bool:
+                    msg = str(e.get("message") or "").lower()
+                    if search_q in msg:
+                        return True
                     try:
-                        # Try to parse as JSON log
-                        log_entry = json.loads(line.strip())
-                        filtered_lines.append(log_entry)
-                    except json.JSONDecodeError:
-                        # Fallback to plain text
-                        filtered_lines.append({"message": line.strip(), "level": "INFO"})
-            
-            return web.json_response({
-                "logs": filtered_lines,
-                "count": len(filtered_lines),
-                "level": level,
-                "limit": limit
-            })
+                        return search_q in json.dumps(e, default=str).lower()
+                    except Exception:
+                        return False
+
+                filtered = [e for e in filtered if _matches(e)]
+
+            tail = filtered[-limit:] if limit > 0 else []
+
+            return web.json_response(
+                {
+                    "logs": tail,
+                    "count": len(tail),
+                    "level": level_param or "ALL",
+                    "limit": limit,
+                }
+            )
         except Exception as e:
             logger.error(f"Error getting logs: {e}")
             return web.json_response({"error": str(e)}, status=500)

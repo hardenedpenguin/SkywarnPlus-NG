@@ -340,19 +340,31 @@ def handle_changeid(config_data: Dict[str, Any], mode: str) -> bool:
         sys.exit(1)
 
 
+def _print_skycontrol_help():
+    """Argparse-style help for skycontrol (stdin is not a TTY-safe)."""
+    print("usage: skycontrol [-h] <command> [value]\n")
+    print("SkyControl — toggle SkywarnPlus-NG features from the shell / DTMF scripts.\n")
+    print("optional arguments:")
+    print("  -h, --help     show this help message and exit\n")
+    print("commands:")
+    for cmd, info in sorted(VALID_COMMANDS.items()):
+        desc = info.get("description", "")
+        print(f"  {cmd:15}  {desc}")
+    print("\nExamples:")
+    print("  skycontrol enable true")
+    print("  skycontrol sayalert toggle")
+    print("  skycontrol changect normal")
+    print("  skycontrol changeid wx")
+    print("\nConfig: /etc/skywarnplus-ng/config.yaml (falls back to config/default.yaml)")
+
+
 def main():
     """Main entry point for SkyControl CLI."""
+    if len(sys.argv) >= 2 and sys.argv[1] in ("-h", "--help"):
+        _print_skycontrol_help()
+        sys.exit(0)
     if len(sys.argv) < 2:
-        print("Usage: skycontrol <command> [value]")
-        print("\nAvailable commands:")
-        for cmd, info in VALID_COMMANDS.items():
-            desc = info.get("description", "")
-            print(f"  {cmd:15} - {desc}")
-        print("\nExamples:")
-        print("  skycontrol enable true")
-        print("  skycontrol sayalert toggle")
-        print("  skycontrol changect normal")
-        print("  skycontrol changeid wx")
+        _print_skycontrol_help()
         sys.exit(1)
     
     command = sys.argv[1].lower()

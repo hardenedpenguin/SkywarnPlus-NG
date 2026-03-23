@@ -19,10 +19,24 @@
         <p class="text-sm text-blue-800 dark:text-blue-200"><strong>Getting started:</strong> 1. Add counties (Counties tab) → 2. Configure NWS API if needed → 3. Set up Asterisk &amp; Audio (optional) → 4. Save configuration.</p>
     </div>
 
+    <div id="config-restart-banner" class="hidden mb-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+            <p class="text-sm text-amber-900 dark:text-amber-100"><strong>Restart required:</strong> HTTP server host, port, or “Enable HTTP Server” was changed. Restart the <code class="text-xs bg-amber-100 dark:bg-amber-900/40 px-1 rounded">skywarnplus-ng</code> service (e.g. <code class="text-xs">sudo systemctl restart skywarnplus-ng</code>) for the new settings to apply.</p>
+            <button type="button" onclick="document.getElementById('config-restart-banner').classList.add('hidden')" class="btn-secondary text-xs shrink-0">Dismiss</button>
+        </div>
+    </div>
+
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Configuration</h1>
         <p class="text-gray-600 dark:text-gray-400">Manage all aspects of SkywarnPlus-NG configuration</p>
+    </div>
+
+    <div class="mb-4 hidden md:block">
+        <label for="config-section-filter" class="sr-only">Filter configuration sections</label>
+        <input type="search" id="config-section-filter" placeholder="Filter sections (e.g. NWS, Asterisk)…"
+               class="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500"
+               oninput="filterConfigSections(this.value)">
     </div>
 
     <!-- Mobile: Jump to section dropdown -->
@@ -168,7 +182,8 @@
         <!-- Counties Tab -->
         <div id="tab-content-counties" class="tab-content hidden">
             <div class="card">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">County Configuration</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">County Configuration</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">County codes match NWS zone identifiers. Reference list: <a href="https://github.com/hardenedpenguin/SkywarnPlus-NG/blob/main/CountyCodes.md" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">CountyCodes.md</a> (opens on GitHub).</p>
                 
                 <div id="counties-container">
                     <!-- Counties will be dynamically added here -->
@@ -1686,6 +1701,18 @@
         </div>
     </div>
 
+    <!-- Reset confirmation modal -->
+    <div id="reset-config-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="reset-config-modal-title">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+            <h3 id="reset-config-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Reset configuration to defaults?</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">This replaces your current settings with application defaults. Consider using <strong>Backup</strong> first. This cannot be undone.</p>
+            <div class="flex flex-wrap justify-end gap-2">
+                <button type="button" onclick="hideResetConfigModal()" class="btn-secondary text-sm">Cancel</button>
+                <button type="button" onclick="confirmResetConfig()" class="text-sm px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium">Reset to defaults</button>
+            </div>
+        </div>
+    </div>
+
     <!-- County Search Modal (outside form to prevent submission) -->
     <div id="county-search-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 flex items-center justify-center">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col">
@@ -1717,7 +1744,7 @@
     <div id="config-unsaved-hint" class="hidden text-sm text-amber-600 dark:text-amber-400 font-medium">You have unsaved changes.</div>
     <div class="flex-1 md:flex-none"></div>
     <div class="flex flex-wrap items-center gap-2">
-        <button type="button" onclick="resetConfig()" class="btn-secondary text-sm">
+        <button type="button" onclick="showResetConfigModal()" class="btn-secondary text-sm">
             <svg class="w-4 h-4 mr-1.5 inline" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
             Reset
         </button>
@@ -1783,7 +1810,10 @@
         form.addEventListener('input', markConfigDirty);
         form.addEventListener('change', markConfigDirty);
         window.addEventListener('beforeunload', function(e) {
-            if (configFormDirty) { e.preventDefault(); }
+            if (configFormDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
         });
     }
 
@@ -1834,6 +1864,14 @@
         }
     }
     
+    function filterConfigSections(query) {
+        var q = (query || '').trim().toLowerCase();
+        document.querySelectorAll('.tab-button').forEach(function(btn) {
+            var label = (btn.textContent || '').toLowerCase();
+            btn.style.display = (!q || label.indexOf(q) >= 0) ? '' : 'none';
+        });
+    }
+
     var TAB_TO_GROUP = { core: 'general', nws: 'general', counties: 'general', asterisk: 'asterisk', audio: 'asterisk', alerts: 'alerts', filtering: 'alerts', scripts: 'alerts', notifications: 'notifications', subscribers: 'notifications', templates: 'notifications', logging: 'system', database: 'system', monitoring: 'system' };
     var GROUP_FIRST = { general: 'core', asterisk: 'asterisk', alerts: 'alerts', notifications: 'notifications', system: 'logging' };
     var TAB_LABELS = { core: 'Core Settings', nws: 'NWS API', counties: 'Counties', asterisk: 'Asterisk', audio: 'Audio & TTS', alerts: 'Alert Behavior', filtering: 'Filtering', scripts: 'Scripts', logging: 'Logging', database: 'Database', monitoring: 'Monitoring', notifications: 'Notifications', subscribers: 'Subscribers', templates: 'Templates' };
@@ -2874,11 +2912,21 @@
                 }
             }
             
+            const prevMon = JSON.parse(JSON.stringify((window.currentConfig && window.currentConfig.monitoring) || {}));
             await apiCall('/api/config', {
                 method: 'POST',
                 body: JSON.stringify(config)
             });
             clearConfigDirty();
+            const oldHttp = prevMon.http_server || {};
+            const newHttp = (config.monitoring && config.monitoring.http_server) || {};
+            const portChanged = (oldHttp.port != null ? oldHttp.port : 8080) !== (newHttp.port != null ? newHttp.port : 8080);
+            const hostChanged = String(oldHttp.host || '') !== String(newHttp.host || '');
+            const enabledChanged = !!oldHttp.enabled !== !!newHttp.enabled;
+            if (portChanged || hostChanged || enabledChanged) {
+                var rb = document.getElementById('config-restart-banner');
+                if (rb) rb.classList.remove('hidden');
+            }
             showNotification('Configuration saved successfully', 'success');
         } catch (error) {
             console.error('Failed to save configuration:', error);
@@ -2888,16 +2936,24 @@
         }
     }
 
-    async function resetConfig() {
-        if (confirm('Are you sure you want to reset the configuration to defaults? This action cannot be undone.')) {
-            try {
-                await apiCall('/api/config/reset', { method: 'POST' });
-                await loadConfig();
-                showNotification('Configuration reset to defaults', 'success');
-            } catch (error) {
-                console.error('Failed to reset configuration:', error);
-                showNotification('Failed to reset configuration', 'error');
-            }
+    function showResetConfigModal() {
+        var m = document.getElementById('reset-config-modal');
+        if (m) m.classList.remove('hidden');
+    }
+    function hideResetConfigModal() {
+        var m = document.getElementById('reset-config-modal');
+        if (m) m.classList.add('hidden');
+    }
+    async function confirmResetConfig() {
+        hideResetConfigModal();
+        try {
+            await apiCall('/api/config/reset', { method: 'POST' });
+            await loadConfig();
+            clearConfigDirty();
+            showNotification('Configuration reset to defaults', 'success');
+        } catch (error) {
+            console.error('Failed to reset configuration:', error);
+            showNotification('Failed to reset configuration', 'error');
         }
     }
 
