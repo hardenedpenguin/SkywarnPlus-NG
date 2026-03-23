@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Set
 import uuid
 
+import aiohttp
 from aiohttp import web, WSMsgType
 from aiohttp.web import Request, Response
 from aiohttp_session import setup, get_session, new_session
@@ -41,6 +42,14 @@ from ..notifications.subscriber import (
 )
 from ..notifications.templates import TemplateEngine, TemplateType, TemplateFormat
 from ..utils.rate_limit import SlidingWindowRateLimiter
+from ..utils.update_check import (
+    build_cache_payload,
+    cache_is_fresh,
+    fetch_latest_release,
+    normalize_release_version,
+    read_cache,
+    write_cache,
+)
 from ..utils.url_security import validate_public_https_webhook_url
 
 if TYPE_CHECKING:
@@ -117,6 +126,9 @@ class WebDashboard:
         # Rate limits (per client IP): login attempts, authenticated config saves
         self._login_rate_limit = SlidingWindowRateLimiter(max_calls=20, window_seconds=900)
         self._config_rate_limit = SlidingWindowRateLimiter(max_calls=120, window_seconds=3600)
+        self._update_check_lock = asyncio.Lock()
+        self._update_check_task: Optional[asyncio.Task] = None
+        self._github_http_session: Optional[aiohttp.ClientSession] = None
 
         # Setup template environment
         self._setup_templates()
@@ -541,6 +553,7 @@ class WebDashboard:
         app.router.add_get('/api/logs', self.api_logs_handler)
         app.router.add_get('/api/metrics', self.api_metrics_handler)
         app.router.add_get('/api/activity', self.api_activity_handler)
+        app.router.add_get('/api/update-status', self.api_update_status_handler)
         app.router.add_get('/api/database/stats', self.api_database_stats_handler)
         app.router.add_post('/api/database/cleanup', self.api_database_cleanup_handler)
         app.router.add_post('/api/database/optimize', self.api_database_optimize_handler)
@@ -1309,6 +1322,149 @@ class WebDashboard:
         except Exception as e:
             logger.error(f"Error getting logs: {e}")
             return web.json_response({"error": str(e)}, status=500)
+
+    def _update_check_cache_path(self) -> Path:
+        return self._get_data_dir() / "update_check_cache.json"
+
+    def _update_status_public_dict(self, cached: Dict[str, Any]) -> Dict[str, Any]:
+        """Shape returned to the browser (no secrets)."""
+        return {
+            "check_enabled": True,
+            "installed_version": cached.get("installed_version") or _PACKAGE_VERSION,
+            "update_available": bool(cached.get("update_available")),
+            "latest_version": cached.get("remote_version") or None,
+            "latest_tag": cached.get("remote_tag") or None,
+            "release_url": cached.get("html_url") or None,
+            "checked_at": cached.get("checked_at"),
+            "error": cached.get("error"),
+        }
+
+    async def _refresh_update_cache(self) -> Optional[Dict[str, Any]]:
+        """Fetch GitHub latest release and write cache. Caller should hold lock or expect single-flight."""
+        uc = self.config.monitoring.update_check
+        if not uc.enabled:
+            return None
+        cache_path = self._update_check_cache_path()
+        session = self._github_http_session
+        if session is None or session.closed:
+            session = aiohttp.ClientSession(
+                headers={"User-Agent": "SkywarnPlus-NG-UpdateCheck/1.0"}
+            )
+            self._github_http_session = session
+        repo = (uc.github_repo or "").strip()
+        try:
+            rel = await fetch_latest_release(session, repo)
+            rv = normalize_release_version(rel.get("tag_name") or "")
+            payload = build_cache_payload(
+                installed_version=_PACKAGE_VERSION,
+                remote_tag=rel.get("tag_name") or "",
+                remote_version=rv,
+                html_url=rel.get("html_url") or "",
+                published_at=rel.get("published_at") or "",
+                error=None,
+            )
+        except Exception as e:
+            logger.warning("Update check failed: %s", e)
+            payload = build_cache_payload(
+                installed_version=_PACKAGE_VERSION,
+                remote_tag="",
+                remote_version="",
+                html_url="",
+                published_at="",
+                error=str(e),
+            )
+        try:
+            write_cache(cache_path, payload)
+        except OSError as oe:
+            logger.warning("Could not write update check cache: %s", oe)
+        return payload
+
+    async def api_update_status_handler(self, request: Request) -> Response:
+        """Advisory update status (public). Respects monitoring.update_check config and cache interval."""
+        try:
+            uc = self.config.monitoring.update_check
+            if not uc.enabled:
+                return web.json_response(
+                    {
+                        "check_enabled": False,
+                        "installed_version": _PACKAGE_VERSION,
+                        "update_available": False,
+                        "latest_version": None,
+                        "latest_tag": None,
+                        "release_url": None,
+                        "checked_at": None,
+                        "error": None,
+                    }
+                )
+
+            cache_path = self._update_check_cache_path()
+            cached = read_cache(cache_path)
+            force = request.query.get("force") == "1"
+
+            if (
+                not force
+                and cached
+                and cache_is_fresh(cached, uc.interval_hours)
+            ):
+                return web.json_response(self._update_status_public_dict(cached))
+
+            async with self._update_check_lock:
+                cached = read_cache(cache_path)
+                if (
+                    not force
+                    and cached
+                    and cache_is_fresh(cached, uc.interval_hours)
+                ):
+                    return web.json_response(self._update_status_public_dict(cached))
+                refreshed = await self._refresh_update_cache()
+                if refreshed:
+                    return web.json_response(self._update_status_public_dict(refreshed))
+                if cached:
+                    return web.json_response(self._update_status_public_dict(cached))
+                return web.json_response(
+                    {
+                        "check_enabled": True,
+                        "installed_version": _PACKAGE_VERSION,
+                        "update_available": False,
+                        "latest_version": None,
+                        "latest_tag": None,
+                        "release_url": None,
+                        "checked_at": None,
+                        "error": "No cache yet",
+                    }
+                )
+        except Exception as e:
+            logger.error("update-status error: %s", e)
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def _update_check_background_loop(self) -> None:
+        """Periodic refresh so the dashboard shows updates without relying on page loads."""
+        try:
+            await asyncio.sleep(300)
+            while True:
+                try:
+                    uc = self.config.monitoring.update_check
+                    if uc.enabled:
+                        cache_path = self._update_check_cache_path()
+                        cached = read_cache(cache_path)
+                        if not cached or not cache_is_fresh(cached, uc.interval_hours):
+                            async with self._update_check_lock:
+                                cached = read_cache(cache_path)
+                                if not cached or not cache_is_fresh(
+                                    cached, uc.interval_hours
+                                ):
+                                    await self._refresh_update_cache()
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.debug("Background update check failed", exc_info=True)
+                try:
+                    hrs = float(self.config.monitoring.update_check.interval_hours)
+                except (TypeError, ValueError):
+                    hrs = 24.0
+                await asyncio.sleep(max(3600.0, hrs * 3600.0))
+        except asyncio.CancelledError:
+            pass
 
     async def api_activity_handler(self, request: Request) -> Response:
         """Handle API recent activity endpoint."""
@@ -2707,6 +2863,13 @@ class WebDashboard:
             logger.info(f"  {base_url}/logs - Application Logs")
             logger.info(f"  {base_url}/database - Database")
             logger.info(f"  {base_url}/metrics - Metrics")
+
+            self._github_http_session = aiohttp.ClientSession(
+                headers={"User-Agent": "SkywarnPlus-NG-UpdateCheck/1.0"}
+            )
+            self._update_check_task = asyncio.create_task(
+                self._update_check_background_loop()
+            )
             
         except Exception as e:
             logger.error(f"Failed to start web dashboard: {e}")
@@ -2714,6 +2877,13 @@ class WebDashboard:
 
     async def stop(self) -> None:
         """Stop the web dashboard server."""
+        if self._update_check_task:
+            self._update_check_task.cancel()
+            try:
+                await self._update_check_task
+            except asyncio.CancelledError:
+                pass
+            self._update_check_task = None
         try:
             if self.site:
                 await self.site.stop()
@@ -2722,3 +2892,7 @@ class WebDashboard:
             logger.info("Web dashboard stopped")
         except Exception as e:
             logger.error(f"Error stopping web dashboard: {e}")
+        finally:
+            if self._github_http_session and not self._github_http_session.closed:
+                await self._github_http_session.close()
+            self._github_http_session = None

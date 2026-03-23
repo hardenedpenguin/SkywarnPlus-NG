@@ -245,6 +245,25 @@ class MetricsConfig(BaseModel):
     retention_days: int = Field(7, description="Metrics retention in days")
 
 
+class UpdateCheckConfig(BaseModel):
+    """Advisory check for newer releases on GitHub (no auto-update)."""
+
+    enabled: bool = Field(
+        True,
+        description="If true, periodically check GitHub releases and show an in-dashboard notice when a newer version exists (set false to opt out)",
+    )
+    interval_hours: int = Field(
+        24,
+        ge=1,
+        le=168,
+        description="Minimum hours between checks (cached; avoids hammering the GitHub API)",
+    )
+    github_repo: str = Field(
+        "hardenedpenguin/SkywarnPlus-NG",
+        description="GitHub owner/repo for https://api.github.com/repos/{owner}/{repo}/releases/latest",
+    )
+
+
 class DatabaseConfig(BaseModel):
     """Database configuration."""
 
@@ -263,6 +282,7 @@ class MonitoringConfig(BaseModel):
     health_check_interval: int = Field(60, description="Health check interval in seconds")
     http_server: HttpServerConfig = Field(default_factory=HttpServerConfig)
     metrics: MetricsConfig = Field(default_factory=MetricsConfig)
+    update_check: UpdateCheckConfig = Field(default_factory=UpdateCheckConfig)
 
 
 class DTMFConfig(BaseModel):

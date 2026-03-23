@@ -140,6 +140,11 @@ database:
 monitoring:
   enabled: true
   health_check_interval: 60  # Health check interval in seconds
+  # Advisory only: contacts GitHub API to see if a newer release exists (shows a banner on the dashboard)
+  update_check:
+    enabled: true  # set false to opt out
+    interval_hours: 24
+    github_repo: "hardenedpenguin/SkywarnPlus-NG"
   http_server:
     enabled: true
     host: "0.0.0.0"

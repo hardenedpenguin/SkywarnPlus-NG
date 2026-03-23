@@ -1053,6 +1053,33 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="md:col-span-2">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Software updates (advisory)</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">When enabled (default), the server checks GitHub periodically for a newer release and shows a notice on the dashboard. Uncheck to opt out. This does not install or download updates.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="flex items-center md:col-span-2">
+                                <input type="checkbox" id="monitoring_update_check_enabled" name="monitoring.update_check.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="monitoring_update_check_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Check GitHub for newer releases
+                                </label>
+                            </div>
+                            <div>
+                                <label for="monitoring_update_check_interval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Minimum hours between checks
+                                </label>
+                                <input type="number" id="monitoring_update_check_interval" name="monitoring.update_check.interval_hours" min="1" max="168" 
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                            <div>
+                                <label for="monitoring_update_check_repo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    GitHub repository (owner/repo)
+                                </label>
+                                <input type="text" id="monitoring_update_check_repo" name="monitoring.update_check.github_repo" placeholder="hardenedpenguin/SkywarnPlus-NG"
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="md:col-span-2">
                         <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Authentication</h4>
@@ -2044,6 +2071,9 @@
         // Monitoring
         document.getElementById('monitoring_enabled').checked = config.monitoring?.enabled || false;
         document.getElementById('monitoring_health_check_interval').value = config.monitoring?.health_check_interval || 60;
+        document.getElementById('monitoring_update_check_enabled').checked = config.monitoring?.update_check?.enabled !== false;
+        document.getElementById('monitoring_update_check_interval').value = config.monitoring?.update_check?.interval_hours ?? 24;
+        document.getElementById('monitoring_update_check_repo').value = config.monitoring?.update_check?.github_repo || 'hardenedpenguin/SkywarnPlus-NG';
         document.getElementById('monitoring_http_enabled').checked = config.monitoring?.http_server?.enabled || false;
         document.getElementById('monitoring_http_host').value = config.monitoring?.http_server?.host || '0.0.0.0';
         document.getElementById('monitoring_http_port').value = config.monitoring?.http_server?.port || 8080;

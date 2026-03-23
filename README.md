@@ -133,6 +133,8 @@ On other distributions, install the equivalent packages, then run `./install.sh`
 
 The main dashboard shows the **running app version** (from the installed package) so you can confirm what build is live.
 
+**Release notices (on by default):** In **Configuration → Monitoring → Software updates (advisory)**, **Check GitHub for newer releases** is enabled by default. The app contacts the public GitHub API (at most about once per day by default), compares your installed version to the latest release, and shows a **banner on the dashboard** if a newer version exists. **Uncheck** the option to opt out. It does **not** download or install anything; upgrade steps stay the same as [Reinstall / upgrade from a newer tarball](#reinstall--upgrade-from-a-newer-tarball) above.
+
 ## Configuration (concepts that confuse people)
 
 ### Dashboard auth
