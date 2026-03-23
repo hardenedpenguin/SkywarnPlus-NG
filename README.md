@@ -15,11 +15,15 @@ Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
 SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) project by [Mason Nelson (N5LSN/WRKF394)](https://github.com/Mason10198). This rewrite modernizes the codebase, adds a web dashboard, and improves maintainability while preserving the core concept and functionality of the original project. We extend our gratitude to Mason Nelson for the original idea and implementation that inspired this project.
 
-### What's New in 1.0.5
+### What's New in 1.0.6
 
-- **Dashboard login**: bcrypt password handling (including `$2y$` hashes for supermon-ng/PHP compatibility); plaintext passwords are not written to config.
-- **Dashboard**: Built-in Tailwind CSS (no production CDN), clearer WebSocket behavior behind reverse proxies, version shown on the main dashboard.
-- **Security**: Rate limits on login and config API; subscriber webhook URLs validated (HTTPS, no private/loopback hosts).
+- **Release advisory**: Optional GitHub release check (on by default; opt out in Configuration → Monitoring) shows a dashboard banner when a newer version exists—advisory only, no auto-update.
+- **Dashboard & UI**: UX polish (connectivity strip, first-run checklist, alert details, logs search/filter), weather-themed favicon, login rate-limit messaging, configuration restart hints and reset confirmation.
+- **Dependencies**: Explicit `packaging` for version comparison (release check).
+
+### Earlier in 1.0.x
+
+- **1.0.5**: Dashboard login bcrypt (`$2y$` compatible), Tailwind/CSS and WebSocket proxy notes, rate limits and subscriber webhook URL validation.
 
 ## Before you install (read this first)
 
@@ -36,14 +40,14 @@ These trip people up most often:
 
 ```bash
 # Download the release tarball (replace version if newer)
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.5/skywarnplus-ng-1.0.5.tar.gz
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.6/skywarnplus-ng-1.0.6.tar.gz
 
 # Optional: verify checksum from the release page
-sha256sum skywarnplus-ng-1.0.5.tar.gz
+sha256sum skywarnplus-ng-1.0.6.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
-tar -xzf skywarnplus-ng-1.0.5.tar.gz
-cd skywarnplus-ng-1.0.5
+tar -xzf skywarnplus-ng-1.0.6.tar.gz
+cd skywarnplus-ng-1.0.6
 ./install.sh
 
 # Enable and start the service
@@ -101,8 +105,8 @@ On other distributions, install the equivalent packages, then run `./install.sh`
 
 2. **Extract and install**
    ```bash
-   tar -xzf skywarnplus-ng-1.0.5.tar.gz
-   cd skywarnplus-ng-1.0.5
+   tar -xzf skywarnplus-ng-1.0.6.tar.gz
+   cd skywarnplus-ng-1.0.6
    ./install.sh
    ```
    This creates directories, copies `src/` and `pyproject.toml`, creates the venv, installs the package, seeds **`/etc/skywarnplus-ng/config.yaml`** from `config/default.yaml` **only if** that file does not exist, generates `skydescribe.conf`, installs systemd + logrotate, and tries to free port **8100** if something else is using it.

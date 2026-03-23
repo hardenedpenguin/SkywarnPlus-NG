@@ -43,7 +43,7 @@ jobs:
 
       - name: Update README.md download URLs to this release
         run: |
-          # Update release download URLs (e.g. .../download/v1.0.5/...1.0.5.tar.gz -> .../download/v1.0.6/...1.0.6.tar.gz)
+          # Update release download URLs (e.g. .../download/v1.0.6/...1.0.6.tar.gz -> .../download/v1.0.7/...1.0.7.tar.gz)
           sed -i "s|releases/download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|releases/download/${TAG}/skywarnplus-ng-${VERSION}.tar.gz|g" README.md
           # Update tarball filenames and directory names in code blocks
           sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
