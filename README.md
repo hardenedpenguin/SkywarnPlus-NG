@@ -33,14 +33,14 @@ These trip people up most often:
 
 ```bash
 # Download the release tarball (replace version if newer)
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.9/skywarnplus-ng-1.0.9.tar.gz
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.0.10/skywarnplus-ng-1.0.10.tar.gz
 
 # Optional: verify checksum from the release page
-sha256sum skywarnplus-ng-1.0.9.tar.gz
+sha256sum skywarnplus-ng-1.0.10.tar.gz
 
 # Extract and run the installer (will prompt for sudo where required)
-tar -xzf skywarnplus-ng-1.0.9.tar.gz
-cd skywarnplus-ng-1.0.9
+tar -xzf skywarnplus-ng-1.0.10.tar.gz
+cd skywarnplus-ng-1.0.10
 ./install.sh
 
 # Enable and start the service
@@ -100,8 +100,8 @@ On other distributions, install the equivalent packages, then run `./install.sh`
 
 2. **Extract and install**
    ```bash
-   tar -xzf skywarnplus-ng-1.0.9.tar.gz
-   cd skywarnplus-ng-1.0.9
+   tar -xzf skywarnplus-ng-1.0.10.tar.gz
+   cd skywarnplus-ng-1.0.10
    ./install.sh
    ```
    This creates directories, copies `src/` and `pyproject.toml`, creates the venv, installs the package, seeds **`/etc/skywarnplus-ng/config.yaml`** from `config/default.yaml` **only if** that file does not exist, generates `skydescribe.conf`, installs systemd + logrotate, and tries to free port **8100** if something else is using it.

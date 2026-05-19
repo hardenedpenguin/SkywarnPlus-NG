@@ -2384,8 +2384,58 @@
         container.appendChild(row);
     }
 
+    function reindexCountyRows() {
+        const container = document.getElementById('counties-container');
+        if (!container) return;
+        Array.from(container.children).forEach(function (row, i) {
+            row.querySelectorAll('[name^="counties["]').forEach(function (el) {
+                el.name = el.name.replace(/^counties\[\d+\]/, 'counties[' + i + ']');
+            });
+            const audioInput = row.querySelector('input[id^="county_audio_"]');
+            if (audioInput) audioInput.id = 'county_audio_' + i;
+            const genBtn = row.querySelector('button[title*="Generate audio"]');
+            const codeInput = row.querySelector('input[name$=".code"]');
+            const nameInput = row.querySelector('input[name$=".name"]');
+            if (genBtn && codeInput && nameInput) {
+                genBtn.onclick = function (ev) {
+                    generateCountyAudio(codeInput.value, nameInput.value, i, ev);
+                };
+            }
+        });
+    }
+
+    function collectCountiesFromForm() {
+        const container = document.getElementById('counties-container');
+        const out = [];
+        if (!container) return out;
+        Array.from(container.children).forEach(function (row) {
+            const codeEl = row.querySelector('input[name$=".code"]');
+            const nameEl = row.querySelector('input[name$=".name"]');
+            const audioEl = row.querySelector('input[name$=".audio_file"]');
+            const enabledEl = row.querySelector('input[name$=".enabled"]');
+            if (!codeEl) return;
+            const code = (codeEl.value || '').trim();
+            if (!code) return;
+            const nameRaw = nameEl ? (nameEl.value || '').trim() : '';
+            const audioRaw = audioEl ? (audioEl.value || '').trim() : '';
+            out.push({
+                code: code,
+                name: nameRaw !== '' ? nameRaw : null,
+                enabled: enabledEl ? enabledEl.checked : true,
+                audio_file: audioRaw !== '' ? audioRaw : null,
+            });
+        });
+        return out;
+    }
+
+    function normalizeCountiesForSave(config) {
+        // Always build from visible rows; FormData array parsing can leave null holes at index 0.
+        config.counties = collectCountiesFromForm();
+    }
+
     function removeCountyRow(button) {
         button.closest('.grid').remove();
+        reindexCountyRows();
     }
 
     // Node management
@@ -2775,13 +2825,15 @@
                 saveBtn.disabled = true;
                 saveBtn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5"></span> Saving…';
             }
+            reindexCountyRows();
             const formData = new FormData(document.getElementById('config-form'));
             const config = {};
+            const nodeCountiesField = /^asterisk\.nodes\[\d+\]\.counties$/;
             
-            // First pass: collect multi-select values (like counties)
+            // First pass: collect multi-select values (per-node county lists only)
             const multiSelectValues = {};
             for (const [key, value] of formData.entries()) {
-                if (key.includes('.counties')) {
+                if (nodeCountiesField.test(key)) {
                     if (!multiSelectValues[key]) {
                         multiSelectValues[key] = [];
                     }
@@ -2792,7 +2844,7 @@
             // Convert form data to nested object
             for (const [key, value] of formData.entries()) {
                 // Skip multi-select fields on first encounter - we'll handle them after
-                if (key.includes('.counties') && multiSelectValues[key] && multiSelectValues[key].indexOf(value) !== multiSelectValues[key].length - 1) {
+                if (nodeCountiesField.test(key) && multiSelectValues[key] && multiSelectValues[key].indexOf(value) !== multiSelectValues[key].length - 1) {
                     continue;
                 }
                 // Handle array notation like "asterisk.nodes[0]" or "counties[0].code"
@@ -2917,6 +2969,8 @@
             if (config.dev) {
                 if (!config.dev.inject_alerts) config.dev.inject_alerts = [];
             }
+
+            normalizeCountiesForSave(config);
 
             // Client-side validation
             const poll = parseInt(config.poll_interval, 10);

@@ -254,7 +254,9 @@ install_python_dependencies() {
     # --upgrade + eager: otherwise pip leaves e.g. onnxruntime on an older satisfying release on reinstalls.
     run_as_app_user_tmp "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install --upgrade --upgrade-strategy eager ."
     
-    print_success "Python dependencies installed"
+    SKYWARN_PKG_DIR=$("${VENV_PYTHON}" -c "import os, skywarnplus_ng as s; print(os.path.dirname(s.__file__))")
+    print_success "Python dependencies installed (package: ${SKYWARN_PKG_DIR})"
+    echo "   The systemd service runs code from that venv path, not ${INSTALL_ROOT}/src alone."
 }
 
 setup_configuration() {

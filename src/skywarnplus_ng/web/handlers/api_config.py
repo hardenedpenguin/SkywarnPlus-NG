@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from aiohttp.web import Request, Response
@@ -15,6 +15,47 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_counties_list(raw: Any) -> list[dict[str, Any]]:
+    """Drop null/invalid county entries; accept list or dict-with-numeric-keys from bad clients."""
+    if raw is None:
+        return []
+    if isinstance(raw, dict):
+
+        def _sort_key(k: object) -> tuple[int, int | str]:
+            s = str(k)
+            return (0, int(s)) if s.isdigit() else (1, s)
+
+        raw = [raw[k] for k in sorted(raw.keys(), key=_sort_key)]
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        code = item.get("code")
+        if code is None:
+            continue
+        code_s = str(code).strip()
+        if not code_s:
+            continue
+        name = item.get("name")
+        name_s = str(name).strip() if name is not None else ""
+        audio = item.get("audio_file")
+        audio_s = str(audio).strip() if audio is not None else ""
+        enabled = item.get("enabled", True)
+        if isinstance(enabled, str):
+            enabled = enabled.lower() in ("true", "1", "on", "yes")
+        out.append(
+            {
+                "code": code_s,
+                "name": name_s or None,
+                "enabled": bool(enabled),
+                "audio_file": audio_s or None,
+            }
+        )
+    return out
 
 
 def _list_piper_onnx_models(piper_dir: Path) -> list[str]:
@@ -128,6 +169,10 @@ class ConfigApiMixin:
 
             # Hash dashboard auth password if present and plaintext (so we never persist plaintext)
             self._ensure_auth_password_hashed_in_dict(data)
+
+            # Dashboard may send sparse counties arrays (null holes) after row removal.
+            if "counties" in data:
+                data["counties"] = _sanitize_counties_list(data.get("counties"))
 
             # Import required modules for YAML handling
             from ruamel.yaml import YAML
