@@ -11,6 +11,13 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 from aiohttp.web import Request, Response
 
+from ..config_merge import (
+    deep_merge_dict,
+    model_dump_for_merge,
+    redact_config_for_api,
+    resolve_config_path,
+)
+
 if TYPE_CHECKING:
     pass
 
@@ -84,6 +91,72 @@ def _list_piper_onnx_models(piper_dir: Path) -> list[str]:
 
 
 class ConfigApiMixin:
+    def _reload_config_from_disk(self) -> Path:
+        """Reload AppConfig from the configured YAML path into app + dashboard."""
+        from ...core.config import AppConfig
+
+        config_path = resolve_config_path(self.config)
+        new_config = AppConfig.from_yaml(config_path)
+        self.config = new_config
+        if self.app:
+            self.app.config = new_config
+        return config_path
+
+    def _write_config_yaml(self, updated_config: "AppConfig", config_path: Path) -> None:
+        """Serialize AppConfig to YAML on disk (hash auth password, preserve quotes)."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+        yaml.default_flow_style = False
+        yaml.preserve_quotes = True
+        yaml.width = 4096
+
+        def convert_paths_for_yaml(obj: Any) -> Any:
+            if isinstance(obj, dict):
+                return {k: convert_paths_for_yaml(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [convert_paths_for_yaml(item) for item in obj]
+            if hasattr(obj, "__fspath__"):
+                return str(obj)
+            return obj
+
+        serializable_config = convert_paths_for_yaml(updated_config.model_dump())
+
+        try:
+            pwd = getattr(
+                getattr(
+                    getattr(updated_config.monitoring, "http_server", None), "auth", None
+                ),
+                "password",
+                "",
+            )
+            if isinstance(pwd, str) and pwd and not self._is_bcrypt_hash(pwd):
+                pwd = self._hash_password(pwd)
+                updated_config.monitoring.http_server.auth.password = pwd
+            mon = serializable_config.setdefault("monitoring", {})
+            http = mon.setdefault("http_server", {})
+            auth = http.setdefault("auth", {})
+            auth["password"] = pwd if isinstance(pwd, str) else ""
+        except Exception as e:
+            logger.warning("Could not set hashed auth password for write: %s", e)
+
+        try:
+            from ruamel.yaml.scalarstring import DoubleQuotedScalarString
+
+            mon = serializable_config.get("monitoring")
+            if isinstance(mon, dict):
+                http = mon.get("http_server")
+                if isinstance(http, dict):
+                    auth = http.get("auth")
+                    if isinstance(auth, dict) and isinstance(auth.get("password"), str):
+                        auth["password"] = DoubleQuotedScalarString(auth["password"])
+        except Exception:
+            pass
+
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w") as f:
+            yaml.dump(serializable_config, f)
+
     def _serialize_asterisk_nodes(self, raw_nodes):
         """Convert asterisk.nodes (int | NodeConfig) to JSON-serializable list."""
         out = []
@@ -130,7 +203,7 @@ class ConfigApiMixin:
             data_dir = self.config.data_dir
             if data_dir:
                 base = Path(str(data_dir)).resolve().parent / "piper"
-                for name in ("en_US-amy-medium.onnx", "en_US-amy-low.onnx"):
+                for name in ("en_US-amy-low.onnx", "en_US-amy-medium.onnx"):
                     p = base / name
                     if p.exists():
                         serializable_config["piper_default_model_path"] = str(p)
@@ -143,7 +216,7 @@ class ConfigApiMixin:
             else:
                 serializable_config["piper_available_models"] = []
 
-            return web.json_response(serializable_config)
+            return web.json_response(redact_config_for_api(serializable_config))
         except Exception as e:
             logger.error(f"Error getting config: {e}")
             return web.json_response({"error": str(e)}, status=500)
@@ -301,75 +374,21 @@ class ConfigApiMixin:
 
                 data = _fix_empty_numerics(data, _numeric_defaults, self.config)
 
-                # Create new config from the received data
                 from ...core.config import AppConfig
 
-                updated_config = AppConfig(**data)
+                merged = deep_merge_dict(model_dump_for_merge(self.config), data)
+                if "counties" in data:
+                    merged["counties"] = data["counties"]
 
-                # Save to config file (use the configured config file path)
-                config_path = self.config.config_file
-                if not config_path.is_absolute():
-                    # If relative path, make it relative to the application directory
-                    config_path = Path("/etc/skywarnplus-ng") / config_path
-                config_path.parent.mkdir(parents=True, exist_ok=True)
+                mon = merged.setdefault("monitoring", {}).setdefault("http_server", {})
+                auth = mon.setdefault("auth", {})
+                if not auth.get("secret_key") and self.config.monitoring.http_server.auth.secret_key:
+                    auth["secret_key"] = self.config.monitoring.http_server.auth.secret_key
 
-                yaml = YAML()
-                yaml.default_flow_style = False
-                yaml.preserve_quotes = True
-                yaml.width = 4096
+                updated_config = AppConfig(**merged)
 
-                # Convert config to dict and handle Path objects
-                config_dict = updated_config.model_dump()
-
-                # Convert Path objects to strings for YAML serialization
-                def convert_paths_for_yaml(obj):
-                    if isinstance(obj, dict):
-                        return {k: convert_paths_for_yaml(v) for k, v in obj.items()}
-                    elif isinstance(obj, list):
-                        return [convert_paths_for_yaml(item) for item in obj]
-                    elif hasattr(obj, "__fspath__"):  # Path-like object
-                        return str(obj)
-                    else:
-                        return obj
-
-                serializable_config = convert_paths_for_yaml(config_dict)
-
-                # Never write plaintext dashboard auth password: take from config, hash if needed, force into dict
-                try:
-                    pwd = getattr(
-                        getattr(
-                            getattr(updated_config.monitoring, "http_server", None), "auth", None
-                        ),
-                        "password",
-                        "",
-                    )
-                    if isinstance(pwd, str) and pwd and not self._is_bcrypt_hash(pwd):
-                        pwd = self._hash_password(pwd)
-                        updated_config.monitoring.http_server.auth.password = pwd
-                    mon = serializable_config.setdefault("monitoring", {})
-                    http = mon.setdefault("http_server", {})
-                    auth = http.setdefault("auth", {})
-                    auth["password"] = pwd if isinstance(pwd, str) else ""
-                except Exception as e:
-                    logger.warning("Could not set hashed auth password for write: %s", e)
-
-                # Quote auth password in YAML so bcrypt hash ($2b$...) is read back correctly
-                try:
-                    from ruamel.yaml.scalarstring import DoubleQuotedScalarString
-
-                    mon = serializable_config.get("monitoring")
-                    if isinstance(mon, dict):
-                        http = mon.get("http_server")
-                        if isinstance(http, dict):
-                            auth = http.get("auth")
-                            if isinstance(auth, dict) and isinstance(auth.get("password"), str):
-                                auth["password"] = DoubleQuotedScalarString(auth["password"])
-                except Exception:
-                    pass
-
-                # Write to file
-                with open(config_path, "w") as f:
-                    yaml.dump(serializable_config, f)
+                config_path = resolve_config_path(self.config)
+                self._write_config_yaml(updated_config, config_path)
 
                 # Update the application's config reference
                 self.config = updated_config
@@ -394,32 +413,63 @@ class ConfigApiMixin:
                 )
 
         except Exception as e:
-            logger.error(f"Error updating config: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            logger.error(f"Error updating config: {e}", exc_info=True)
+            return web.json_response({"error": "Failed to update configuration"}, status=500)
 
     async def api_config_reset_handler(self, request: Request) -> Response:
         """Handle API config reset endpoint."""
         try:
-            # Reset to default configuration
-            # This would require implementing configuration reset logic
+            from shutil import copy2
+
+            from ...core.config import AppConfig
+
+            config_path = resolve_config_path(self.config)
+            example_path = config_path.parent / "config.yaml.example"
+            if example_path.is_file():
+                copy2(example_path, config_path)
+            else:
+                repo_default = Path(__file__).resolve().parents[4] / "config" / "default.yaml"
+                if repo_default.is_file():
+                    copy2(repo_default, config_path)
+                else:
+                    default_cfg = AppConfig()
+                    self._write_config_yaml(default_cfg, config_path)
+
+            self._reload_config_from_disk()
             return web.json_response(
-                {"success": True, "message": "Configuration reset to defaults"}
+                {
+                    "success": True,
+                    "message": "Configuration reset from defaults",
+                    "config_file": str(config_path),
+                }
             )
         except Exception as e:
-            logger.error(f"Error resetting config: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            logger.error(f"Error resetting config: {e}", exc_info=True)
+            return web.json_response({"error": "Failed to reset configuration"}, status=500)
 
     async def api_config_backup_handler(self, request: Request) -> Response:
         """Handle API config backup endpoint."""
         try:
-            # Create configuration backup
-            # This would require implementing backup logic
+            from datetime import datetime, timezone
+            from shutil import copy2
+
+            config_path = resolve_config_path(self.config)
+            if not config_path.is_file():
+                return web.json_response({"error": "Config file not found"}, status=404)
+
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+            backup_path = config_path.with_name(f"{config_path.name}.backup.{stamp}")
+            copy2(config_path, backup_path)
             return web.json_response(
-                {"success": True, "message": "Configuration backed up successfully"}
+                {
+                    "success": True,
+                    "message": "Configuration backed up successfully",
+                    "backup_path": str(backup_path),
+                }
             )
         except Exception as e:
-            logger.error(f"Error backing up config: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            logger.error(f"Error backing up config: {e}", exc_info=True)
+            return web.json_response({"error": "Failed to back up configuration"}, status=500)
 
     async def api_county_generate_audio_handler(self, request: Request) -> Response:
         """Handle API county audio generation endpoint."""
@@ -462,7 +512,7 @@ class ConfigApiMixin:
 
                 yaml = YAML()
                 yaml.preserve_quotes = True
-                config_path = Path("/etc/skywarnplus-ng/config.yaml")
+                config_path = resolve_config_path(self.config)
 
                 with open(config_path, "r") as f:
                     config_data = yaml.load(f)
@@ -511,11 +561,45 @@ class ConfigApiMixin:
     async def api_config_restore_handler(self, request: Request) -> Response:
         """Handle API config restore endpoint."""
         try:
-            # Restore configuration from backup
-            # This would require implementing restore logic
+            from shutil import copy2
+
+            config_path = resolve_config_path(self.config)
+            body: dict = {}
+            if request.can_read_body and request.content_type == "application/json":
+                try:
+                    raw = await request.json()
+                    if isinstance(raw, dict):
+                        body = raw
+                except Exception:
+                    pass
+
+            backup_path = body.get("backup_path")
+            if backup_path:
+                src = Path(str(backup_path))
+            else:
+                backups = sorted(
+                    config_path.parent.glob(f"{config_path.name}.backup.*"),
+                    reverse=True,
+                )
+                if not backups:
+                    return web.json_response(
+                        {"error": "No configuration backup files found"}, status=404
+                    )
+                src = backups[0]
+
+            if not src.is_file():
+                return web.json_response({"error": "Backup file not found"}, status=404)
+
+            copy2(src, config_path)
+            self._reload_config_from_disk()
             return web.json_response(
-                {"success": True, "message": "Configuration restored successfully"}
+                {
+                    "success": True,
+                    "message": "Configuration restored successfully",
+                    "restored_from": str(src),
+                    "config_file": str(config_path),
+                }
             )
         except Exception as e:
-            logger.error(f"Error restoring config: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            logger.error(f"Error restoring config: {e}", exc_info=True)
+            return web.json_response({"error": "Failed to restore configuration"}, status=500)
