@@ -472,11 +472,12 @@ class WebDashboard(
         app = main_app
 
         # Setup CORS (registers on main_app)
+        # credentials cannot be used with allow_origin="*"; same-origin dashboard uses cookies without CORS.
         cors_setup(
             main_app,
             defaults={
                 "*": ResourceOptions(
-                    allow_credentials=True,
+                    allow_credentials=False,
                     expose_headers="*",
                     allow_headers="*",
                     allow_methods="*",
@@ -503,17 +504,39 @@ class WebDashboard(
 
         return main_app
 
+    def _path_requires_auth(self, request: Request) -> bool:
+        """Return True when the request must be authenticated."""
+        if not self.config.monitoring.http_server.auth.enabled:
+            return False
+
+        path = request.path or ""
+        method = request.method.upper()
+
+        if path.startswith("/static"):
+            return False
+        if path == "/login" or path.startswith("/api/auth/"):
+            return False
+
+        if path.startswith("/configuration"):
+            return True
+
+        if path.startswith("/api/config"):
+            return True
+
+        if path.startswith("/api/") and method in ("POST", "PUT", "DELETE", "PATCH"):
+            return True
+
+        if path == "/ws" or path.endswith("/ws"):
+            return True
+
+        return False
+
     @web.middleware
     async def _auth_middleware(self, request: Request, handler):
         """Authentication middleware."""
-        # Only protect configuration-related paths
-        protected_paths = ["/configuration", "/api/config"]
-
-        # Skip authentication for non-protected paths
-        if not any(request.path.startswith(path) for path in protected_paths):
+        if not self._path_requires_auth(request):
             return await handler(request)
 
-        # Check authentication for configuration paths only
         auth_response = await self._require_auth(request)
         if auth_response:
             return auth_response
