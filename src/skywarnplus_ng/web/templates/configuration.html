@@ -827,11 +827,6 @@
                         </button>
                     </div>
 
-                    <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
-                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-2">SkyDescribe (DTMF)</h4>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">DTMF codes live in <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">/etc/skywarnplus-ng/config.yaml</code> under <code class="text-xs">skydescribe:</code>. Saving other settings here will not remove them.</p>
-                        <div id="skydescribe-readonly-panel" class="text-sm font-mono bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap text-gray-800 dark:text-gray-200">Loading…</div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -2013,7 +2008,6 @@
             currentConfig = await apiCall('/api/config');
             window.currentConfig = currentConfig;  // Make available globally
             populateForm(currentConfig);
-            populateSkyDescribePanel(currentConfig);
             updateConfigBanners(currentConfig);
             clearConfigDirty();
             if (!silent) showNotification('Configuration loaded', 'success');
@@ -2106,7 +2100,6 @@
         document.getElementById('scripts_enabled').checked = config.scripts?.enabled || false;
         document.getElementById('scripts_default_timeout').value = config.scripts?.default_timeout || 30;
         populateAlertScripts(config.scripts?.alert_scripts || {});
-        populateSkyDescribePanel(config);
         updateConfigBanners(config);
 
         // Logging
@@ -2310,21 +2303,6 @@
         resultsContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center">Type to search counties...</p>';
     }
     
-    function populateSkyDescribePanel(config) {
-        const panel = document.getElementById('skydescribe-readonly-panel');
-        if (!panel) return;
-        const sd = config && config.skydescribe;
-        if (!sd || typeof sd !== 'object') {
-            panel.textContent = '(No skydescribe section in config)';
-            return;
-        }
-        try {
-            panel.textContent = JSON.stringify(sd, null, 2);
-        } catch (_) {
-            panel.textContent = String(sd);
-        }
-    }
-
     function updateConfigBanners(config) {
         const dp = document.getElementById('config-default-password-banner');
         if (dp) {
