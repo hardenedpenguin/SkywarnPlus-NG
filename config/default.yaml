@@ -156,6 +156,8 @@ monitoring:
       username: "admin"
       password: "skywarn123"  # Change on first login via Configuration
       session_timeout_hours: 24
+      secure_cookies: false  # Set true when the dashboard is only served over HTTPS
+      cookie_secure_auto: true  # Add Secure on cookies when X-Forwarded-Proto is https
   metrics:
     enabled: true
     retention_days: 7

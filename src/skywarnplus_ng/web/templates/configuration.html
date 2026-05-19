@@ -19,6 +19,14 @@
         <p class="text-sm text-blue-800 dark:text-blue-200"><strong>Getting started:</strong> 1. Add counties (Counties tab) → 2. Configure NWS API if needed → 3. Set up Asterisk &amp; Audio (optional) → 4. Save configuration.</p>
     </div>
 
+    <div id="config-default-password-banner" class="hidden mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <p class="text-sm text-red-900 dark:text-red-100"><strong>Change the default password:</strong> You are still using the factory <code class="text-xs bg-red-100 dark:bg-red-900/40 px-1 rounded">admin</code> / <code class="text-xs bg-red-100 dark:bg-red-900/40 px-1 rounded">skywarn123</code> credentials. Set a new password under <strong>Monitoring → Authentication</strong> and save before changing other settings.</p>
+    </div>
+
+    <div id="config-runtime-warnings-banner" class="hidden mb-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+        <ul id="config-runtime-warnings-list" class="text-sm text-amber-900 dark:text-amber-100 list-disc list-inside space-y-1"></ul>
+    </div>
+
     <div id="config-restart-banner" class="hidden mb-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
         <div class="flex flex-wrap items-start justify-between gap-2">
             <p class="text-sm text-amber-900 dark:text-amber-100"><strong>Restart required:</strong> HTTP server host, port, or “Enable HTTP Server” was changed. Restart the <code class="text-xs bg-amber-100 dark:bg-amber-900/40 px-1 rounded">skywarnplus-ng</code> service (e.g. <code class="text-xs">sudo systemctl restart skywarnplus-ng</code>) for the new settings to apply.</p>
@@ -818,6 +826,12 @@
                             Add Alert Script
                         </button>
                     </div>
+
+                    <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-2">SkyDescribe (DTMF)</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">DTMF codes live in <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">/etc/skywarnplus-ng/config.yaml</code> under <code class="text-xs">skydescribe:</code>. Saving other settings here will not remove them.</p>
+                        <div id="skydescribe-readonly-panel" class="text-sm font-mono bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap text-gray-800 dark:text-gray-200">Loading…</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1078,7 +1092,7 @@
                                     <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                                 </svg>
                                 <p class="text-sm text-yellow-800 dark:text-yellow-200">
-                                    <strong>Security Note:</strong> Authentication only protects the configuration page. All monitoring features remain publicly accessible.
+                                    <strong>Security Note:</strong> Login is required to change settings and to run database or configuration actions. Alerts, logs, health, and live dashboard updates remain viewable without logging in.
                                 </p>
                             </div>
                         </div>
@@ -1993,14 +2007,16 @@
     }
 
     // Load configuration
-    async function loadConfig() {
+    async function loadConfig(silent) {
         try {
             configFormLoading = true;
             currentConfig = await apiCall('/api/config');
             window.currentConfig = currentConfig;  // Make available globally
             populateForm(currentConfig);
+            populateSkyDescribePanel(currentConfig);
+            updateConfigBanners(currentConfig);
             clearConfigDirty();
-            showNotification('Configuration loaded', 'success');
+            if (!silent) showNotification('Configuration loaded', 'success');
         } catch (error) {
             console.error('Failed to load configuration:', error);
             showNotification('Failed to load configuration', 'error');
@@ -2090,6 +2106,8 @@
         document.getElementById('scripts_enabled').checked = config.scripts?.enabled || false;
         document.getElementById('scripts_default_timeout').value = config.scripts?.default_timeout || 30;
         populateAlertScripts(config.scripts?.alert_scripts || {});
+        populateSkyDescribePanel(config);
+        updateConfigBanners(config);
 
         // Logging
         document.getElementById('logging_level').value = config.logging?.level || 'INFO';
@@ -2268,11 +2286,14 @@
                         <div class="font-medium text-gray-900 dark:text-white">${county.name}</div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">${county.state}, ${county.code}</div>
                     </div>
-                    <button type="button" onclick="addCountyFromSearch('${county.code}', '${county.name.replace(/'/g, "\\'")}')" class="btn-primary text-sm px-3 py-1">
+                    <button type="button" class="btn-primary text-sm px-3 py-1 county-add-btn" data-code="${esc(county.code)}" data-name="${esc(county.name)}">
                         Add
                     </button>
                 </div>
             `;
+            result.querySelector('.county-add-btn')?.addEventListener('click', function() {
+                addCountyFromSearch(this.dataset.code || '', this.dataset.name || '');
+            });
             resultsContainer.appendChild(result);
         }
         
@@ -2289,6 +2310,40 @@
         resultsContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center">Type to search counties...</p>';
     }
     
+    function populateSkyDescribePanel(config) {
+        const panel = document.getElementById('skydescribe-readonly-panel');
+        if (!panel) return;
+        const sd = config && config.skydescribe;
+        if (!sd || typeof sd !== 'object') {
+            panel.textContent = '(No skydescribe section in config)';
+            return;
+        }
+        try {
+            panel.textContent = JSON.stringify(sd, null, 2);
+        } catch (_) {
+            panel.textContent = String(sd);
+        }
+    }
+
+    function updateConfigBanners(config) {
+        const dp = document.getElementById('config-default-password-banner');
+        if (dp) {
+            dp.classList.toggle('hidden', !config?.auth_uses_default_password);
+        }
+        const rw = document.getElementById('config-runtime-warnings-banner');
+        const list = document.getElementById('config-runtime-warnings-list');
+        const warnings = Array.isArray(config?.runtime_warnings) ? config.runtime_warnings : [];
+        if (rw && list) {
+            if (warnings.length) {
+                list.innerHTML = warnings.map(function(w) { return '<li>' + esc(w) + '</li>'; }).join('');
+                rw.classList.remove('hidden');
+            } else {
+                list.innerHTML = '';
+                rw.classList.add('hidden');
+            }
+        }
+    }
+
     function addCountyFromSearch(code, name) {
         // Add the selected county to the list
         const container = document.getElementById('counties-container');
@@ -2776,17 +2831,17 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Type (glob pattern)</label>
-                    <input type="text" name="scripts.alert_scripts[${index}].event_type" value="${eventType}" 
+                    <input type="text" name="scripts.alert_scripts[${index}].event_type" value="${esc(eventType)}" 
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Command</label>
-                    <input type="text" name="scripts.alert_scripts[${index}].command" value="${script.command || ''}" 
+                    <input type="text" name="scripts.alert_scripts[${index}].command" value="${esc(script.command || '')}" 
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Arguments (comma-separated)</label>
-                    <input type="text" name="scripts.alert_scripts[${index}].args" value="${(script.args || []).join(', ')}" 
+                    <input type="text" name="scripts.alert_scripts[${index}].args" value="${esc((script.args || []).join(', '))}" 
                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                 </div>
                 <div>
@@ -3053,9 +3108,10 @@
                 if (rb) rb.classList.remove('hidden');
             }
             showNotification('Configuration saved successfully', 'success');
+            await loadConfig(true);
         } catch (error) {
             console.error('Failed to save configuration:', error);
-            showNotification('Failed to save configuration', 'error');
+            if (!error.message) showNotification('Failed to save configuration', 'error');
         } finally {
             if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveOrig; }
         }
@@ -3801,6 +3857,9 @@
     }
     document.addEventListener('DOMContentLoaded', function() {
         setupConfigDirtyListeners();
+        if (new URLSearchParams(window.location.search).get('change_password') === '1') {
+            showTab('monitoring');
+        }
         loadConfig();
         var primary = document.getElementById('config-primary-tabs');
         if (primary) primary.addEventListener('keydown', configTabKeydown);

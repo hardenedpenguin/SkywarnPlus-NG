@@ -296,6 +296,12 @@
                 });
                 
                 if (response.ok) {
+                    let data = {};
+                    try { data = await response.json(); } catch (_) {}
+                    if (data.must_change_password) {
+                        window.location.href = basePath + '/configuration?change_password=1';
+                        return;
+                    }
                     const params = new URLSearchParams(window.location.search);
                     let next = params.get('next') || '';
                     if (next && next.startsWith('/') && !/^\/\/|^\w+:/.test(next)) {
