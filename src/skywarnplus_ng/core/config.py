@@ -144,8 +144,8 @@ class TTSConfig(BaseModel):
         1.0,
         description="Speech speed/rate for Piper TTS (1.0 = normal, >1.0 = faster, <1.0 = slower)",
     )
-    output_format: str = Field("wav", description="Output audio format")
-    sample_rate: int = Field(22050, description="Sample rate in Hz")
+    output_format: str = Field("ulaw", description="Output audio format")
+    sample_rate: int = Field(8000, description="Sample rate in Hz")
     bit_rate: int = Field(128, description="Bit rate in kbps")
 
 

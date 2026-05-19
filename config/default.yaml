@@ -151,6 +151,11 @@ monitoring:
     host: "0.0.0.0"
     port: 8100
     base_path: ""  # Set to "/skywarnplus-ng" for reverse proxy
+    auth:
+      enabled: true
+      username: "admin"
+      password: "skywarn123"  # Change on first login via Configuration
+      session_timeout_hours: 24
   metrics:
     enabled: true
     retention_days: 7
