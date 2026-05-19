@@ -797,6 +797,7 @@
             const fullEndpoint = endpoint.startsWith('http') ? endpoint : `${basePath}${normalizedEndpoint}`;
             try {
                 const response = await fetch(fullEndpoint, {
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json', ...options.headers },
                     ...options
                 });
