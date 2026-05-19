@@ -38,11 +38,7 @@ def deep_merge_dict(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, 
     """Recursively merge overlay into base; overlay values win at leaves."""
     result = copy.deepcopy(base)
     for key, value in overlay.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = deep_merge_dict(result[key], value)
         else:
             result[key] = copy.deepcopy(value)

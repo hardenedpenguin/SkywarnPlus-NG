@@ -155,9 +155,7 @@ class ConfigApiMixin:
 
         try:
             pwd = getattr(
-                getattr(
-                    getattr(updated_config.monitoring, "http_server", None), "auth", None
-                ),
+                getattr(getattr(updated_config.monitoring, "http_server", None), "auth", None),
                 "password",
                 "",
             )
@@ -280,7 +278,10 @@ class ConfigApiMixin:
             if not isinstance(data, dict):
                 return web.json_response({"error": "JSON body must be an object"}, status=400)
 
-            if self.config.monitoring.http_server.auth.enabled and self._uses_default_dashboard_password():
+            if (
+                self.config.monitoring.http_server.auth.enabled
+                and self._uses_default_dashboard_password()
+            ):
                 if not incoming_sets_non_default_password(data, self._is_bcrypt_hash):
                     return web.json_response(
                         {
@@ -430,7 +431,10 @@ class ConfigApiMixin:
 
                 mon = merged.setdefault("monitoring", {}).setdefault("http_server", {})
                 auth = mon.setdefault("auth", {})
-                if not auth.get("secret_key") and self.config.monitoring.http_server.auth.secret_key:
+                if (
+                    not auth.get("secret_key")
+                    and self.config.monitoring.http_server.auth.secret_key
+                ):
                     auth["secret_key"] = self.config.monitoring.http_server.auth.secret_key
 
                 updated_config = AppConfig(**merged)

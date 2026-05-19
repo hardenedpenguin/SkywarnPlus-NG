@@ -211,9 +211,7 @@ class StatusApiMixin:
                 if key in status and status[key] is not None:
                     status[key] = _json_friendly(status[key])
 
-            status["is_configured"] = is_dashboard_configured(
-                self.config, self._verify_password
-            )
+            status["is_configured"] = is_dashboard_configured(self.config, self._verify_password)
 
             return web.json_response(status)
         except (TypeError, ValueError, KeyError, AttributeError) as e:

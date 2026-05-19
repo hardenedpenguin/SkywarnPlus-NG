@@ -27,9 +27,7 @@ def uses_default_dashboard_password(
     return verify_password(DEFAULT_DASHBOARD_PASSWORD, stored)
 
 
-def incoming_sets_non_default_password(
-    data: dict, is_bcrypt_hash: Callable[[str], bool]
-) -> bool:
+def incoming_sets_non_default_password(data: dict, is_bcrypt_hash: Callable[[str], bool]) -> bool:
     """True when the save payload sets a new admin password that is not the factory default."""
     try:
         mon = data.get("monitoring")
