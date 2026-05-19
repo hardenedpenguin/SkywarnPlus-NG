@@ -62,7 +62,8 @@ sudo systemctl status skywarnplus-ng
 
 | Item | Typical path |
 |------|----------------|
-| Application code | `/var/lib/skywarnplus-ng/src/` |
+| Installed Python package (what the service runs) | `/var/lib/skywarnplus-ng/venv/lib/python3.*/site-packages/skywarnplus_ng/` (printed at end of `install.sh`) |
+| Source copy (reference / dev) | `/var/lib/skywarnplus-ng/src/` |
 | Python virtualenv | `/var/lib/skywarnplus-ng/venv/` |
 | Config | `/etc/skywarnplus-ng/config.yaml` |
 | Data (state, tail audio, etc.) | `/var/lib/skywarnplus-ng/data/` |
