@@ -21,7 +21,7 @@ from ..config_merge import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from ...core.config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -298,10 +298,6 @@ class ConfigApiMixin:
             # Dashboard may send sparse counties arrays (null holes) after row removal.
             if "counties" in data:
                 data["counties"] = _sanitize_counties_list(data.get("counties"))
-
-            # Import required modules for YAML handling
-            from ruamel.yaml import YAML
-            from pathlib import Path
 
             # Validate the configuration data by creating a new AppConfig instance
             try:
