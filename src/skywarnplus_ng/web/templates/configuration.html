@@ -2112,7 +2112,7 @@
         document.getElementById('monitoring_update_check_repo').value = config.monitoring?.update_check?.github_repo || 'hardenedpenguin/SkywarnPlus-NG';
         document.getElementById('monitoring_http_enabled').checked = config.monitoring?.http_server?.enabled || false;
         document.getElementById('monitoring_http_host').value = config.monitoring?.http_server?.host || '0.0.0.0';
-        document.getElementById('monitoring_http_port').value = config.monitoring?.http_server?.port || 8080;
+        document.getElementById('monitoring_http_port').value = config.monitoring?.http_server?.port || 8100;
         document.getElementById('monitoring_metrics_enabled').checked = config.monitoring?.metrics?.enabled || false;
         document.getElementById('monitoring_metrics_retention').value = config.monitoring?.metrics?.retention_days || 7;
         
@@ -2339,23 +2339,22 @@
         row.innerHTML = `
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Code</label>
-                <input type="text" name="counties[${index}].code" value="${code}" 
+                <input type="text" name="counties[${index}].code" value="${esc(code)}" 
                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">County Name</label>
-                <input type="text" name="counties[${index}].name" value="${name}" 
+                <input type="text" name="counties[${index}].name" value="${esc(name)}" 
                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
             </div>
             <div class="flex flex-col gap-2">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Audio File (optional)</label>
                     <div class="flex gap-2 flex-wrap">
-                        <input type="text" name="counties[${index}].audio_file" id="county_audio_${index}" value="${audio_file || ''}" 
+                        <input type="text" name="counties[${index}].audio_file" id="county_audio_${index}" value="${esc(audio_file || '')}" 
                                placeholder="CountyName.ulaw"
                                class="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                        <button type="button" onclick="generateCountyAudio('${code}', '${name}', ${index}, event)" 
-                                class="flex-shrink-0 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        <button type="button" class="county-gen-audio-btn flex-shrink-0 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                                 title="Generate audio file from county name">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
@@ -2382,6 +2381,7 @@
             </div>
         `;
         container.appendChild(row);
+        reindexCountyRows();
     }
 
     function reindexCountyRows() {
@@ -2393,7 +2393,7 @@
             });
             const audioInput = row.querySelector('input[id^="county_audio_"]');
             if (audioInput) audioInput.id = 'county_audio_' + i;
-            const genBtn = row.querySelector('button[title*="Generate audio"]');
+            const genBtn = row.querySelector('.county-gen-audio-btn, button[title*="Generate audio"]');
             const codeInput = row.querySelector('input[name$=".code"]');
             const nameInput = row.querySelector('input[name$=".name"]');
             if (genBtn && codeInput && nameInput) {
@@ -2816,15 +2816,50 @@
         button.closest('.border').remove();
     }
 
-    // Form actions
-    async function saveConfig() {
-        const saveBtn = document.getElementById('config-save-btn');
-        const saveOrig = saveBtn ? saveBtn.innerHTML : '';
-        try {
-            if (saveBtn) {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5"></span> Saving…';
-            }
+    function setConfigNested(obj, path, value) {
+        let cur = obj;
+        for (let i = 0; i < path.length - 1; i++) {
+            if (!cur[path[i]]) cur[path[i]] = {};
+            cur = cur[path[i]];
+        }
+        cur[path[path.length - 1]] = value;
+    }
+
+    var CONFIG_FORM_CHECKBOXES = [
+        { id: 'enabled', path: ['enabled'] },
+        { id: 'asterisk_enabled', path: ['asterisk', 'enabled'] },
+        { id: 'ct_enabled', path: ['asterisk', 'courtesy_tones', 'enabled'] },
+        { id: 'id_change_enabled', path: ['asterisk', 'id_change', 'enabled'] },
+        { id: 'tts_slow', path: ['audio', 'tts', 'slow'] },
+        { id: 'alerts_say_alert', path: ['alerts', 'say_alert'] },
+        { id: 'alerts_say_all_clear', path: ['alerts', 'say_all_clear'] },
+        { id: 'alerts_tail_message', path: ['alerts', 'tail_message'] },
+        { id: 'alerts_tail_message_counties', path: ['alerts', 'tail_message_counties'] },
+        { id: 'alerts_with_county_names', path: ['alerts', 'with_county_names'] },
+        { id: 'alerts_say_alerts_changed', path: ['alerts', 'say_alerts_changed'] },
+        { id: 'alerts_say_alert_all', path: ['alerts', 'say_alert_all'] },
+        { id: 'alerts_with_multiples', path: ['alerts', 'with_multiples'] },
+        { id: 'scripts_enabled', path: ['scripts', 'enabled'] },
+        { id: 'database_enabled', path: ['database', 'enabled'] },
+        { id: 'database_backup_enabled', path: ['database', 'backup_enabled'] },
+        { id: 'monitoring_enabled', path: ['monitoring', 'enabled'] },
+        { id: 'monitoring_http_enabled', path: ['monitoring', 'http_server', 'enabled'] },
+        { id: 'monitoring_metrics_enabled', path: ['monitoring', 'metrics', 'enabled'] },
+        { id: 'monitoring_update_check_enabled', path: ['monitoring', 'update_check', 'enabled'] },
+        { id: 'monitoring_auth_enabled', path: ['monitoring', 'http_server', 'auth', 'enabled'] },
+        { id: 'pushover_enabled', path: ['pushover', 'enabled'] },
+        { id: 'dev_inject_enabled', path: ['dev', 'inject_enabled'] },
+        { id: 'dev_cleanslate', path: ['dev', 'cleanslate'] }
+    ];
+
+    function applyConfigCheckboxes(config) {
+        CONFIG_FORM_CHECKBOXES.forEach(function (item) {
+            const el = document.getElementById(item.id);
+            if (el) setConfigNested(config, item.path, el.checked);
+        });
+    }
+
+    function buildConfigFromForm() {
             reindexCountyRows();
             const formData = new FormData(document.getElementById('config-form'));
             const config = {};
@@ -2970,7 +3005,21 @@
                 if (!config.dev.inject_alerts) config.dev.inject_alerts = [];
             }
 
+            applyConfigCheckboxes(config);
             normalizeCountiesForSave(config);
+            return config;
+    }
+
+    // Form actions
+    async function saveConfig() {
+        const saveBtn = document.getElementById('config-save-btn');
+        const saveOrig = saveBtn ? saveBtn.innerHTML : '';
+        try {
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1.5"></span> Saving…';
+            }
+            const config = buildConfigFromForm();
 
             // Client-side validation
             const poll = parseInt(config.poll_interval, 10);
@@ -2996,7 +3045,7 @@
             clearConfigDirty();
             const oldHttp = prevMon.http_server || {};
             const newHttp = (config.monitoring && config.monitoring.http_server) || {};
-            const portChanged = (oldHttp.port != null ? oldHttp.port : 8080) !== (newHttp.port != null ? newHttp.port : 8080);
+            const portChanged = (oldHttp.port != null ? oldHttp.port : 8100) !== (newHttp.port != null ? newHttp.port : 8100);
             const hostChanged = String(oldHttp.host || '') !== String(newHttp.host || '');
             const enabledChanged = !!oldHttp.enabled !== !!newHttp.enabled;
             if (portChanged || hostChanged || enabledChanged) {
@@ -3044,35 +3093,8 @@
     }
 
     function previewConfig() {
-        const formData = new FormData(document.getElementById('config-form'));
-        const config = {};
-        
-        // Convert form data to nested object (same logic as saveConfig)
-        for (const [key, value] of formData.entries()) {
-            const keys = key.split('.');
-            let current = config;
-            
-            for (let i = 0; i < keys.length - 1; i++) {
-                if (!current[keys[i]]) {
-                    current[keys[i]] = {};
-                }
-                current = current[keys[i]];
-            }
-            
-            if (value === 'on') {
-                current[keys[keys.length - 1]] = true;
-            } else if (value === 'off') {
-                current[keys[keys.length - 1]] = false;
-            } else if (!isNaN(value) && value !== '') {
-                current[keys[keys.length - 1]] = Number(value);
-            } else if (keys[keys.length - 1] === 'args') {
-                // Handle args fields - convert comma-separated string to array
-                current[keys[keys.length - 1]] = value ? value.split(',').map(s => s.trim()).filter(s => s) : [];
-            } else {
-                current[keys[keys.length - 1]] = value;
-            }
-        }
-        
+        const config = buildConfigFromForm();
+
         // Open preview in new window
         const previewWindow = window.open('', '_blank', 'width=800,height=600');
         previewWindow.document.write(`
@@ -3702,17 +3724,11 @@
         button.innerHTML = '<svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
         
         try {
-            const basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
-            const response = await fetch(`${basePath}/api/counties/${encodeURIComponent(countyCode)}/generate-audio`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+            const data = await apiCall(`/api/counties/${encodeURIComponent(countyCode)}/generate-audio`, {
+                method: 'POST'
             });
-            
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
+
+            if (data.success) {
                 // Update the audio file input field
                 audioInput.value = data.filename;
                 
@@ -3730,6 +3746,9 @@
                 alert(`Failed to generate audio: ${data.error || 'Unknown error'}`);
             }
         } catch (error) {
+            if (error && error.message) {
+                alert(`Failed to generate audio: ${error.message}`);
+            }
             console.error('Error generating county audio:', error);
             alert(`Error generating audio: ${error.message}`);
         } finally {
