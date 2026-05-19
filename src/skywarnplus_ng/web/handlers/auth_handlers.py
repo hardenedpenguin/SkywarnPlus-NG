@@ -70,6 +70,11 @@ class AuthHandlersMixin:
             if username == auth_config.username and self._verify_password(
                 password, auth_config.password
             ):
+                if not self._is_bcrypt_hash(auth_config.password):
+                    self._persist_dashboard_auth_password(self._hash_password(password))
+
+                must_change = self._uses_default_dashboard_password()
+
                 # Create session
                 session = await new_session(request)
                 session["user_id"] = username
@@ -77,7 +82,10 @@ class AuthHandlersMixin:
                 session["remember"] = remember
 
                 logger.info(f"User {username} logged in successfully")
-                return web.json_response({"success": True, "message": "Login successful"})
+                body: dict = {"success": True, "message": "Login successful"}
+                if must_change:
+                    body["must_change_password"] = True
+                return web.json_response(body)
             else:
                 logger.warning(f"Failed login attempt for user: {username}")
                 return web.json_response({"error": "Invalid username or password"}, status=401)

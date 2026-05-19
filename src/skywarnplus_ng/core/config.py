@@ -276,6 +276,14 @@ class AuthConfig(BaseModel):
     secret_key: Optional[str] = Field(
         None, description="Secret key for session encryption (auto-generated if not set)"
     )
+    secure_cookies: bool = Field(
+        False,
+        description="Set Secure on session cookies (enable when dashboard is only served over HTTPS)",
+    )
+    cookie_secure_auto: bool = Field(
+        True,
+        description="When secure_cookies is false, add Secure if X-Forwarded-Proto is https",
+    )
 
 
 class HttpServerConfig(BaseModel):

@@ -42,6 +42,7 @@ from .handlers.api_status import StatusApiMixin
 from .handlers.api_updates_metrics import UpdatesMetricsApiMixin
 from .handlers.auth_handlers import AuthHandlersMixin
 from .handlers.page_handlers import PageHandlersMixin
+from .auth_security import request_is_https
 from .handlers.websocket_handlers import WebsocketHandlersMixin
 from .routes import register_dashboard_routes
 
@@ -365,7 +366,49 @@ class WebDashboard(
                 return bcrypt_lib.checkpw(password.encode("utf-8"), stored.encode("utf-8"))
             except Exception:
                 return False
-        return password == stored
+        # Legacy plaintext in YAML: verified above; caller should migrate to bcrypt on login.
+        if password == stored:
+            logger.warning(
+                "Dashboard auth password is stored in plaintext; it will be hashed on next login"
+            )
+            return True
+        return False
+
+    def _uses_default_dashboard_password(self) -> bool:
+        from .auth_security import uses_default_dashboard_password
+
+        stored = self.config.monitoring.http_server.auth.password
+        return uses_default_dashboard_password(self._verify_password, stored)
+
+    def _persist_dashboard_auth_password(self, password_hash: str) -> None:
+        """Write bcrypt hash to in-memory config and on-disk YAML."""
+        from ruamel.yaml import YAML
+        from ruamel.yaml.scalarstring import DoubleQuotedScalarString
+
+        from .config_merge import resolve_config_path
+
+        self.config.monitoring.http_server.auth.password = password_hash
+        if self.app:
+            self.app.config = self.config
+
+        config_path = resolve_config_path(self.config)
+        yaml = YAML()
+        yaml.preserve_quotes = True
+        with open(config_path, encoding="utf-8") as f:
+            data = yaml.load(f) or {}
+        mon = data.setdefault("monitoring", {}).setdefault("http_server", {}).setdefault("auth", {})
+        mon["password"] = DoubleQuotedScalarString(password_hash)
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f)
+        logger.info("Persisted hashed dashboard auth password to %s", config_path)
+
+    def _should_use_secure_cookies(self, request: Request) -> bool:
+        auth = self.config.monitoring.http_server.auth
+        if auth.secure_cookies:
+            return True
+        if auth.cookie_secure_auto and request_is_https(request):
+            return True
+        return False
 
     def _is_bcrypt_hash(self, s: str) -> bool:
         """Return True if s looks like a bcrypt hash (never write plaintext)."""
@@ -491,6 +534,7 @@ class WebDashboard(
 
         # Add authentication middleware AFTER session setup
         app.middlewares.append(self._auth_middleware)
+        app.middlewares.append(self._secure_cookie_middleware)
 
         # Add routes to the main app
         register_dashboard_routes(app, self)
@@ -505,7 +549,7 @@ class WebDashboard(
         return main_app
 
     def _path_requires_auth(self, request: Request) -> bool:
-        """Return True when the request must be authenticated."""
+        """Return True when the request must be authenticated (settings / mutating APIs only)."""
         if not self.config.monitoring.http_server.auth.enabled:
             return False
 
@@ -526,10 +570,25 @@ class WebDashboard(
         if path.startswith("/api/") and method in ("POST", "PUT", "DELETE", "PATCH"):
             return True
 
-        if path == "/ws" or path.endswith("/ws"):
-            return True
-
         return False
+
+    @web.middleware
+    async def _secure_cookie_middleware(self, request: Request, handler):
+        """Add Secure / SameSite=Lax to session cookies when HTTPS is in use."""
+        response = await handler(request)
+        if not self._should_use_secure_cookies(request):
+            return response
+        raw = response.headers.getall("Set-Cookie", [])
+        if not raw:
+            return response
+        response.headers.popall("Set-Cookie", None)
+        for cookie in raw:
+            if "Secure" not in cookie:
+                cookie = f"{cookie}; Secure"
+            if "SameSite" not in cookie:
+                cookie = f"{cookie}; SameSite=Lax"
+            response.headers.add("Set-Cookie", cookie)
+        return response
 
     @web.middleware
     async def _auth_middleware(self, request: Request, handler):
