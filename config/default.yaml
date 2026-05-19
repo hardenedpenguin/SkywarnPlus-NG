@@ -4,6 +4,7 @@
 enabled: true
 poll_interval: 60  # seconds
 data_dir: "/var/lib/skywarnplus-ng/data"
+dashboard_setup_complete: false  # Set true automatically after first configuration save
 
 # NWS API configuration
 nws:

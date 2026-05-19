@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 from aiohttp import web
 from aiohttp.web import Request, Response
 
+from ..setup_status import is_dashboard_configured
+
 if TYPE_CHECKING:
     pass
 
@@ -208,6 +210,10 @@ class StatusApiMixin:
             for key in ("last_poll", "last_all_clear", "nws_last_error_at"):
                 if key in status and status[key] is not None:
                     status[key] = _json_friendly(status[key])
+
+            status["is_configured"] = is_dashboard_configured(
+                self.config, self._verify_password
+            )
 
             return web.json_response(status)
         except (TypeError, ValueError, KeyError, AttributeError) as e:

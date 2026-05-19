@@ -14,8 +14,8 @@
 
 {% block content %}
 <div class="fade-in pb-24">
-    <!-- Getting started -->
-    <div class="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+    <!-- Getting started (hidden once dashboard_setup_complete / is_configured) -->
+    <div id="config-getting-started" class="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
         <p class="text-sm text-blue-800 dark:text-blue-200"><strong>Getting started:</strong> 1. Add counties (Counties tab) → 2. Configure NWS API if needed → 3. Set up Asterisk &amp; Audio (optional) → 4. Save configuration.</p>
     </div>
 
@@ -2304,6 +2304,10 @@
     }
     
     function updateConfigBanners(config) {
+        const gs = document.getElementById('config-getting-started');
+        if (gs) {
+            gs.classList.toggle('hidden', !!config?.is_configured);
+        }
         const dp = document.getElementById('config-default-password-banner');
         if (dp) {
             dp.classList.toggle('hidden', !config?.auth_uses_default_password);

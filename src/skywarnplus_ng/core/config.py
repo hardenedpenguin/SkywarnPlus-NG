@@ -406,6 +406,10 @@ class AppConfig(BaseSettings):
     config_file: Path = Field(Path("config.yaml"), description="Configuration file path")
     data_dir: Path = Field(Path("/var/lib/skywarnplus-ng/data"), description="Data directory")
     poll_interval: int = Field(60, description="Poll interval in seconds")
+    dashboard_setup_complete: bool = Field(
+        False,
+        description="Set true after initial configuration is saved from the dashboard",
+    )
 
     # Component configurations
     nws: NWSApiConfig = Field(default_factory=NWSApiConfig)

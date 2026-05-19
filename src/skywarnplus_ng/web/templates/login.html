@@ -191,7 +191,7 @@
             </form>
         </div>
 
-        <div class="text-center">
+        <div id="login-setup-hints" class="text-center">
             <p class="text-xs text-gray-500 dark:text-gray-400">
                 First time? Use <strong>admin</strong> / <strong>skywarn123</strong>, then change in Configuration.
             </p>
@@ -202,6 +202,19 @@
     </div>
 
     <script>
+        async function hideLoginSetupHintsIfConfigured() {
+            var el = document.getElementById('login-setup-hints');
+            if (!el) return;
+            try {
+                const basePath = '{{ base_path }}' || '';
+                const response = await fetch(basePath + '/api/status', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                const status = await response.json();
+                if (status.is_configured) el.classList.add('hidden');
+            } catch (_) {}
+        }
+        hideLoginSetupHintsIfConfigured();
+
         // Theme management
         function toggleTheme() {
             const html = document.documentElement;

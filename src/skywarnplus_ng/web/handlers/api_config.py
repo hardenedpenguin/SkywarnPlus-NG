@@ -12,6 +12,7 @@ from aiohttp import web
 from aiohttp.web import Request, Response
 
 from ..auth_security import incoming_sets_non_default_password
+from ..setup_status import is_dashboard_configured
 from ..config_merge import (
     deep_merge_dict,
     model_dump_for_merge,
@@ -251,6 +252,9 @@ class ConfigApiMixin:
                 self.config.monitoring.http_server.auth.enabled
                 and self._uses_default_dashboard_password()
             )
+            serializable_config["is_configured"] = is_dashboard_configured(
+                self.config, self._verify_password
+            )
 
             return web.json_response(redact_config_for_api(serializable_config))
         except Exception as e:
@@ -434,6 +438,7 @@ class ConfigApiMixin:
                     auth["secret_key"] = self.config.monitoring.http_server.auth.secret_key
 
                 updated_config = AppConfig(**merged)
+                updated_config.dashboard_setup_complete = True
 
                 config_path = resolve_config_path(self.config)
                 self._write_config_yaml(updated_config, config_path)
