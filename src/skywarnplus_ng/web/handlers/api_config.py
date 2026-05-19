@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 from aiohttp.web import Request, Response
 
+from ..auth_security import incoming_sets_non_default_password
 from ..config_merge import (
     deep_merge_dict,
     model_dump_for_merge,
@@ -88,6 +89,35 @@ def _list_piper_onnx_models(piper_dir: Path) -> list[str]:
             continue
         out.append(str(resolved))
     return out
+
+
+def _collect_runtime_warnings(config: Any) -> list[str]:
+    """User-visible warnings for TTS/runtime dependencies (e.g. onnxruntime cap)."""
+    warnings: list[str] = []
+    try:
+        import onnxruntime  # noqa: PLC0415
+
+        from packaging.version import Version
+
+        ver = Version(onnxruntime.__version__)
+        if ver >= Version("1.25.1"):
+            warnings.append(
+                f"onnxruntime {onnxruntime.__version__} may crash Piper TTS; "
+                "reinstall with pip so the version stays below 1.25.1 (see project README)."
+            )
+    except ImportError:
+        if getattr(config.audio, "tts", None) and config.audio.tts.engine == "piper":
+            warnings.append("onnxruntime is not installed; Piper TTS will not work.")
+
+    if getattr(config.audio, "tts", None) and config.audio.tts.engine == "piper":
+        model = Path(str(config.audio.tts.model_path))
+        if not model.is_file():
+            warnings.append(
+                f"Piper model file not found: {model}. "
+                "Download a voice from Hugging Face (rhasspy/piper-voices) or run install.sh."
+            )
+
+    return warnings
 
 
 class ConfigApiMixin:
@@ -216,6 +246,12 @@ class ConfigApiMixin:
             else:
                 serializable_config["piper_available_models"] = []
 
+            serializable_config["runtime_warnings"] = _collect_runtime_warnings(self.config)
+            serializable_config["auth_uses_default_password"] = (
+                self.config.monitoring.http_server.auth.enabled
+                and self._uses_default_dashboard_password()
+            )
+
             return web.json_response(redact_config_for_api(serializable_config))
         except Exception as e:
             logger.error(f"Error getting config: {e}")
@@ -239,6 +275,18 @@ class ConfigApiMixin:
             data = await request.json()
             if not isinstance(data, dict):
                 return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            if self.config.monitoring.http_server.auth.enabled and self._uses_default_dashboard_password():
+                if not incoming_sets_non_default_password(data, self._is_bcrypt_hash):
+                    return web.json_response(
+                        {
+                            "error": (
+                                "Change the default admin password "
+                                "(Monitoring → Authentication) before saving other settings."
+                            )
+                        },
+                        status=403,
+                    )
 
             # Hash dashboard auth password if present and plaintext (so we never persist plaintext)
             self._ensure_auth_password_hashed_in_dict(data)
@@ -563,6 +611,8 @@ class ConfigApiMixin:
         try:
             from shutil import copy2
 
+            from ..auth_security import resolve_config_backup_path
+
             config_path = resolve_config_path(self.config)
             body: dict = {}
             if request.can_read_body and request.content_type == "application/json":
@@ -573,22 +623,14 @@ class ConfigApiMixin:
                 except Exception:
                     pass
 
-            backup_path = body.get("backup_path")
-            if backup_path:
-                src = Path(str(backup_path))
-            else:
-                backups = sorted(
-                    config_path.parent.glob(f"{config_path.name}.backup.*"),
-                    reverse=True,
+            backup_arg = body.get("backup_path")
+            try:
+                src = resolve_config_backup_path(
+                    config_path,
+                    str(backup_arg) if backup_arg else None,
                 )
-                if not backups:
-                    return web.json_response(
-                        {"error": "No configuration backup files found"}, status=404
-                    )
-                src = backups[0]
-
-            if not src.is_file():
-                return web.json_response({"error": "Backup file not found"}, status=404)
+            except ValueError as e:
+                return web.json_response({"error": str(e)}, status=400)
 
             copy2(src, config_path)
             self._reload_config_from_disk()
