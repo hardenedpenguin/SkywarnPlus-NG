@@ -15,6 +15,72 @@ from ..core.models import WeatherAlert
 logger = logging.getLogger(__name__)
 
 
+def _normalize_event_name(event: str) -> str:
+    return " ".join((event or "").lower().split())
+
+
+def _alert_issue_time(alert: WeatherAlert) -> datetime:
+    when = alert.sent or alert.effective
+    if when is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if when.tzinfo is None:
+        return when.replace(tzinfo=timezone.utc)
+    return when
+
+
+def _county_codes_set(alert: WeatherAlert) -> set[str]:
+    return {str(c).strip().upper() for c in (alert.county_codes or []) if c and str(c).strip()}
+
+
+def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+    """
+    Collapse multiple active NWS CAP messages for the same event type.
+
+    NWS often leaves earlier advisories active until they expire when a newer
+    update or re-issuance is published. For each event name and county, keep only
+    the alert with the latest ``sent``/``effective`` time so the dashboard does not
+    list redundant flood (or other) advisories for the same area.
+    """
+    if len(alerts) < 2:
+        return alerts
+
+    by_event: Dict[str, List[WeatherAlert]] = {}
+    for alert in alerts:
+        by_event.setdefault(_normalize_event_name(alert.event), []).append(alert)
+
+    keep_ids: set[str] = set()
+    removed = 0
+
+    for event_alerts in by_event.values():
+        if len(event_alerts) < 2:
+            for alert in event_alerts:
+                keep_ids.add(alert.id)
+            continue
+
+        county_best: Dict[str, WeatherAlert] = {}
+        for alert in event_alerts:
+            issue_time = _alert_issue_time(alert)
+            for code in _county_codes_set(alert):
+                prev = county_best.get(code)
+                if prev is None or _alert_issue_time(prev) < issue_time:
+                    county_best[code] = alert
+
+        before = len(event_alerts)
+        for alert in county_best.values():
+            keep_ids.add(alert.id)
+        removed += before - len({a.id for a in county_best.values()})
+
+    if removed:
+        logger.info(
+            "Collapsed %s superseded NWS alert(s) (same event/county); %s -> %s",
+            removed,
+            len(alerts),
+            len(keep_ids),
+        )
+
+    return [alert for alert in alerts if alert.id in keep_ids]
+
+
 class DuplicateDetectionStrategy(Enum):
     """Strategies for detecting duplicate alerts."""
 

@@ -28,7 +28,11 @@ from ..database.manager import DatabaseManager, DatabaseError
 from ..web.server import WebDashboard
 from ..processing.pipeline import AlertProcessingPipeline, ProcessingStage
 from ..processing.filters import FilterChain, GeographicFilter, TimeFilter, SeverityFilter
-from ..processing.deduplication import AlertDeduplicator, DuplicateDetectionStrategy
+from ..processing.deduplication import (
+    AlertDeduplicator,
+    DuplicateDetectionStrategy,
+    collapse_superseded_nws_alerts,
+)
 from ..processing.prioritization import AlertPrioritizer
 from ..processing.validation import AlertValidator
 from ..processing.workflows import (
@@ -691,6 +695,14 @@ class SkywarnPlusApplication:
             active_alerts = self.nws_client.filter_active_alerts(
                 alerts, time_type=self.config.alerts.time_type
             )
+            before_collapse = len(active_alerts)
+            active_alerts = collapse_superseded_nws_alerts(active_alerts)
+            if len(active_alerts) < before_collapse:
+                logger.info(
+                    "Collapsed %s superseded NWS alert(s); %s active after deduplication",
+                    before_collapse - len(active_alerts),
+                    len(active_alerts),
+                )
 
             logger.info(
                 f"Fetched {len(active_alerts)} active alerts from {len(county_codes)} counties"
