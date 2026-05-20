@@ -32,14 +32,19 @@ def _county_codes_set(alert: WeatherAlert) -> set[str]:
     return {str(c).strip().upper() for c in (alert.county_codes or []) if c and str(c).strip()}
 
 
+def _alerts_share_county(a: WeatherAlert, b: WeatherAlert) -> bool:
+    """True when two alerts list at least one of the same county/zone code."""
+    return bool(_county_codes_set(a) & _county_codes_set(b))
+
+
 def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAlert]:
     """
     Collapse multiple active NWS CAP messages for the same event type.
 
     NWS often leaves earlier advisories active until they expire when a newer
-    update or re-issuance is published. For each event name and county, keep only
-    the alert with the latest ``sent``/``effective`` time so the dashboard does not
-    list redundant flood (or other) advisories for the same area.
+    update or re-issuance is published. For each event name, keep the newest
+    alert and drop older products that still list any of the same county codes
+    (so one monitored county does not show several flood advisories at once).
     """
     if len(alerts) < 2:
         return alerts
@@ -57,22 +62,33 @@ def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAl
                 keep_ids.add(alert.id)
             continue
 
-        county_best: Dict[str, WeatherAlert] = {}
-        for alert in event_alerts:
-            issue_time = _alert_issue_time(alert)
-            for code in _county_codes_set(alert):
-                prev = county_best.get(code)
-                if prev is None or _alert_issue_time(prev) < issue_time:
-                    county_best[code] = alert
+        sorted_alerts = sorted(event_alerts, key=_alert_issue_time, reverse=True)
+        kept: List[WeatherAlert] = []
+
+        for alert in sorted_alerts:
+            codes = _county_codes_set(alert)
+            if not codes:
+                # No geocode counties: treat as overlapping with any kept same-event alert.
+                if any(
+                    _alerts_share_county(alert, other) or not _county_codes_set(other)
+                    for other in kept
+                ):
+                    continue
+                kept.append(alert)
+                continue
+
+            if any(_alerts_share_county(alert, other) for other in kept):
+                continue
+            kept.append(alert)
 
         before = len(event_alerts)
-        for alert in county_best.values():
+        for alert in kept:
             keep_ids.add(alert.id)
-        removed += before - len({a.id for a in county_best.values()})
+        removed += before - len(kept)
 
     if removed:
         logger.info(
-            "Collapsed %s superseded NWS alert(s) (same event/county); %s -> %s",
+            "Collapsed %s superseded NWS alert(s) (same event/county overlap); %s -> %s",
             removed,
             len(alerts),
             len(keep_ids),

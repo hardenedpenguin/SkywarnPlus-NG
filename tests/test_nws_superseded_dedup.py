@@ -83,3 +83,16 @@ def test_disjoint_counties_same_event_both_kept() -> None:
     b = _flood("fb", "2026-05-20T08:05:00-05:00", ["TXC201"])
     out = collapse_superseded_nws_alerts([a, b])
     assert {x.id for x in out} == {"fa", "fb"}
+
+
+def test_four_floods_all_touching_txc039_collapse_to_one() -> None:
+    """Wrinkles case: several CAP products all include TXC039 with different area lists."""
+    alerts = [
+        _flood("f1", "2026-05-20T06:33:00-05:00", ["TXC039", "TXC201"]),
+        _flood("f2", "2026-05-20T07:16:00-05:00", ["TXC039"]),
+        _flood("f3", "2026-05-20T07:24:00-05:00", ["TXC039", "TXC201", "TXC201"]),
+        _flood("f4", "2026-05-20T08:00:00-05:00", ["TXC039"]),
+    ]
+    out = collapse_superseded_nws_alerts(alerts)
+    assert len([a for a in out if a.event == "Flood Advisory"]) == 1
+    assert out[0].id == "f4"
