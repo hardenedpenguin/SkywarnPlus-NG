@@ -138,7 +138,7 @@ class MobileCountyService:
     def _set_inactive(self, reason: str) -> None:
         if self._gps_active:
             logger.info(
-                "GPS mobile county inactive (%s); reverting to static counties for node %s",
+                "GPS mobile county inactive (%s) for node %s",
                 reason,
                 self.get_gps_controlled_node(),
             )
@@ -156,8 +156,23 @@ class MobileCountyService:
         node_config = self.config.asterisk.get_node_config(node_number)
         return bool(node_config and node_config.gps_controlled)
 
+    def is_gps_only_node(self, node_number: int) -> bool:
+        """True when the node uses GPS exclusively with no static county fallback."""
+        return self._is_gps_only_node(node_number)
+
+    def _is_gps_only_node(self, node_number: int) -> bool:
+        """True when the node uses GPS exclusively with no static county fallback."""
+        node_config = self.config.asterisk.get_node_config(node_number)
+        if not node_config or not node_config.gps_controlled:
+            return False
+        if node_config.gps_only:
+            return True
+        return not node_config.counties
+
     def _static_counties_for_node(self, node_number: int) -> Optional[Set[str]]:
         """Static county set for a node. None means all enabled counties."""
+        if self._is_gps_only_node(node_number):
+            return set()
         static = self.config.asterisk.get_counties_for_node(node_number)
         enabled = self._enabled_county_codes()
         if static:
@@ -227,6 +242,8 @@ class MobileCountyService:
                 if self.is_gps_active() and self._active_gps_county:
                     if self._active_gps_county in alert_set:
                         result.append(node_number)
+                elif self._is_gps_only_node(node_number):
+                    continue
                 elif node_counties:
                     if any(code in node_counties for code in alert_set):
                         result.append(node_number)
@@ -273,5 +290,6 @@ class MobileCountyService:
             )
         if node is not None:
             effective = self.get_effective_counties_for_node(node)
-            status["effective_counties"] = sorted(effective) if effective else None
+            status["gps_only"] = self._is_gps_only_node(node)
+            status["effective_counties"] = sorted(effective) if effective is not None else None
         return status

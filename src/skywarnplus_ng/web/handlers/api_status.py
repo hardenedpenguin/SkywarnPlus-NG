@@ -200,6 +200,7 @@ class StatusApiMixin:
                             "active": mobile_service.is_gps_active(),
                             "county_code": mobile_service.active_gps_county_code,
                             "county_name": mobile_service.active_gps_county_name,
+                            "gps_only": mobile_service.is_gps_only_node(node),
                         }
                     alerts_by_node[str(node)] = node_entry
 

@@ -33,8 +33,9 @@ asterisk:
   # Uncomment and modify the example below to use per-node county monitoring:
   # nodes:
   #   - number: 546050
-  #     counties: ["TXC039", "TXC201"]  # Static/home counties (used when GPS is inactive)
+  #     counties: ["TXC039", "TXC201"]  # Static/home counties (fallback when GPS inactive; omit for GPS-only)
   #     gps_controlled: true             # When gpsd has a fix, this node follows GPS county only
+  #     gps_only: true                    # Optional explicit flag; also implied when counties is empty
   #   - number: 546051
   #     counties: ["TXC201", "TXC167"]  # This node only monitors Galveston and Harris counties
   #   - number: 546052

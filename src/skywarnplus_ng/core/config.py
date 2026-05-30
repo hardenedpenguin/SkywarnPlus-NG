@@ -82,6 +82,11 @@ class NodeConfig(BaseModel):
         False,
         description="When true and gpsd has a valid fix, this node monitors only the GPS-resolved county.",
     )
+    gps_only: bool = Field(
+        False,
+        description="When true (requires gps_controlled), use GPS county only; no static fallback when GPS is inactive. "
+        "Also implied when gps_controlled is true and counties is empty or omitted.",
+    )
 
 
 class GpsdConfig(BaseModel):
@@ -597,15 +602,25 @@ class AppConfig(BaseSettings):
             node_number = None
             node_counties = None
             gps_controlled = False
+            gps_only = False
 
             if isinstance(node, NodeConfig):
                 node_number = node.number
                 node_counties = node.counties
                 gps_controlled = node.gps_controlled
+                gps_only = node.gps_only
             elif isinstance(node, dict):
                 node_number = node.get("number", "unknown")
                 node_counties = node.get("counties")
                 gps_controlled = bool(node.get("gps_controlled", False))
+                gps_only = bool(node.get("gps_only", False))
+
+            if gps_only and not gps_controlled:
+                warnings.append(f"Node {node_number} has gps_only set but is not gps_controlled")
+            if gps_only and node_counties:
+                warnings.append(
+                    f"Node {node_number} has gps_only set; static counties are ignored for fallback"
+                )
 
             if gps_controlled and isinstance(node_number, int):
                 gps_controlled_nodes.append(node_number)

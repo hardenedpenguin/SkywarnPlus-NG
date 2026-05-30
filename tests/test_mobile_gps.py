@@ -111,6 +111,73 @@ async def test_hysteresis_requires_multiple_polls():
         assert service.active_gps_county_code == "TXC201"
 
 
+@pytest.mark.asyncio
+async def test_gps_only_node_silent_when_inactive():
+    config = AppConfig(
+        counties=[],
+        asterisk={
+            "enabled": True,
+            "nodes": [NodeConfig(number=546050, counties=None, gps_controlled=True, gps_only=True)],
+        },
+        gpsd=GpsdConfig(enabled=True, hysteresis_polls=1),
+    )
+    nws = AsyncMock()
+    service = MobileCountyService(config, nws)
+
+    with patch("skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=None)):
+        await service.refresh()
+
+    assert not service.is_gps_active()
+    assert service.get_effective_counties_for_node(546050) == set()
+    assert service.get_fetch_counties() == []
+    assert service.get_nodes_for_counties(["TXC039"]) == []
+
+
+@pytest.mark.asyncio
+async def test_gps_only_inferred_from_empty_counties():
+    config = AppConfig(
+        counties=[CountyConfig(code="TXC039", name="Brazoria County", enabled=True)],
+        asterisk={
+            "enabled": True,
+            "nodes": [NodeConfig(number=546050, counties=None, gps_controlled=True)],
+        },
+        gpsd=GpsdConfig(enabled=True, hysteresis_polls=1),
+    )
+    nws = AsyncMock()
+    service = MobileCountyService(config, nws)
+
+    assert service.is_gps_only_node(546050)
+
+    with patch("skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=None)):
+        await service.refresh()
+
+    assert service.get_effective_counties_for_node(546050) == set()
+    assert service.get_nodes_for_counties(["TXC039"]) == []
+
+
+@pytest.mark.asyncio
+async def test_gps_only_active_without_global_counties_config():
+    config = AppConfig(
+        counties=[],
+        asterisk={
+            "enabled": True,
+            "nodes": [NodeConfig(number=546050, gps_controlled=True, gps_only=True)],
+        },
+        gpsd=GpsdConfig(enabled=True, hysteresis_polls=1),
+    )
+    nws = AsyncMock()
+    nws.resolve_county_from_coordinates = AsyncMock(return_value=("TXC167", "Harris County"))
+    service = MobileCountyService(config, nws)
+
+    with patch("skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=_fix())):
+        await service.refresh()
+
+    assert service.is_gps_active()
+    assert service.get_fetch_counties() == ["TXC167"]
+    assert service.get_nodes_for_counties(["TXC167"]) == [546050]
+    assert "TXC167" in service.get_monitored_county_codes()
+
+
 def test_gpsd_config_in_default_yaml():
     from pathlib import Path
 

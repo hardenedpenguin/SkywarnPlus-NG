@@ -270,7 +270,8 @@
                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
                         <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors only the county resolved from a local gpsd fix.
-                        Static counties on that node are used when GPS is inactive or stale (default 15 minutes).
+                        Static counties on that node are used when GPS is inactive or stale (default 15 minutes),
+                        unless <em>GPS only</em> is enabled (no static fallback; node is silent without a fix).
                         Requires <code class="text-xs">gpsd</code> and a USB GPS receiver on the server.
                     </p>
                 </div>
@@ -2557,6 +2558,7 @@
         let nodeNumber = '';
         let nodeCounties = null;
         let gpsControlled = false;
+        let gpsOnly = false;
         
         if (typeof node === 'number') {
             nodeNumber = node;
@@ -2565,6 +2567,7 @@
             nodeNumber = node.number || '';
             nodeCounties = node.counties || null;
             gpsControlled = !!node.gps_controlled;
+            gpsOnly = !!node.gps_only;
         }
         
         // Get available counties from config for the multi-select
@@ -2597,9 +2600,16 @@
                     </p>
                     <div class="mt-3 flex items-center">
                         <input type="checkbox" name="asterisk.nodes[${index}].gps_controlled" ${gpsControlled ? 'checked' : ''}
-                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded node-gps-controlled">
                         <label class="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                             GPS controlled (uses gpsd county when active)
+                        </label>
+                    </div>
+                    <div class="mt-2 flex items-center">
+                        <input type="checkbox" name="asterisk.nodes[${index}].gps_only" ${gpsOnly ? 'checked' : ''}
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded node-gps-only">
+                        <label class="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                            GPS only (no static fallback when fix unavailable)
                         </label>
                     </div>
                 </div>
@@ -3115,6 +3125,7 @@
                 config.asterisk.nodes = config.asterisk.nodes.map(function (node) {
                     if (typeof node !== 'object' || node === null) return node;
                     node.gps_controlled = !!node.gps_controlled;
+                    node.gps_only = !!node.gps_only;
                     return node;
                 });
             }
