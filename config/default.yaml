@@ -33,7 +33,8 @@ asterisk:
   # Uncomment and modify the example below to use per-node county monitoring:
   # nodes:
   #   - number: 546050
-  #     counties: ["TXC039", "TXC201"]  # This node only monitors Brazoria and Galveston counties
+  #     counties: ["TXC039", "TXC201"]  # Static/home counties (used when GPS is inactive)
+  #     gps_controlled: true             # When gpsd has a fix, this node follows GPS county only
   #   - number: 546051
   #     counties: ["TXC201", "TXC167"]  # This node only monitors Galveston and Harris counties
   #   - number: 546052
@@ -53,6 +54,16 @@ asterisk:
     wx_id: "WXID.ulaw"  # Audio file for WX mode ID
     rpt_id: "RPTID.ulaw"  # Audio file that Asterisk uses as ID
     id_alerts: []  # Alert events that trigger WX mode (e.g., ["Tornado Warning", "Severe Thunderstorm Warning"])
+
+# gpsd mobile county monitoring (optional; requires USB GPS and system gpsd package)
+gpsd:
+  enabled: false
+  host: "127.0.0.1"
+  port: 2947
+  stale_seconds: 900  # 15 minutes without a fresh fix before reverting to static counties
+  min_accuracy_meters: 2000  # Reject fixes with horizontal error above this (null to disable)
+  hysteresis_polls: 3  # Consecutive polls before switching GPS county at a boundary
+  connect_timeout_seconds: 5
 
 # Audio configuration
 audio:

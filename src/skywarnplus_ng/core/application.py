@@ -43,6 +43,7 @@ from ..processing.workflows import (
     ActionType,
 )
 from ..processing.analytics import AlertAnalytics
+from ..location.mobile_counties import MobileCountyService
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class SkywarnPlusApplication:
         self.validator: Optional[AlertValidator] = None
         self.workflow_engine: Optional[WorkflowEngine] = None
         self.analytics: Optional[AlertAnalytics] = None
+        self.mobile_county_service: Optional[MobileCountyService] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
         self._start_time = datetime.now(timezone.utc)
@@ -99,6 +101,9 @@ class SkywarnPlusApplication:
 
         # Initialize NWS client
         self.nws_client = NWSClient(self.config.nws)
+        self.mobile_county_service = MobileCountyService(self.config, self.nws_client)
+        if self.config.gpsd.enabled:
+            logger.info("gpsd mobile county monitoring enabled")
 
         # Test NWS connection
         if not await self.nws_client.test_connection():
@@ -569,8 +574,14 @@ class SkywarnPlusApplication:
         logger.debug("Starting poll cycle")
 
         try:
-            # Get county codes from configuration - includes per-node county filtering
-            county_codes = self.config.get_all_monitored_counties()
+            # Refresh GPS state and resolve counties for this poll cycle
+            if self.mobile_county_service:
+                await self.mobile_county_service.refresh()
+                county_codes = self.mobile_county_service.get_fetch_counties()
+                self._update_geographic_filter(county_codes)
+            else:
+                county_codes = self.config.get_all_monitored_counties()
+
             if not county_codes:
                 logger.warning("No enabled counties configured or no nodes monitoring any counties")
                 return
@@ -751,7 +762,10 @@ class SkywarnPlusApplication:
 
         # Filter alert county codes to only include monitored counties
         # This ensures alerts only show counties that are actually being monitored
-        monitored_county_codes = {county.code for county in self.config.counties if county.enabled}
+        if self.mobile_county_service:
+            monitored_county_codes = self.mobile_county_service.get_monitored_county_codes()
+        else:
+            monitored_county_codes = {county.code for county in self.config.counties if county.enabled}
         if monitored_county_codes:
             processed_alerts = [
                 self._filter_alert_counties(alert, monitored_county_codes)
@@ -1688,7 +1702,10 @@ class SkywarnPlusApplication:
                 return []
 
             # Determine which nodes should receive this alert based on counties
-            target_nodes = self.config.get_nodes_for_counties(county_codes_list)
+            if self.mobile_county_service:
+                target_nodes = self.mobile_county_service.get_nodes_for_counties(county_codes_list)
+            else:
+                target_nodes = self.config.get_nodes_for_counties(county_codes_list)
             if not target_nodes:
                 logger.warning(
                     f"No nodes configured to monitor counties {county_codes_list} - skipping announcement"
@@ -1760,6 +1777,14 @@ class SkywarnPlusApplication:
 
         except Exception as e:
             logger.error(f"Error announcing all-clear: {e}", exc_info=True)
+
+    def _update_geographic_filter(self, allowed_counties: List[str]) -> None:
+        """Keep the geographic pipeline filter aligned with the current poll counties."""
+        if not self.filter_chain:
+            return
+        for filter_obj in getattr(self.filter_chain, "filters", []):
+            if isinstance(filter_obj, GeographicFilter):
+                filter_obj.allowed_counties = list(allowed_counties)
 
     def get_status(self) -> Dict[str, Any]:
         """
@@ -1857,5 +1882,12 @@ class SkywarnPlusApplication:
             except Exception as e:
                 logger.error(f"Failed to get performance metrics: {e}")
                 status["performance_metrics"] = {}
+
+        if self.mobile_county_service:
+            try:
+                status["gps"] = self.mobile_county_service.get_status()
+            except Exception as e:
+                logger.error(f"Failed to get GPS status: {e}")
+                status["gps"] = {"enabled": self.config.gpsd.enabled, "active": False}
 
         return status

@@ -3,7 +3,7 @@ NWS API client for fetching weather alerts.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Tuple
 import logging
 import re
 import asyncio
@@ -110,6 +110,7 @@ class NWSClient:
             headers={"User-Agent": config.user_agent},
             follow_redirects=True,
         )
+        self._point_county_cache: Dict[Tuple[float, float], Tuple[str, str]] = {}
 
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -604,6 +605,64 @@ class NWSClient:
                 logger.info(f"Generated test alert: {title} for {county}")
 
         return alerts
+
+    async def resolve_county_from_coordinates(
+        self, latitude: float, longitude: float
+    ) -> Optional[Tuple[str, str]]:
+        """
+        Resolve an NWS county zone code (e.g. TXC039) from coordinates.
+
+        Uses the NWS /points endpoint and caches by rounded lat/lon.
+        """
+        cache_key = (round(latitude, 3), round(longitude, 3))
+        cached = self._point_county_cache.get(cache_key)
+        if cached:
+            return cached
+
+        url = f"/points/{cache_key[0]},{cache_key[1]}"
+        try:
+            data = await self._fetch_with_retry(url)
+        except NWSClientError as exc:
+            logger.warning("Failed to resolve county from coordinates: %s", exc)
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        props = data.get("properties")
+        if not isinstance(props, dict):
+            return None
+
+        county_url = props.get("county")
+        if not isinstance(county_url, str):
+            return None
+
+        match = re.search(r"/zones/county/([A-Z]{2}C\d{3})$", county_url.strip())
+        if not match:
+            return None
+
+        county_code = match.group(1)
+        county_name = county_code
+
+        zone_path = county_url
+        if county_url.startswith(self.config.base_url):
+            zone_path = county_url[len(self.config.base_url) :]
+        elif county_url.startswith("http"):
+            from urllib.parse import urlparse
+
+            zone_path = urlparse(county_url).path
+
+        try:
+            zone_data = await self._fetch_with_retry(zone_path)
+            zone_props = zone_data.get("properties") if isinstance(zone_data, dict) else None
+            if isinstance(zone_props, dict) and zone_props.get("name"):
+                county_name = str(zone_props["name"])
+        except NWSClientError:
+            logger.debug("County zone lookup failed for %s", county_code)
+
+        result = (county_code, county_name)
+        self._point_county_cache[cache_key] = result
+        return result
 
     async def test_connection(self) -> bool:
         """

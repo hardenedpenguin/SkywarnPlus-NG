@@ -265,6 +265,55 @@
                 </div>
             </div>
 
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mobile GPS (gpsd)</h3>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors only the county resolved from a local gpsd fix.
+                        Static counties on that node are used when GPS is inactive or stale (default 15 minutes).
+                        Requires <code class="text-xs">gpsd</code> and a USB GPS receiver on the server.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="gpsd_enabled" name="gpsd.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="gpsd_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable gpsd mobile county monitoring
+                        </label>
+                    </div>
+                    <div>
+                        <label for="gpsd_host" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">gpsd Host</label>
+                        <input type="text" id="gpsd_host" name="gpsd.host" value="127.0.0.1"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="gpsd_port" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">gpsd Port</label>
+                        <input type="number" id="gpsd_port" name="gpsd.port" min="1" max="65535" value="2947"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="gpsd_stale_seconds" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stale Timeout (seconds)</label>
+                        <input type="number" id="gpsd_stale_seconds" name="gpsd.stale_seconds" min="60" value="900"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="gpsd_min_accuracy_meters" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Min Accuracy (meters)</label>
+                        <input type="number" id="gpsd_min_accuracy_meters" name="gpsd.min_accuracy_meters" min="0" step="1" value="2000"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="gpsd_hysteresis_polls" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">County Switch Hysteresis (polls)</label>
+                        <input type="number" id="gpsd_hysteresis_polls" name="gpsd.hysteresis_polls" min="1" value="3"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="gpsd_connect_timeout_seconds" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Connect Timeout (seconds)</label>
+                        <input type="number" id="gpsd_connect_timeout_seconds" name="gpsd.connect_timeout_seconds" min="1" value="5"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+
             <!-- Courtesy Tones Section -->
             <div class="card mt-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Courtesy Tones</h3>
@@ -2041,6 +2090,14 @@
         document.getElementById('asterisk_playback_mode').value = config.asterisk?.playback_mode || 'local';
         populateNodes(config.asterisk?.nodes || []);
 
+        document.getElementById('gpsd_enabled').checked = config.gpsd?.enabled || false;
+        document.getElementById('gpsd_host').value = config.gpsd?.host || '127.0.0.1';
+        document.getElementById('gpsd_port').value = config.gpsd?.port ?? 2947;
+        document.getElementById('gpsd_stale_seconds').value = config.gpsd?.stale_seconds ?? 900;
+        document.getElementById('gpsd_min_accuracy_meters').value = config.gpsd?.min_accuracy_meters ?? 2000;
+        document.getElementById('gpsd_hysteresis_polls').value = config.gpsd?.hysteresis_polls ?? 3;
+        document.getElementById('gpsd_connect_timeout_seconds').value = config.gpsd?.connect_timeout_seconds ?? 5;
+
         // Courtesy tones
         document.getElementById('ct_enabled').checked = config.asterisk?.courtesy_tones?.enabled || false;
         document.getElementById('ct_tone_dir').value = config.asterisk?.courtesy_tones?.tone_dir || 'SOUNDS/TONES';
@@ -2499,6 +2556,7 @@
         // Handle both old format (int) and new format (object with number and counties)
         let nodeNumber = '';
         let nodeCounties = null;
+        let gpsControlled = false;
         
         if (typeof node === 'number') {
             nodeNumber = node;
@@ -2506,6 +2564,7 @@
         } else if (typeof node === 'object' && node !== null) {
             nodeNumber = node.number || '';
             nodeCounties = node.counties || null;
+            gpsControlled = !!node.gps_controlled;
         }
         
         // Get available counties from config for the multi-select
@@ -2536,6 +2595,13 @@
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Hold Ctrl/Cmd to select multiple. Leave empty to monitor all enabled counties.
                     </p>
+                    <div class="mt-3 flex items-center">
+                        <input type="checkbox" name="asterisk.nodes[${index}].gps_controlled" ${gpsControlled ? 'checked' : ''}
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label class="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                            GPS controlled (uses gpsd county when active)
+                        </label>
+                    </div>
                 </div>
                 <div class="flex-shrink-0 pt-6">
                     <button type="button" onclick="removeNodeRow(this)" class="btn-secondary text-sm">
@@ -2886,7 +2952,8 @@
         { id: 'monitoring_auth_enabled', path: ['monitoring', 'http_server', 'auth', 'enabled'] },
         { id: 'pushover_enabled', path: ['pushover', 'enabled'] },
         { id: 'dev_inject_enabled', path: ['dev', 'inject_enabled'] },
-        { id: 'dev_cleanslate', path: ['dev', 'cleanslate'] }
+        { id: 'dev_cleanslate', path: ['dev', 'cleanslate'] },
+        { id: 'gpsd_enabled', path: ['gpsd', 'enabled'] }
     ];
 
     function applyConfigCheckboxes(config) {
@@ -3044,6 +3111,13 @@
 
             applyConfigCheckboxes(config);
             normalizeCountiesForSave(config);
+            if (config.asterisk && Array.isArray(config.asterisk.nodes)) {
+                config.asterisk.nodes = config.asterisk.nodes.map(function (node) {
+                    if (typeof node !== 'object' || node === null) return node;
+                    node.gps_controlled = !!node.gps_controlled;
+                    return node;
+                });
+            }
             return config;
     }
 

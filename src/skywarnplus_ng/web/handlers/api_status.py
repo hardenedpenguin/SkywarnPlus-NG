@@ -37,6 +37,12 @@ class StatusApiMixin:
                     for county in self.app.config.counties
                     if county.enabled and county.name
                 }
+            mobile_service = getattr(self.app, "mobile_county_service", None)
+            if mobile_service and mobile_service.is_gps_active():
+                gps_code = mobile_service.active_gps_county_code
+                gps_name = mobile_service.active_gps_county_name
+                if gps_code and gps_name:
+                    county_code_to_name[gps_code] = gps_name
 
             # Build county_name_to_code once (used for area_desc matching)
             county_name_to_code = {}
@@ -168,15 +174,34 @@ class StatusApiMixin:
             alerts_by_node: Dict[str, Dict[str, Any]] = {}
             if self.app and hasattr(self.app, "config") and self.app.config.asterisk.enabled:
                 for node in self.app.config.asterisk.get_nodes_list():
-                    node_counties = self.app.config.asterisk.get_counties_for_node(node)
-                    allowed = (
-                        set(node_counties) if node_counties else set(county_code_to_name.keys())
-                    )
+                    if mobile_service:
+                        effective = mobile_service.get_effective_counties_for_node(node)
+                        allowed = (
+                            effective
+                            if effective is not None
+                            else set(county_code_to_name.keys())
+                        )
+                    else:
+                        node_counties = self.app.config.asterisk.get_counties_for_node(node)
+                        allowed = (
+                            set(node_counties) if node_counties else set(county_code_to_name.keys())
+                        )
                     node_alerts = build_alerts_data(allowed)
-                    alerts_by_node[str(node)] = {
+                    node_entry: Dict[str, Any] = {
                         "has_alerts": len(node_alerts) > 0,
                         "alerts": node_alerts,
+                        "effective_counties": sorted(allowed) if allowed else [],
                     }
+                    if (
+                        mobile_service
+                        and mobile_service.get_gps_controlled_node() == node
+                    ):
+                        node_entry["gps"] = {
+                            "active": mobile_service.is_gps_active(),
+                            "county_code": mobile_service.active_gps_county_code,
+                            "county_name": mobile_service.active_gps_county_name,
+                        }
+                    alerts_by_node[str(node)] = node_entry
 
             # Supermon compatibility: ?nodes=546051,546055,546056 requests status for specific nodes.
             # Ensure every requested node has an alerts_by_node entry (use per-node data if available,
@@ -193,6 +218,9 @@ class StatusApiMixin:
                         alerts_by_node[node_key] = global_entry
 
             status["alerts_by_node"] = alerts_by_node
+
+            if mobile_service:
+                status["gps"] = mobile_service.get_status()
 
             # Ensure asterisk_nodes is JSON-serializable (int | NodeConfig -> int | dict)
             status["asterisk_nodes"] = self._serialize_asterisk_nodes(

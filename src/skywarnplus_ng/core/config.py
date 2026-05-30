@@ -78,6 +78,33 @@ class NodeConfig(BaseModel):
         None,
         description="County codes this node monitors (e.g., ['TXC039', 'TXC201']). If null/empty, node monitors all enabled counties.",
     )
+    gps_controlled: bool = Field(
+        False,
+        description="When true and gpsd has a valid fix, this node monitors only the GPS-resolved county.",
+    )
+
+
+class GpsdConfig(BaseModel):
+    """gpsd integration for mobile county monitoring."""
+
+    enabled: bool = Field(False, description="Enable gpsd-based mobile county detection")
+    host: str = Field("127.0.0.1", description="gpsd host")
+    port: int = Field(2947, description="gpsd JSON port")
+    stale_seconds: int = Field(
+        900,
+        ge=60,
+        description="Revert to static counties when no fresh fix within this many seconds",
+    )
+    min_accuracy_meters: Optional[float] = Field(
+        2000,
+        description="Reject fixes with horizontal error above this value (null disables)",
+    )
+    hysteresis_polls: int = Field(
+        3,
+        ge=1,
+        description="Consecutive polls required before switching GPS county",
+    )
+    connect_timeout_seconds: int = Field(5, ge=1, description="Timeout connecting to gpsd")
 
 
 class AsteriskConfig(BaseModel):
@@ -425,6 +452,7 @@ class AppConfig(BaseSettings):
     skydescribe: SkyDescribeConfig = Field(default_factory=SkyDescribeConfig)
     pushover: PushOverConfig = Field(default_factory=PushOverConfig)
     dev: DevConfig = Field(default_factory=DevConfig)
+    gpsd: GpsdConfig = Field(default_factory=GpsdConfig)
 
     @classmethod
     def from_yaml(cls, config_path=None) -> "AppConfig":
@@ -564,16 +592,23 @@ class AppConfig(BaseSettings):
             )
 
         # Check for node configurations referencing invalid counties
+        gps_controlled_nodes: List[int] = []
         for node in self.asterisk.nodes:
             node_number = None
             node_counties = None
+            gps_controlled = False
 
             if isinstance(node, NodeConfig):
                 node_number = node.number
                 node_counties = node.counties
+                gps_controlled = node.gps_controlled
             elif isinstance(node, dict):
                 node_number = node.get("number", "unknown")
                 node_counties = node.get("counties")
+                gps_controlled = bool(node.get("gps_controlled", False))
+
+            if gps_controlled and isinstance(node_number, int):
+                gps_controlled_nodes.append(node_number)
 
             if node_counties:
                 # Check for invalid county codes
@@ -592,6 +627,19 @@ class AppConfig(BaseSettings):
                     warnings.append(
                         f"Node {node_number} monitors disabled counties: {', '.join(sorted(disabled_counties))}"
                     )
+
+        if len(gps_controlled_nodes) > 1:
+            warnings.append(
+                "Multiple nodes are marked gps_controlled; only one GPS-controlled node is supported: "
+                + ", ".join(str(n) for n in sorted(gps_controlled_nodes))
+            )
+        if self.gpsd.enabled and not gps_controlled_nodes:
+            warnings.append("gpsd is enabled but no node is marked gps_controlled")
+        if gps_controlled_nodes and not self.gpsd.enabled:
+            warnings.append(
+                f"Node(s) {', '.join(str(n) for n in sorted(gps_controlled_nodes))} "
+                "are gps_controlled but gpsd.enabled is false"
+            )
 
         return warnings
 
