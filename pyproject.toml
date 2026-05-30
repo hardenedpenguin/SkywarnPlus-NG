@@ -34,8 +34,8 @@ dependencies = [
     "click>=8.1.0",
     "rich>=13.7.0",
     "gtts>=2.4.0",
-    # onnxruntime 1.25.1+ can abort (libstdc++ vector assert) with Piper on some nodes; cap below that.
-    "onnxruntime>=1,<1.25.1",
+    # onnxruntime 1.25.1+ has caused Piper ABRT on some nodes (issue #6); no upper pin while testing newer releases.
+    "onnxruntime>=1",
     "piper-tts>=1.0.0",
     "soundfile>=0.12.0",
     "numpy>=1.24.0",

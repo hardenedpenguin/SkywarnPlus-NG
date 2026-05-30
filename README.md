@@ -118,7 +118,7 @@ On other distributions, install the equivalent packages, then run `./install.sh`
 ### Reinstall / upgrade from a newer tarball
 
 - Extract a **new** release directory and run `./install.sh` again.
-- **`install.sh`** runs **`pip install --upgrade --upgrade-strategy eager .`** so existing virtualenvs pick up **newer dependency releases** that still match **`pyproject.toml`** (for example **`onnxruntime`** up to the pinned ceiling), not only the minimum versions that already satisfied the old install.
+- **`install.sh`** runs **`pip install --upgrade --upgrade-strategy eager .`** so existing virtualenvs pick up **newer dependency releases** that still match **`pyproject.toml`**, not only the minimum versions that already satisfied the old install.
 - The running service loads Python from the **venv site-packages** path printed at the end of install—not from **`/var/lib/skywarnplus-ng/src/`** alone. Hotfixes must update that package or re-run **`pip install`** from the install directory.
 - If **`/etc/skywarnplus-ng/config.yaml` already exists**, the installer **keeps** your config and writes an updated example to **`config.yaml.example`** for comparison.
 - After upgrading, restart: **`sudo systemctl restart skywarnplus-ng`**.

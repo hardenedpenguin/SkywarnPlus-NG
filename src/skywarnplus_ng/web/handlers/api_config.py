@@ -93,7 +93,7 @@ def _list_piper_onnx_models(piper_dir: Path) -> list[str]:
 
 
 def _collect_runtime_warnings(config: Any) -> list[str]:
-    """User-visible warnings for TTS/runtime dependencies (e.g. onnxruntime cap)."""
+    """User-visible warnings for TTS/runtime dependencies."""
     warnings: list[str] = []
     try:
         import onnxruntime  # noqa: PLC0415
@@ -103,8 +103,8 @@ def _collect_runtime_warnings(config: Any) -> list[str]:
         ver = Version(onnxruntime.__version__)
         if ver >= Version("1.25.1"):
             warnings.append(
-                f"onnxruntime {onnxruntime.__version__} may crash Piper TTS; "
-                "reinstall with pip so the version stays below 1.25.1 (see project README)."
+                f"onnxruntime {onnxruntime.__version__} is installed; some nodes have seen Piper "
+                "crashes (ABRT) on 1.25.1+. Report results if you are testing a newer release."
             )
     except ImportError:
         if getattr(config.audio, "tts", None) and config.audio.tts.engine == "piper":
