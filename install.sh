@@ -22,6 +22,10 @@ CONFIG_DIR="/etc/skywarnplus-ng"
 TMP_AUDIO_DIR="/tmp/skywarnplus-ng-audio"
 VENV_PATH="${INSTALL_ROOT}/venv"
 VENV_PYTHON="${VENV_PATH}/bin/python"
+# When using sudo -u asterisk, use app-owned paths (not the installer's $HOME/.cache/pip).
+APP_HOME="${INSTALL_ROOT}"
+APP_CACHE="${INSTALL_ROOT}/.cache"
+PIP_CACHE_DIR="${APP_CACHE}/pip"
 PIPER_MODEL_DIR="${INSTALL_ROOT}/piper"
 # Piper voice: "low" (smaller, faster) or "medium" (better quality). Set PIPER_QUALITY=medium to use medium.
 PIPER_QUALITY="${PIPER_QUALITY:-low}"
@@ -62,9 +66,13 @@ copy_dir_with_ownership() {
     set_ownership "${dst}"
 }
 
-# Run command as app user
+# Run command as app user (HOME/cache under INSTALL_ROOT so pip does not use installer's ~/.cache).
 run_as_app_user() {
-    sudo -u "${APP_USER}" bash -c "$1"
+    sudo -u "${APP_USER}" env \
+        HOME="${APP_HOME}" \
+        XDG_CACHE_HOME="${APP_CACHE}" \
+        PIP_CACHE_DIR="${PIP_CACHE_DIR}" \
+        bash -c "$1"
 }
 
 # Run as app user with TMPDIR on persistent storage (see SKYWARN_TMPDIR).
@@ -154,6 +162,7 @@ create_directories() {
     # Main application directories
     sudo mkdir -p "${INSTALL_ROOT}"/{descriptions,audio,data,scripts,piper}
     sudo mkdir -p "${INSTALL_ROOT}/src/skywarnplus_ng/web/static"
+    sudo mkdir -p "${PIP_CACHE_DIR}"
     sudo mkdir -p "${LOG_DIR}"
     sudo mkdir -p "${CONFIG_DIR}"
     sudo mkdir -p "${TMP_AUDIO_DIR}"
