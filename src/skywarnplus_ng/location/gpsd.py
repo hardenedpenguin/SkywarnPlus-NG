@@ -79,9 +79,12 @@ async def poll_gpsd_fix(
                 payload = json.loads(line.decode("utf-8", errors="replace"))
             except json.JSONDecodeError:
                 continue
-            if payload.get("class") != "POLL":
+            msg_class = payload.get("class")
+            if msg_class not in ("POLL", "TPV"):
                 continue
-            return _fix_from_poll(payload)
+            fix = _fix_from_gpsd_message(payload)
+            if fix is not None:
+                return fix
         return None
     finally:
         writer.close()
@@ -91,7 +94,7 @@ async def poll_gpsd_fix(
             pass
 
 
-def _fix_from_poll(payload: dict[str, Any]) -> Optional[GpsFix]:
+def _fix_from_gpsd_message(payload: dict[str, Any]) -> Optional[GpsFix]:
     mode = int(payload.get("mode") or 0)
     if mode < 2:
         return None
