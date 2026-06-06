@@ -130,7 +130,7 @@ class ConfigApiMixin:
         new_config = AppConfig.from_yaml(config_path)
         self.config = new_config
         if self.app:
-            self.app.config = new_config
+            self.app.apply_runtime_config(new_config)
         return config_path
 
     def _write_config_yaml(self, updated_config: "AppConfig", config_path: Path) -> None:
@@ -380,11 +380,38 @@ class ConfigApiMixin:
                             and data["alerts"]["tail_message_suffix"].strip() == ""
                         ):
                             data["alerts"]["tail_message_suffix"] = None
+                    if "quiet_hours" in data["alerts"] and isinstance(data["alerts"]["quiet_hours"], dict):
+                        tz = data["alerts"]["quiet_hours"].get("timezone")
+                        if isinstance(tz, str) and tz.strip() == "":
+                            data["alerts"]["quiet_hours"]["timezone"] = None
+
+                if "nhc" in data and isinstance(data["nhc"], dict):
+                    for coord in ("static_lat", "static_lon"):
+                        if coord in data["nhc"] and isinstance(data["nhc"][coord], str):
+                            if data["nhc"][coord].strip() == "":
+                                data["nhc"][coord] = None
+
+                if "gpsd" in data and isinstance(data["gpsd"], dict):
+                    acc = data["gpsd"].get("min_accuracy_meters")
+                    if isinstance(acc, str) and acc.strip() == "":
+                        data["gpsd"]["min_accuracy_meters"] = None
 
                 # Normalize empty numeric strings from form (form sends '' for untouched fields)
                 _numeric_defaults = {
+                    "alerts": {"announcement_hold_minutes": 0},
                     "audio": {"tts": {"speed": 1.0, "sample_rate": 22050, "bit_rate": 128}},
                     "filtering": {"max_alerts": 99},
+                    "gpsd": {
+                        "port": 2947,
+                        "stale_seconds": 900,
+                        "hysteresis_polls": 3,
+                        "connect_timeout_seconds": 5,
+                    },
+                    "nhc": {
+                        "poll_interval_minutes": 60,
+                        "max_distance_miles": 1000,
+                        "max_advisory_age_hours": 4,
+                    },
                     "scripts": {"default_timeout": 30},
                     "database": {
                         "cleanup_interval_hours": 24,
@@ -415,6 +442,12 @@ class ConfigApiMixin:
                                 out[k] = subdef
                             elif subcfg is not None and isinstance(subcfg, (int, float)):
                                 out[k] = subcfg
+                            elif subcfg is None and k in (
+                                "static_lat",
+                                "static_lon",
+                                "min_accuracy_meters",
+                            ):
+                                out[k] = None
                             else:
                                 out[k] = v
                         else:
@@ -446,7 +479,7 @@ class ConfigApiMixin:
                 # Update the application's config reference
                 self.config = updated_config
                 if self.app:
-                    self.app.config = updated_config
+                    self.app.apply_runtime_config(updated_config)
 
                 logger.info(f"Configuration saved to {config_path}")
 

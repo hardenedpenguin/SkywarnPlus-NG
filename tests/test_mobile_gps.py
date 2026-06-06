@@ -98,9 +98,6 @@ async def test_hysteresis_requires_multiple_polls():
         "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=_fix())
     ):
         await service.refresh()
-        assert not service.is_gps_active()
-
-        await service.refresh()
         assert service.is_gps_active()
         assert service.active_gps_county_code == "TXC167"
 
@@ -108,7 +105,36 @@ async def test_hysteresis_requires_multiple_polls():
         assert service.active_gps_county_code == "TXC167"
 
         await service.refresh()
+        assert service.active_gps_county_code == "TXC167"
+
+        await service.refresh()
         assert service.active_gps_county_code == "TXC201"
+
+
+@pytest.mark.asyncio
+async def test_initial_county_lock_is_immediate_with_higher_hysteresis():
+    config = _mobile_config()
+    config.gpsd.hysteresis_polls = 3
+    nws = AsyncMock()
+    nws.resolve_county_from_coordinates = AsyncMock(return_value=("TXC167", "Harris County"))
+    service = MobileCountyService(config, nws)
+
+    with patch(
+        "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=_fix())
+    ):
+        await service.refresh()
+
+    assert service.is_gps_active()
+    assert service.active_gps_county_code == "TXC167"
+    assert service.get_fetch_counties() == ["TXC039", "TXC167"]
+
+
+@pytest.mark.asyncio
+async def test_get_position_uses_fresh_fix_without_county_lock():
+    service = MobileCountyService(_mobile_config(), AsyncMock())
+    service._last_fix = _fix()
+    assert service.get_position() == (29.7604, -95.3698)
+    assert not service.is_gps_active()
 
 
 @pytest.mark.asyncio

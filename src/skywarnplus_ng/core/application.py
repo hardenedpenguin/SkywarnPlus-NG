@@ -44,6 +44,8 @@ from ..processing.workflows import (
 )
 from ..processing.analytics import AlertAnalytics
 from ..location.mobile_counties import MobileCountyService
+from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
+from ..playback.policy import PlaybackPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +91,8 @@ class SkywarnPlusApplication:
         self.workflow_engine: Optional[WorkflowEngine] = None
         self.analytics: Optional[AlertAnalytics] = None
         self.mobile_county_service: Optional[MobileCountyService] = None
+        self.playback_policy: Optional[PlaybackPolicy] = None
+        self.nhc_service: Optional[NhcCycloneService] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
         self._start_time = datetime.now(timezone.utc)
@@ -102,8 +106,12 @@ class SkywarnPlusApplication:
         # Initialize NWS client
         self.nws_client = NWSClient(self.config.nws)
         self.mobile_county_service = MobileCountyService(self.config, self.nws_client)
+        self.playback_policy = PlaybackPolicy(self.config.alerts)
+        self.nhc_service = NhcCycloneService(self.config, self.mobile_county_service)
         if self.config.gpsd.enabled:
             logger.info("gpsd mobile county monitoring enabled")
+        if self.config.nhc.enabled:
+            logger.info("NHC tropical cyclone monitoring enabled")
 
         # Test NWS connection
         if not await self.nws_client.test_connection():
@@ -521,6 +529,9 @@ class SkywarnPlusApplication:
         if self.nws_client:
             await self.nws_client.close()
 
+        if self.nhc_service:
+            await self.nhc_service.close()
+
         # Save final state (only if we initialized far enough to load it)
         if hasattr(self, "state") and self.state is not None:
             self.state_manager.save_state(self.state)
@@ -612,6 +623,9 @@ class SkywarnPlusApplication:
 
             # Process alerts
             await self._process_alerts(current_alerts)
+
+            # NHC tropical cyclone advisories (separate cadence)
+            await self._handle_nhc_advisories()
 
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
@@ -858,6 +872,8 @@ class SkywarnPlusApplication:
                     announcement_nodes = await self._announce_alert(alert)
                     if announcement_nodes:
                         self.state_manager.mark_alert_announced(self.state, alert.id)
+                        if self.playback_policy:
+                            self.playback_policy.record_announcement(alert, self.state)
 
                 # Execute alert script
                 if self.script_manager:
@@ -1169,6 +1185,17 @@ class SkywarnPlusApplication:
             if self._matches_pattern(alert.event, blocked_event):
                 logger.debug(
                     f"Alert {alert.event} blocked from announcement by pattern: {blocked_event}"
+                )
+                return False
+
+        if self.playback_policy and hasattr(self, "state") and self.state is not None:
+            allowed, reason = self.playback_policy.should_announce_voice(alert, self.state)
+            if not allowed:
+                logger.info(
+                    "Skipping voice announcement for %s (%s): %s",
+                    alert.event,
+                    alert.id,
+                    reason,
                 )
                 return False
 
@@ -1579,6 +1606,8 @@ class SkywarnPlusApplication:
                 announcement_nodes = await self._announce_alert(alert)
                 if announcement_nodes:
                     self.state_manager.mark_alert_announced(self.state, alert.id)
+                    if self.playback_policy:
+                        self.playback_policy.record_announcement(alert, self.state)
 
     async def _announce_alert(self, alert: WeatherAlert) -> List[int]:
         """
@@ -1738,6 +1767,73 @@ class SkywarnPlusApplication:
             logger.error(f"Error announcing alert {alert.event}: {e}", exc_info=True)
             return []
 
+    async def _handle_nhc_advisories(self) -> None:
+        """Poll NHC feed and announce new tropical cyclone advisories within range."""
+        if not self.nhc_service or not hasattr(self, "state") or self.state is None:
+            return
+        if not self.nhc_service.should_poll():
+            return
+
+        advisories = await self.nhc_service.poll(self.state)
+        for advisory in advisories:
+            if self.playback_policy:
+                allowed, reason = self.playback_policy.should_announce_cyclone()
+                if not allowed:
+                    logger.info(
+                        "Skipping NHC advisory %s (%s): %s",
+                        advisory.advisory_key,
+                        advisory.name,
+                        reason,
+                    )
+                    continue
+            if await self._announce_cyclone(advisory):
+                self.nhc_service.mark_announced(advisory.advisory_key, self.state)
+
+    async def _announce_cyclone(self, advisory: CycloneAdvisory) -> bool:
+        """Announce an NHC tropical cyclone advisory on all configured nodes."""
+        logger.info(
+            "Announcing NHC advisory: %s %s (%s mi)",
+            advisory.storm_type,
+            advisory.name,
+            advisory.distance_miles,
+        )
+
+        if not self.audio_manager:
+            logger.warning("Audio manager not available - skipping cyclone announcement")
+            return False
+        if not self.asterisk_manager or not self.config.asterisk.enabled:
+            logger.warning("Asterisk not available - skipping cyclone announcement")
+            return False
+        if not self.config.asterisk.nodes:
+            logger.warning("No Asterisk nodes configured - skipping cyclone announcement")
+            return False
+
+        try:
+            audio_path = self.audio_manager.generate_spoken_audio(
+                advisory.tts_text,
+                prefix=f"nhc_{advisory.atcf}",
+            )
+            if not audio_path or not audio_path.exists() or audio_path.stat().st_size == 0:
+                logger.error("Failed to generate cyclone audio for %s", advisory.name)
+                return False
+
+            successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)
+            if successful_nodes:
+                logger.info(
+                    "Cyclone advisory audio playing on %s nodes: %s",
+                    len(successful_nodes),
+                    successful_nodes,
+                )
+                if self.config.asterisk.audio_delay > 0:
+                    await asyncio.sleep(self.config.asterisk.audio_delay / 1000.0)
+                return True
+
+            logger.error("Failed to play cyclone audio on any nodes: %s", advisory.name)
+            return False
+        except Exception as e:
+            logger.error("Error announcing cyclone %s: %s", advisory.name, e, exc_info=True)
+            return False
+
     async def _announce_all_clear(self) -> None:
         """Announce all-clear message using TTS and Asterisk."""
         logger.info("Announcing all-clear message")
@@ -1777,6 +1873,33 @@ class SkywarnPlusApplication:
 
         except Exception as e:
             logger.error(f"Error announcing all-clear: {e}", exc_info=True)
+
+    def apply_runtime_config(self, config: AppConfig) -> None:
+        """Push a new AppConfig to services that cache config references at init."""
+        self.config = config
+
+        for warning in config.validate_node_county_mapping():
+            logger.warning("Configuration validation: %s", warning)
+
+        if self.nws_client:
+            self.nws_client.config = config.nws
+        if self.mobile_county_service:
+            self.mobile_county_service.config = config
+        if self.playback_policy:
+            self.playback_policy.config = config.alerts
+        if self.nhc_service:
+            self.nhc_service.config = config
+        if self.audio_manager:
+            self.audio_manager.config = config.audio
+        if self.script_manager:
+            self.script_manager.config = config.scripts
+        if self.web_dashboard:
+            self.web_dashboard.config = config
+
+        if config.gpsd.enabled:
+            logger.info("gpsd mobile county monitoring enabled (config updated)")
+        if config.nhc.enabled:
+            logger.info("NHC tropical cyclone monitoring enabled (config updated)")
 
     def _update_geographic_filter(self, allowed_counties: List[str]) -> None:
         """Keep the geographic pipeline filter aligned with the current poll counties."""
@@ -1889,5 +2012,21 @@ class SkywarnPlusApplication:
             except Exception as e:
                 logger.error(f"Failed to get GPS status: {e}")
                 status["gps"] = {"enabled": self.config.gpsd.enabled, "active": False}
+
+        if self.playback_policy and initialized:
+            try:
+                status["playback"] = self.playback_policy.get_status(self.state)
+            except Exception as e:
+                logger.error(f"Failed to get playback status: {e}")
+                status["playback"] = {}
+
+        if self.nhc_service and initialized:
+            try:
+                nhc_status = self.nhc_service.get_status(self.state)
+                nhc_status["enabled"] = self.config.nhc.enabled
+                status["nhc"] = nhc_status
+            except Exception as e:
+                logger.error(f"Failed to get NHC status: {e}")
+                status["nhc"] = {"enabled": self.config.nhc.enabled}
 
         return status

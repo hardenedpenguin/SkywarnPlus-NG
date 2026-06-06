@@ -41,6 +41,27 @@ class MobileCountyService:
     def is_gps_active(self) -> bool:
         return self._gps_active
 
+    def get_position(self) -> Optional[tuple[float, float]]:
+        """Return the current gpsd fix lat/lon when the fix is fresh and usable."""
+        if not self._last_fix:
+            return None
+        age_seconds = (datetime.now(timezone.utc) - self._last_fix.fix_time).total_seconds()
+        if age_seconds > self.config.gpsd.stale_seconds:
+            return None
+        if (
+            self.config.gpsd.min_accuracy_meters is not None
+            and self._last_fix.accuracy_m is not None
+            and self._last_fix.accuracy_m > self.config.gpsd.min_accuracy_meters
+        ):
+            return None
+        return self._last_fix.latitude, self._last_fix.longitude
+
+    def _effective_gps_county(self) -> Optional[str]:
+        """County used for polling; active county, or candidate while switching."""
+        if self._active_gps_county:
+            return self._active_gps_county
+        return self._candidate_county
+
     def get_gps_controlled_node(self) -> Optional[int]:
         """Return the node number marked gps_controlled, if any."""
         for node in self.config.asterisk.nodes:
@@ -103,15 +124,33 @@ class MobileCountyService:
 
         county_code, county_name = resolved
         self._apply_hysteresis(county_code, county_name)
-        if self._active_gps_county:
+        effective = self._effective_gps_county()
+        if effective:
             self._gps_active = True
-            self._inactive_reason = None
+            if (
+                self._candidate_county
+                and self._active_gps_county
+                and self._candidate_county != self._active_gps_county
+            ):
+                self._inactive_reason = "hysteresis_pending"
+            else:
+                self._inactive_reason = None
         else:
             self._gps_active = False
             self._inactive_reason = "hysteresis_pending"
 
     def _apply_hysteresis(self, county_code: str, county_name: str) -> None:
         threshold = max(1, int(self.config.gpsd.hysteresis_polls))
+
+        # First acquisition: lock immediately (hysteresis is for county switches while moving)
+        if self._active_gps_county is None:
+            self._active_gps_county = county_code
+            self._active_gps_county_name = county_name
+            self._candidate_county = county_code
+            self._candidate_polls = threshold
+            logger.info("GPS county acquired: %s (%s)", county_code, county_name)
+            return
+
         if county_code == self._active_gps_county:
             self._candidate_county = county_code
             self._candidate_polls = threshold
@@ -188,8 +227,9 @@ class MobileCountyService:
 
         for node_number in self.config.asterisk.get_nodes_list():
             if self._node_is_gps_controlled(node_number) and self.is_gps_active():
-                if self._active_gps_county:
-                    fetch.add(self._active_gps_county)
+                effective = self._effective_gps_county()
+                if effective:
+                    fetch.add(effective)
                 continue
 
             static = self._static_counties_for_node(node_number)
@@ -209,9 +249,10 @@ class MobileCountyService:
         if (
             self._node_is_gps_controlled(node_number)
             and self.is_gps_active()
-            and self._active_gps_county
         ):
-            return {self._active_gps_county}
+            effective = self._effective_gps_county()
+            if effective:
+                return {effective}
         return self._static_counties_for_node(node_number)
 
     def get_nodes_for_counties(self, alert_county_codes: List[str]) -> List[int]:
@@ -239,8 +280,9 @@ class MobileCountyService:
                 continue
 
             if gps_controlled:
-                if self.is_gps_active() and self._active_gps_county:
-                    if self._active_gps_county in alert_set:
+                effective = self._effective_gps_county()
+                if self.is_gps_active() and effective:
+                    if effective in alert_set:
                         result.append(node_number)
                 elif self._is_gps_only_node(node_number):
                     continue
@@ -260,8 +302,9 @@ class MobileCountyService:
     def get_monitored_county_codes(self) -> Set[str]:
         """All county codes currently in use for alert filtering."""
         monitored = self._enabled_county_codes()
-        if self.is_gps_active() and self._active_gps_county:
-            monitored.add(self._active_gps_county)
+        effective = self._effective_gps_county()
+        if self.is_gps_active() and effective:
+            monitored.add(effective)
         return monitored
 
     def get_status(self) -> Dict[str, Any]:
@@ -269,11 +312,15 @@ class MobileCountyService:
         node = self.get_gps_controlled_node()
         status: Dict[str, Any] = {
             "enabled": self.config.gpsd.enabled,
+            "poll_counties": self.get_fetch_counties(),
             "controlled_node": node,
             "active": self.is_gps_active(),
             "reason": self._inactive_reason,
-            "county_code": self._active_gps_county,
+            "county_code": self._effective_gps_county(),
             "county_name": self._active_gps_county_name,
+            "candidate_county": self._candidate_county,
+            "candidate_polls": self._candidate_polls,
+            "hysteresis_threshold": max(1, int(self.config.gpsd.hysteresis_polls)),
             "last_refresh_at": (
                 self._last_refresh_at.isoformat() if self._last_refresh_at else None
             ),

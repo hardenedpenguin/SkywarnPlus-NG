@@ -7,11 +7,18 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
 logger = logging.getLogger(__name__)
+
+
+def _empty_str_to_none(value: Any) -> Any:
+    """Coerce blank form/YAML strings to None for optional fields."""
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
 
 
 class ConfigError(Exception):
@@ -111,6 +118,11 @@ class GpsdConfig(BaseModel):
     )
     connect_timeout_seconds: int = Field(5, ge=1, description="Timeout connecting to gpsd")
 
+    @field_validator("min_accuracy_meters", mode="before")
+    @classmethod
+    def _coerce_min_accuracy(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
 
 class AsteriskConfig(BaseModel):
     """Asterisk configuration."""
@@ -207,6 +219,27 @@ class FilteringConfig(BaseModel):
     )
 
 
+class QuietHoursConfig(BaseModel):
+    """Suppress voice announcements during local quiet hours."""
+
+    enabled: bool = Field(False, description="Enable quiet hours voice suppression")
+    start: str = Field("01:00", description="Local start time (HH:MM)")
+    end: str = Field("06:00", description="Local end time (HH:MM)")
+    timezone: Optional[str] = Field(
+        None,
+        description="IANA timezone (defaults to system local timezone)",
+    )
+    allow_severe: bool = Field(
+        True,
+        description="Still announce Severe/Extreme severity alerts during quiet hours",
+    )
+
+    @field_validator("timezone", mode="before")
+    @classmethod
+    def _coerce_timezone(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
+
 class AlertConfig(BaseModel):
     """Alert behavior configuration."""
 
@@ -236,6 +269,58 @@ class AlertConfig(BaseModel):
     with_multiples: bool = Field(
         False, description="Tag alerts with 'with multiples' if multiple instances exist"
     )
+    quiet_hours: QuietHoursConfig = Field(
+        default_factory=QuietHoursConfig, description="Quiet hours playback policy"
+    )
+    announcement_hold_minutes: int = Field(
+        0,
+        ge=0,
+        le=240,
+        description="Suppress re-announcing the same event+counties within this many minutes (0=off)",
+    )
+
+
+class NhcConfig(BaseModel):
+    """National Hurricane Center tropical cyclone monitoring."""
+
+    enabled: bool = Field(False, description="Enable NHC tropical cyclone voice advisories")
+    feed_path: str = Field(
+        "/gis-at.xml",
+        description="NHC GIS RSS path (e.g. /gis-at.xml Atlantic, /gis-ep.xml East Pacific)",
+    )
+    poll_interval_minutes: int = Field(
+        60,
+        ge=5,
+        le=360,
+        description="Minimum minutes between NHC feed fetches",
+    )
+    max_distance_miles: int = Field(
+        1000,
+        ge=50,
+        le=5000,
+        description="Only announce storms within this distance of your position",
+    )
+    max_advisory_age_hours: int = Field(
+        4,
+        ge=1,
+        le=48,
+        description="Ignore advisories older than this",
+    )
+    hurricanes_only: bool = Field(
+        False,
+        description="Only announce hurricanes (skip tropical storms/depressions)",
+    )
+    use_gps_position: bool = Field(
+        True,
+        description="Use gpsd position when available; otherwise static_lat/static_lon",
+    )
+    static_lat: Optional[float] = Field(None, description="Fallback latitude when GPS unavailable")
+    static_lon: Optional[float] = Field(None, description="Fallback longitude when GPS unavailable")
+
+    @field_validator("static_lat", "static_lon", mode="before")
+    @classmethod
+    def _coerce_static_coords(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
 
 
 class ScriptConfig(BaseModel):
@@ -458,6 +543,7 @@ class AppConfig(BaseSettings):
     pushover: PushOverConfig = Field(default_factory=PushOverConfig)
     dev: DevConfig = Field(default_factory=DevConfig)
     gpsd: GpsdConfig = Field(default_factory=GpsdConfig)
+    nhc: NhcConfig = Field(default_factory=NhcConfig)
 
     @classmethod
     def from_yaml(cls, config_path=None) -> "AppConfig":

@@ -110,6 +110,25 @@ alerts:
   say_alerts_changed: true  # Announce alerts when county list changes
   say_alert_all: false  # Say all alerts when one changes (requires say_alerts_changed)
   with_multiples: false  # Tag alerts with "with multiples" if multiple instances exist
+  quiet_hours:
+    enabled: false
+    start: "01:00"
+    end: "06:00"
+    timezone: null  # IANA timezone; null uses system local time
+    allow_severe: true  # Still voice Severe/Extreme alerts during quiet hours
+  announcement_hold_minutes: 0  # Suppress re-announcing same event+counties (0=off)
+
+# National Hurricane Center tropical cyclone advisories
+nhc:
+  enabled: false
+  feed_path: "/gis-at.xml"  # Atlantic; use /gis-ep.xml for East Pacific
+  poll_interval_minutes: 60
+  max_distance_miles: 1000
+  max_advisory_age_hours: 4
+  hurricanes_only: false
+  use_gps_position: true
+  static_lat: null
+  static_lon: null
 
 # Script execution
 scripts:

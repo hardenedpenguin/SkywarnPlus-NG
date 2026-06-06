@@ -315,6 +315,66 @@
                 </div>
             </div>
 
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">NHC Tropical Cyclones</h3>
+                <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Hurricane advisories:</strong> Polls NOAA NHC GIS feeds and announces new tropical cyclone advisories within range of your position (gpsd or static coordinates).
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="nhc_enabled" name="nhc.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="nhc_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable NHC tropical cyclone voice advisories
+                        </label>
+                    </div>
+                    <div>
+                        <label for="nhc_feed_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Feed Path</label>
+                        <input type="text" id="nhc_feed_path" name="nhc.feed_path" value="/gis-at.xml"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Atlantic: /gis-at.xml — East Pacific: /gis-ep.xml</p>
+                    </div>
+                    <div>
+                        <label for="nhc_poll_interval_minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Poll Interval (minutes)</label>
+                        <input type="number" id="nhc_poll_interval_minutes" name="nhc.poll_interval_minutes" min="5" max="360" value="60"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="nhc_max_distance_miles" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Distance (miles)</label>
+                        <input type="number" id="nhc_max_distance_miles" name="nhc.max_distance_miles" min="50" max="5000" value="1000"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="nhc_max_advisory_age_hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Advisory Age (hours)</label>
+                        <input type="number" id="nhc_max_advisory_age_hours" name="nhc.max_advisory_age_hours" min="1" max="48" value="4"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="nhc_hurricanes_only" name="nhc.hurricanes_only" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="nhc_hurricanes_only" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Hurricanes only (skip tropical storms)
+                        </label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="nhc_use_gps_position" name="nhc.use_gps_position" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="nhc_use_gps_position" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Use gpsd position when available
+                        </label>
+                    </div>
+                    <div>
+                        <label for="nhc_static_lat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Latitude</label>
+                        <input type="number" id="nhc_static_lat" name="nhc.static_lat" step="any"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="nhc_static_lon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Longitude</label>
+                        <input type="number" id="nhc_static_lon" name="nhc.static_lon" step="any"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+
             <!-- Courtesy Tones Section -->
             <div class="card mt-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Courtesy Tones</h3>
@@ -775,6 +835,51 @@
                             <p class="text-xs text-gray-600 dark:text-gray-400 ml-6">
                                 When enabled, alerts with multiple unique instances will be tagged with ", with multiples" in announcements
                             </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Quiet Hours &amp; Announcement Hold</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="alerts_quiet_hours_enabled" name="alerts.quiet_hours.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="alerts_quiet_hours_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Enable Quiet Hours (suppress voice announcements)
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 ml-0 md:ml-6">
+                                <div>
+                                    <label for="alerts_quiet_hours_start" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Start (HH:MM)</label>
+                                    <input type="text" id="alerts_quiet_hours_start" name="alerts.quiet_hours.start" value="01:00"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label for="alerts_quiet_hours_end" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">End (HH:MM)</label>
+                                    <input type="text" id="alerts_quiet_hours_end" name="alerts.quiet_hours.end" value="06:00"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label for="alerts_quiet_hours_timezone" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Timezone (IANA)</label>
+                                    <input type="text" id="alerts_quiet_hours_timezone" name="alerts.quiet_hours.timezone" placeholder="America/Chicago"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                </div>
+                            </div>
+                            <div class="flex items-center ml-0 md:ml-6">
+                                <input type="checkbox" id="alerts_quiet_hours_allow_severe" name="alerts.quiet_hours.allow_severe" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <label for="alerts_quiet_hours_allow_severe" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Allow Severe/Extreme alerts during quiet hours
+                                </label>
+                            </div>
+                            <div class="ml-0 md:ml-6">
+                                <label for="alerts_announcement_hold_minutes" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    Announcement Hold (minutes)
+                                </label>
+                                <input type="number" id="alerts_announcement_hold_minutes" name="alerts.announcement_hold_minutes" min="0" max="240" value="0"
+                                       class="w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Suppress re-announcing the same event and county list within this window (0 = disabled).
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2147,6 +2252,22 @@
         document.getElementById('alerts_say_alerts_changed').checked = config.alerts?.say_alerts_changed !== false; // Default true
         document.getElementById('alerts_say_alert_all').checked = config.alerts?.say_alert_all || false;
         document.getElementById('alerts_with_multiples').checked = config.alerts?.with_multiples || false;
+        document.getElementById('alerts_quiet_hours_enabled').checked = config.alerts?.quiet_hours?.enabled || false;
+        document.getElementById('alerts_quiet_hours_start').value = config.alerts?.quiet_hours?.start || '01:00';
+        document.getElementById('alerts_quiet_hours_end').value = config.alerts?.quiet_hours?.end || '06:00';
+        document.getElementById('alerts_quiet_hours_timezone').value = config.alerts?.quiet_hours?.timezone || '';
+        document.getElementById('alerts_quiet_hours_allow_severe').checked = config.alerts?.quiet_hours?.allow_severe !== false;
+        document.getElementById('alerts_announcement_hold_minutes').value = config.alerts?.announcement_hold_minutes ?? 0;
+
+        document.getElementById('nhc_enabled').checked = config.nhc?.enabled || false;
+        document.getElementById('nhc_feed_path').value = config.nhc?.feed_path || '/gis-at.xml';
+        document.getElementById('nhc_poll_interval_minutes').value = config.nhc?.poll_interval_minutes ?? 60;
+        document.getElementById('nhc_max_distance_miles').value = config.nhc?.max_distance_miles ?? 1000;
+        document.getElementById('nhc_max_advisory_age_hours').value = config.nhc?.max_advisory_age_hours ?? 4;
+        document.getElementById('nhc_hurricanes_only').checked = config.nhc?.hurricanes_only || false;
+        document.getElementById('nhc_use_gps_position').checked = config.nhc?.use_gps_position !== false;
+        document.getElementById('nhc_static_lat').value = config.nhc?.static_lat ?? '';
+        document.getElementById('nhc_static_lon').value = config.nhc?.static_lon ?? '';
 
         // Filtering
         document.getElementById('filtering_max_alerts').value = config.filtering?.max_alerts || 99;
@@ -3121,6 +3242,16 @@
 
             applyConfigCheckboxes(config);
             normalizeCountiesForSave(config);
+            if (config.nhc) {
+                if (config.nhc.static_lat === '') config.nhc.static_lat = null;
+                if (config.nhc.static_lon === '') config.nhc.static_lon = null;
+            }
+            if (config.gpsd && config.gpsd.min_accuracy_meters === '') {
+                config.gpsd.min_accuracy_meters = null;
+            }
+            if (config.alerts && config.alerts.quiet_hours && config.alerts.quiet_hours.timezone === '') {
+                config.alerts.quiet_hours.timezone = null;
+            }
             if (config.asterisk && Array.isArray(config.asterisk.nodes)) {
                 config.asterisk.nodes = config.asterisk.nodes.map(function (node) {
                     if (typeof node !== 'object' || node === null) return node;
