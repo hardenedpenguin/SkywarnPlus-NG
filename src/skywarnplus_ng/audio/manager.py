@@ -282,6 +282,45 @@ class AudioManager:
             logger.error(f"Unexpected error generating alert audio: {e}", exc_info=True)
             return None
 
+    def generate_spoken_audio(self, text: str, prefix: str = "spoken") -> Optional[Path]:
+        """
+        Generate TTS audio from arbitrary spoken text.
+
+        Args:
+            text: Text to synthesize
+            prefix: Filename prefix slug
+
+        Returns:
+            Path to generated audio file, or None if generation failed
+        """
+        try:
+            safe_prefix = re.sub(r"[^a-zA-Z0-9_-]+", "_", prefix).strip("_") or "spoken"
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            filename = f"{safe_prefix}_{timestamp}.{self.config.tts.output_format}"
+            output_path = self.config.temp_dir / filename
+
+            engine_used, audio_path = self._synthesize_with_optional_fallback(
+                text,
+                output_path,
+                allow_fallback=False,
+            )
+            if not engine_used.validate_audio_file(audio_path):
+                logger.error(f"Generated spoken audio file is invalid: {audio_path}")
+                return None
+
+            try:
+                os.chmod(audio_path, 0o644)
+            except Exception as e:
+                logger.warning(f"Failed to set permissions on audio file: {e}")
+
+            return audio_path
+        except TTSEngineError as e:
+            logger.error(f"TTS engine error generating spoken audio: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error generating spoken audio: {e}", exc_info=True)
+            return None
+
     def generate_all_clear_audio(self, suffix_file: Optional[str] = None) -> Optional[Path]:
         """
         Generate all-clear audio message.

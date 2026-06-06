@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:georss="http://www.georss.org/georss"
+     xmlns:gml="http://www.opengis.net/gml"
+     xmlns:nhc="https://www.nhc.noaa.gov/gis"
+     version="2.0">
+
+<channel>
+<item>
+  <title>Summary - Tropical Storm ALPHA (AL012026)</title>
+  <guid isPermaLink="false">summary-AL012026-202606011800</guid>
+  <pubDate>Mon, 01 Jun 2026 18:00:00 GMT</pubDate>
+  <description>...ERIN BECOMING BETTER ORGANIZED...</description>
+  <nhc:Cyclone>
+    <nhc:center>28.5,-90.0</nhc:center>
+    <nhc:type>Tropical Storm</nhc:type>
+    <nhc:name>ALPHA</nhc:name>
+    <nhc:wallet>AL012026</nhc:wallet>
+    <nhc:atcf>AL012026</nhc:atcf>
+    <nhc:datetime>2026-06-05T03:00:00Z</nhc:datetime>
+    <nhc:movement>NW at 12 mph</nhc:movement>
+    <nhc:pressure>1000 mb</nhc:pressure>
+    <nhc:wind>50 mph</nhc:wind>
+    <nhc:headline>...ERIN BECOMING BETTER ORGANIZED AS IT MOVES NORTH-NORTHWESTWARD...</nhc:headline>
+  </nhc:Cyclone>
+</item>
+</channel>
+</rss>
