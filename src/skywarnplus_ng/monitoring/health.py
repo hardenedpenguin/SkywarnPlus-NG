@@ -67,6 +67,8 @@ class HealthMonitor:
 
         # Component references (set during initialization)
         self.nws_client: Optional[NWSClient] = None
+        self.nhc_service = None
+        self.mobile_county_service = None
         self.audio_manager: Optional[AudioManager] = None
         self.asterisk_manager: Optional[AsteriskManager] = None
         self.script_manager: Optional[ScriptManager] = None
@@ -79,6 +81,8 @@ class HealthMonitor:
     def set_components(
         self,
         nws_client: Optional[NWSClient] = None,
+        nhc_service=None,
+        mobile_county_service=None,
         audio_manager: Optional[AudioManager] = None,
         asterisk_manager: Optional[AsteriskManager] = None,
         script_manager: Optional[ScriptManager] = None,
@@ -86,6 +90,8 @@ class HealthMonitor:
     ) -> None:
         """Set component references for health checking."""
         self.nws_client = nws_client
+        self.nhc_service = nhc_service
+        self.mobile_county_service = mobile_county_service
         self.audio_manager = audio_manager
         self.asterisk_manager = asterisk_manager
         self.script_manager = script_manager
@@ -335,17 +341,96 @@ class HealthMonitor:
                 last_check=start_time,
             )
 
-    async def get_health_status(self) -> HealthStatus:
+    async def check_nhc_health(self, state: Optional[Dict[str, Any]] = None) -> ComponentHealth:
+        """Check NHC feed and position health when cyclone monitoring is enabled."""
+        start_time = datetime.now(timezone.utc)
+
+        if not self.config.nhc.enabled:
+            return ComponentHealth(
+                name="nhc_api",
+                status=ComponentStatus.UNKNOWN,
+                message="NHC monitoring disabled",
+                last_check=start_time,
+            )
+
+        if not self.nhc_service:
+            return ComponentHealth(
+                name="nhc_api",
+                status=ComponentStatus.UNKNOWN,
+                message="NHC service not initialized",
+                last_check=start_time,
+            )
+
+        try:
+            result = await asyncio.wait_for(
+                self.nhc_service.check_health(state or {}),
+                timeout=20.0,
+            )
+            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            details = result.get("details") or {}
+
+            if result.get("ok"):
+                return ComponentHealth(
+                    name="nhc_api",
+                    status=ComponentStatus.HEALTHY,
+                    message=str(result.get("message") or "NHC feed OK"),
+                    last_check=start_time,
+                    response_time_ms=response_time,
+                    details=details,
+                )
+
+            message = str(result.get("message") or "NHC health check failed")
+            # Missing GPS position with gpsd enabled is degraded, not fully unhealthy
+            if (
+                self.config.nhc.use_gps_position
+                and self.config.gpsd.enabled
+                and "GPS position" in message
+            ):
+                status = ComponentStatus.DEGRADED
+            else:
+                status = ComponentStatus.UNHEALTHY
+
+            return ComponentHealth(
+                name="nhc_api",
+                status=status,
+                message=message,
+                last_check=start_time,
+                response_time_ms=response_time,
+                details=details,
+            )
+        except asyncio.TimeoutError:
+            return ComponentHealth(
+                name="nhc_api",
+                status=ComponentStatus.UNHEALTHY,
+                message="NHC health check timeout",
+                last_check=start_time,
+                response_time_ms=20000.0,
+            )
+        except Exception as e:
+            return ComponentHealth(
+                name="nhc_api",
+                status=ComponentStatus.UNHEALTHY,
+                message=f"NHC error: {e}",
+                last_check=start_time,
+            )
+
+    async def get_health_status(self, state: Optional[Dict[str, Any]] = None) -> HealthStatus:
         """Get comprehensive health status."""
         start_time = datetime.now(timezone.utc)
 
         # Check all components concurrently
-        health_checks = await asyncio.gather(
+        check_coroutines = [
             self.check_nws_health(),
             self.check_audio_health(),
             self.check_asterisk_health(),
             self.check_scripts_health(),
             self.check_database_health(),
+        ]
+        if self.config.nhc.enabled:
+            check_coroutines.append(self.check_nhc_health(state))
+
+        health_checks = await asyncio.gather(
+            *check_coroutines,
             return_exceptions=True,
         )
 
@@ -385,6 +470,8 @@ class HealthMonitor:
             "asterisk_enabled": self.config.asterisk.enabled,
             "scripts_enabled": self.config.scripts.enabled,
             "audio_enabled": True,  # Always enabled if audio_manager exists
+            "nhc_enabled": self.config.nhc.enabled,
+            "gpsd_enabled": self.config.gpsd.enabled,
         }
 
         # Get version from package metadata

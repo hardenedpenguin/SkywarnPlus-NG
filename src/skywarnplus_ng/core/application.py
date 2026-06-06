@@ -273,6 +273,8 @@ class SkywarnPlusApplication:
         self.health_monitor = HealthMonitor(self.config, self._start_time)
         self.health_monitor.set_components(
             nws_client=self.nws_client,
+            nhc_service=self.nhc_service,
+            mobile_county_service=self.mobile_county_service,
             audio_manager=self.audio_manager,
             asterisk_manager=self.asterisk_manager,
             script_manager=self.script_manager,
@@ -1895,6 +1897,17 @@ class SkywarnPlusApplication:
             self.script_manager.config = config.scripts
         if self.web_dashboard:
             self.web_dashboard.config = config
+        if self.health_monitor:
+            self.health_monitor.config = config
+            self.health_monitor.set_components(
+                nws_client=self.nws_client,
+                nhc_service=self.nhc_service,
+                mobile_county_service=self.mobile_county_service,
+                audio_manager=self.audio_manager,
+                asterisk_manager=self.asterisk_manager,
+                script_manager=self.script_manager,
+                database_manager=self.database_manager,
+            )
 
         if config.gpsd.enabled:
             logger.info("gpsd mobile county monitoring enabled (config updated)")
@@ -1951,6 +1964,8 @@ class SkywarnPlusApplication:
                     "last_all_clear": self.state.get("last_all_clear"),
                     "nws_last_error_at": self.state.get("nws_last_error_at"),
                     "nws_last_error_message": self.state.get("nws_last_error_message"),
+                    "nhc_last_error_at": self.state.get("nhc_last_error_at"),
+                    "nhc_last_error_message": self.state.get("nhc_last_error_message"),
                 }
             )
         else:
@@ -1962,6 +1977,8 @@ class SkywarnPlusApplication:
                     "last_all_clear": None,
                     "nws_last_error_at": None,
                     "nws_last_error_message": None,
+                    "nhc_last_error_at": None,
+                    "nhc_last_error_message": None,
                 }
             )
 

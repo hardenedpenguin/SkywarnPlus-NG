@@ -62,6 +62,8 @@ class NhcCycloneService:
         )
         self._last_poll_at: Optional[datetime] = None
         self._tracked_storms: List[Dict[str, Any]] = []
+        self._last_fetch_ok_at: Optional[datetime] = None
+        self._last_error_message: Optional[str] = None
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -91,10 +93,100 @@ class NhcCycloneService:
         try:
             response = await self._client.get(url)
             response.raise_for_status()
+            self._last_error_message = None
             return response.text
         except httpx.HTTPError as exc:
             logger.warning("NHC feed fetch failed: %s", exc)
+            self._last_error_message = f"NHC feed fetch failed: {exc}"
             return None
+
+    def _position_source(self) -> str:
+        nhc = self.config.nhc
+        if nhc.use_gps_position and self.mobile_service and self.mobile_service.get_position():
+            if self.config.gpsd.enabled:
+                return "gpsd"
+            return "gpsd_fix"
+        if nhc.static_lat is not None and nhc.static_lon is not None:
+            return "static"
+        return "none"
+
+    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
+        now = datetime.now(timezone.utc)
+        self._last_error_message = message
+        state["nhc_last_error_at"] = now.isoformat()
+        state["nhc_last_error_message"] = message
+
+    def _record_poll_success(self, state: Dict[str, Any]) -> None:
+        now = datetime.now(timezone.utc)
+        self._last_fetch_ok_at = now
+        self._last_error_message = None
+        state["nhc_last_error_at"] = None
+        state["nhc_last_error_message"] = None
+
+    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Live health probe for dashboard (feed reachability + position when GPS-backed).
+        """
+        state = state or {}
+        details: Dict[str, Any] = {
+            "feed_path": self.config.nhc.feed_path,
+            "use_gps_position": self.config.nhc.use_gps_position,
+            "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
+            "last_fetch_ok_at": (
+                self._last_fetch_ok_at.isoformat() if self._last_fetch_ok_at else None
+            ),
+            "tracked_storms": len(self._tracked_storms),
+        }
+
+        position = self.get_position()
+        if position:
+            details["position"] = {"lat": position[0], "lon": position[1]}
+            details["position_source"] = self._position_source()
+        else:
+            details["position"] = None
+            details["position_source"] = "none"
+
+        if (
+            self.config.nhc.use_gps_position
+            and self.config.gpsd.enabled
+            and self.mobile_service
+        ):
+            gps = self.mobile_service.get_status()
+            details["gps_active"] = gps.get("active")
+            details["gps_reason"] = gps.get("reason")
+            details["gps_county"] = gps.get("county_code")
+            if not position:
+                return {
+                    "ok": False,
+                    "message": f"No GPS position for NHC ({gps.get('reason') or 'no fix'})",
+                    "details": details,
+                }
+
+        if not position:
+            return {
+                "ok": False,
+                "message": "No position available (enable gpsd or set static lat/lon)",
+                "details": details,
+            }
+
+        xml_text = await self.fetch_feed_xml()
+        if not xml_text:
+            msg = self._last_error_message or "NHC feed fetch failed"
+            if state.get("nhc_last_error_message"):
+                msg = str(state["nhc_last_error_message"])
+            return {"ok": False, "message": msg, "details": details}
+
+        details["feed_reachable"] = True
+        if "no tropical cyclones" in xml_text.lower():
+            details["active_storms"] = 0
+            message = "NHC feed OK (no active tropical cyclones)"
+        else:
+            storms = parse_nhc_cyclone_xml(xml_text)
+            active = filter_active_cyclones(storms)
+            details["active_storms"] = len(active)
+            message = f"NHC feed OK ({len(active)} active storm(s) in feed)"
+
+        return {"ok": True, "message": message, "details": details}
 
     def _already_announced(self, advisory_key: str, state: Dict[str, Any]) -> bool:
         announced = state.get("nhc_announced_advisories") or []
@@ -171,20 +263,28 @@ class NhcCycloneService:
 
         position = self.get_position()
         if position is None:
-            logger.warning("NHC enabled but no position available (GPS or static lat/lon)")
+            msg = "No position available (GPS or static lat/lon)"
+            logger.warning("NHC enabled but %s", msg)
+            self._record_poll_error(state, msg)
             return []
 
         xml_text = await self.fetch_feed_xml()
         if not xml_text:
+            self._record_poll_error(
+                state,
+                self._last_error_message or "NHC feed fetch failed",
+            )
             return []
 
         if "no tropical cyclones" in xml_text.lower():
             self._tracked_storms = []
+            self._record_poll_success(state)
             logger.debug("NHC feed reports no active tropical cyclones")
             return []
 
         cyclones = parse_nhc_cyclone_xml(xml_text)
         advisories = self.select_new_advisories(cyclones, state, position)
+        self._record_poll_success(state)
         if advisories:
             logger.info(
                 "NHC: %s new advisory(ies) within %s miles",
@@ -204,4 +304,8 @@ class NhcCycloneService:
             ),
             "tracked_storms": self._tracked_storms,
             "announced_count": len(state.get("nhc_announced_advisories") or []),
+            "last_error_message": self._last_error_message,
+            "last_fetch_ok_at": (
+                self._last_fetch_ok_at.isoformat() if self._last_fetch_ok_at else None
+            ),
         }

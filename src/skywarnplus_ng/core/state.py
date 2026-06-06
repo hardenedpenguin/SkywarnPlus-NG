@@ -102,6 +102,8 @@ class ApplicationState:
             "last_all_clear": None,  # Last all-clear timestamp
             "nws_last_error_at": None,  # When NWS fetch last failed (ISO); None if last fetch OK
             "nws_last_error_message": None,  # Short reason for operators / dashboard
+            "nhc_last_error_at": None,  # When NHC poll last failed (ISO); None if last poll OK
+            "nhc_last_error_message": None,  # Short reason for operators / dashboard
             "ct": None,  # Current courtesy tone mode ('normal' or 'wx')
             "id": None,  # Current identifier
             "announcement_cooldown": {},  # event|counties signature -> last announce ISO time

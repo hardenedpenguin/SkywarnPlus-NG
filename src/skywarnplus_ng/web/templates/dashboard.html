@@ -44,6 +44,11 @@
         <p id="nws-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
     </div>
 
+    <div id="nhc-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
+        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">NHC cyclone monitoring warning</p>
+        <p id="nhc-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="card" id="card-status">
             <div class="flex items-center justify-between">
@@ -202,6 +207,22 @@
             box.classList.remove('hidden');
             var msg = status.nws_last_error_message || 'The last poll did not retrieve fresh data from the NWS API.';
             var when = formatRelativeTime(status.nws_last_error_at);
+            detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
+        } else {
+            box.classList.add('hidden');
+        }
+        updateNhcFetchWarning(status);
+    }
+
+    function updateNhcFetchWarning(status) {
+        var box = document.getElementById('nhc-fetch-warning');
+        var detail = document.getElementById('nhc-fetch-warning-detail');
+        if (!box || !detail) return;
+        var nhcEnabled = status && status.nhc && status.nhc.enabled;
+        if (nhcEnabled && status.nhc_last_error_at) {
+            box.classList.remove('hidden');
+            var msg = status.nhc_last_error_message || 'The last NHC poll did not complete successfully.';
+            var when = formatRelativeTime(status.nhc_last_error_at);
             detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
         } else {
             box.classList.add('hidden');
@@ -420,6 +441,20 @@
     }
 
     // Render health components
+    const HEALTH_COMPONENT_LABELS = {
+        nws_api: 'NWS API',
+        nhc_api: 'NHC Cyclones',
+        audio_system: 'Audio System',
+        asterisk_system: 'Asterisk',
+        script_system: 'Scripts',
+        database_system: 'Database',
+    };
+
+    function formatHealthComponentLabel(name) {
+        if (!name) return 'UNKNOWN';
+        return HEALTH_COMPONENT_LABELS[name] || String(name).replace(/_/g, ' ').toUpperCase();
+    }
+
     function renderHealthComponents(components) {
         const container = document.getElementById('health-components');
         if (!components || !Array.isArray(components) || components.length === 0) {
@@ -432,12 +467,12 @@
 
         const componentsHtml = components.map(comp => `
             <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                <div class="flex items-center space-x-3">
-                    <div class="status-indicator status-${comp.status.toLowerCase()}"></div>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">${comp.name.replace(/_/g, ' ').toUpperCase()}</span>
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="status-indicator status-${comp.status.toLowerCase()} shrink-0"></div>
+                    <span class="text-sm font-medium text-gray-900 dark:text-white truncate">${escHtml(formatHealthComponentLabel(comp.name))}</span>
                 </div>
-                <div class="text-right">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">${comp.message}</p>
+                <div class="text-right ml-3 shrink-0 max-w-[65%]">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${escHtml(comp.message || '')}</p>
                     ${comp.response_time_ms ? `<p class="text-xs text-gray-400">${comp.response_time_ms.toFixed(1)}ms</p>` : ''}
                 </div>
             </div>

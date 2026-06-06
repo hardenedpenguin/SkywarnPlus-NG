@@ -24,7 +24,9 @@ class HealthLogsApiMixin:
             if not self.app.health_monitor:
                 return web.json_response({"error": "Health monitor not available"}, status=503)
 
-            health_status = await self.app.health_monitor.get_health_status()
+            health_status = await self.app.health_monitor.get_health_status(
+                getattr(self.app, "state", None)
+            )
 
             # Get additional system information
             system_info = {}

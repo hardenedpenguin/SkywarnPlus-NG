@@ -162,6 +162,20 @@
     }
 
     // Render components
+    const HEALTH_COMPONENT_LABELS = {
+        nws_api: 'NWS API',
+        nhc_api: 'NHC Cyclones',
+        audio_system: 'Audio System',
+        asterisk_system: 'Asterisk',
+        script_system: 'Scripts',
+        database_system: 'Database',
+    };
+
+    function formatHealthComponentLabel(name) {
+        if (!name) return 'UNKNOWN';
+        return HEALTH_COMPONENT_LABELS[name] || String(name).replace(/_/g, ' ').toUpperCase();
+    }
+
     function renderComponents(components) {
         const container = document.getElementById('components-container');
         
@@ -170,7 +184,7 @@
                 <div class="flex items-center space-x-3">
                     <div class="status-indicator ${getStatusClasses(comp.status)}"></div>
                     <div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-white">${comp.name.replace('_', ' ').toUpperCase()}</span>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">${formatHealthComponentLabel(comp.name)}</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400">${comp.message}</p>
                     </div>
                 </div>

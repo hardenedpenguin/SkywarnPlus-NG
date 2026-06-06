@@ -361,7 +361,9 @@ class UpdatesMetricsApiMixin:
             # Get health metrics if available
             if self.app.health_monitor:
                 try:
-                    health_status = await self.app.health_monitor.get_health_status()
+                    health_status = await self.app.health_monitor.get_health_status(
+                        getattr(self.app, "state", None)
+                    )
                     metrics_data["metrics"]["health"] = {
                         "overall_status": health_status.overall_status.value,
                         "component_count": len(health_status.components),

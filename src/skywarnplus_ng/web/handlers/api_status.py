@@ -236,7 +236,7 @@ class StatusApiMixin:
                     return str(obj)
                 return obj
 
-            for key in ("last_poll", "last_all_clear", "nws_last_error_at"):
+            for key in ("last_poll", "last_all_clear", "nws_last_error_at", "nhc_last_error_at"):
                 if key in status and status[key] is not None:
                     status[key] = _json_friendly(status[key])
 
