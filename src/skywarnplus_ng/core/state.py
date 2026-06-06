@@ -104,7 +104,9 @@ class ApplicationState:
             "nws_last_error_message": None,  # Short reason for operators / dashboard
             "ct": None,  # Current courtesy tone mode ('normal' or 'wx')
             "id": None,  # Current identifier
-            "version": "1.0.3",  # State file version
+            "announcement_cooldown": {},  # event|counties signature -> last announce ISO time
+            "nhc_announced_advisories": [],  # NHC advisory keys already voiced
+            "version": "1.0.4",  # State file version
         }
 
     def get_alert_ids(self, state: Dict[str, Any]) -> Set[str]:
