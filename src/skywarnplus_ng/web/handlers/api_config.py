@@ -380,7 +380,9 @@ class ConfigApiMixin:
                             and data["alerts"]["tail_message_suffix"].strip() == ""
                         ):
                             data["alerts"]["tail_message_suffix"] = None
-                    if "quiet_hours" in data["alerts"] and isinstance(data["alerts"]["quiet_hours"], dict):
+                    if "quiet_hours" in data["alerts"] and isinstance(
+                        data["alerts"]["quiet_hours"], dict
+                    ):
                         tz = data["alerts"]["quiet_hours"].get("timezone")
                         if isinstance(tz, str) and tz.strip() == "":
                             data["alerts"]["quiet_hours"]["timezone"] = None

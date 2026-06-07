@@ -246,10 +246,7 @@ class MobileCountyService:
 
         Returns None when the node monitors all enabled counties (non-GPS mode).
         """
-        if (
-            self._node_is_gps_controlled(node_number)
-            and self.is_gps_active()
-        ):
+        if self._node_is_gps_controlled(node_number) and self.is_gps_active():
             effective = self._effective_gps_county()
             if effective:
                 return {effective}

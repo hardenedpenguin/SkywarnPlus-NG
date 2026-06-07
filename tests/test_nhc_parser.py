@@ -1,8 +1,9 @@
 """Tests for NHC cyclone XML parser and selection."""
 
+from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
-
-import pytest
+from unittest.mock import patch
 
 from skywarnplus_ng.core.config import AppConfig, NhcConfig, NWSApiConfig
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
@@ -15,6 +16,16 @@ from skywarnplus_ng.nhc.parser import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "nhc_cyclone_sample.xml"
+FROZEN_NOW = datetime(2026, 6, 5, 6, 0, tzinfo=timezone.utc)
+
+
+@contextmanager
+def frozen_nhc_time():
+    with patch("skywarnplus_ng.nhc.parser.datetime") as mock_dt:
+        mock_dt.now.return_value = FROZEN_NOW
+        mock_dt.fromisoformat = datetime.fromisoformat
+        mock_dt.strptime = datetime.strptime
+        yield
 
 
 def test_parse_nhc_cyclone_xml():
@@ -51,7 +62,8 @@ def test_haversine_miles_known_distance():
 def test_is_cyclone_current_recent_advisory():
     xml_text = FIXTURE.read_text()
     cyclone = parse_nhc_cyclone_xml(xml_text)[0]
-    assert is_cyclone_current(cyclone, max_age_hours=48) is True
+    with frozen_nhc_time():
+        assert is_cyclone_current(cyclone, max_age_hours=48) is True
 
 
 def test_select_new_advisories_within_range():
@@ -69,7 +81,8 @@ def test_select_new_advisories_within_range():
     )
     service = NhcCycloneService(config)
     cyclones = parse_nhc_cyclone_xml(FIXTURE.read_text())
-    advisories = service.select_new_advisories(cyclones, {}, (29.95, -90.07))
+    with frozen_nhc_time():
+        advisories = service.select_new_advisories(cyclones, {}, (29.95, -90.07))
     assert len(advisories) == 1
     assert advisories[0].name == "ALPHA"
     assert advisories[0].distance_miles < 500

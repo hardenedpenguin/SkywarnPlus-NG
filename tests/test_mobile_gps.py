@@ -150,7 +150,9 @@ async def test_gps_only_node_silent_when_inactive():
     nws = AsyncMock()
     service = MobileCountyService(config, nws)
 
-    with patch("skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=None)):
+    with patch(
+        "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=None)
+    ):
         await service.refresh()
 
     assert not service.is_gps_active()
@@ -174,7 +176,9 @@ async def test_gps_only_inferred_from_empty_counties():
 
     assert service.is_gps_only_node(546050)
 
-    with patch("skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=None)):
+    with patch(
+        "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=None)
+    ):
         await service.refresh()
 
     assert service.get_effective_counties_for_node(546050) == set()
@@ -195,7 +199,9 @@ async def test_gps_only_active_without_global_counties_config():
     nws.resolve_county_from_coordinates = AsyncMock(return_value=("TXC167", "Harris County"))
     service = MobileCountyService(config, nws)
 
-    with patch("skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=_fix())):
+    with patch(
+        "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix", AsyncMock(return_value=_fix())
+    ):
         await service.refresh()
 
     assert service.is_gps_active()

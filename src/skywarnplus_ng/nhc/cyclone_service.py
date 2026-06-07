@@ -146,11 +146,7 @@ class NhcCycloneService:
             details["position"] = None
             details["position_source"] = "none"
 
-        if (
-            self.config.nhc.use_gps_position
-            and self.config.gpsd.enabled
-            and self.mobile_service
-        ):
+        if self.config.nhc.use_gps_position and self.config.gpsd.enabled and self.mobile_service:
             gps = self.mobile_service.get_status()
             details["gps_active"] = gps.get("active")
             details["gps_reason"] = gps.get("reason")
@@ -299,9 +295,7 @@ class NhcCycloneService:
             "enabled": self.config.nhc.enabled,
             "feed_path": self.config.nhc.feed_path,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
-            "position": (
-                {"lat": position[0], "lon": position[1]} if position else None
-            ),
+            "position": ({"lat": position[0], "lon": position[1]} if position else None),
             "tracked_storms": self._tracked_storms,
             "announced_count": len(state.get("nhc_announced_advisories") or []),
             "last_error_message": self._last_error_message,

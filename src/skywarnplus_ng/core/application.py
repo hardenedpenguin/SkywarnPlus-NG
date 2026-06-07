@@ -781,7 +781,9 @@ class SkywarnPlusApplication:
         if self.mobile_county_service:
             monitored_county_codes = self.mobile_county_service.get_monitored_county_codes()
         else:
-            monitored_county_codes = {county.code for county in self.config.counties if county.enabled}
+            monitored_county_codes = {
+                county.code for county in self.config.counties if county.enabled
+            }
         if monitored_county_codes:
             processed_alerts = [
                 self._filter_alert_counties(alert, monitored_county_codes)

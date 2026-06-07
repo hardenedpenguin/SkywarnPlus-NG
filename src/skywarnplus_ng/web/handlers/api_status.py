@@ -177,9 +177,7 @@ class StatusApiMixin:
                     if mobile_service:
                         effective = mobile_service.get_effective_counties_for_node(node)
                         allowed = (
-                            effective
-                            if effective is not None
-                            else set(county_code_to_name.keys())
+                            effective if effective is not None else set(county_code_to_name.keys())
                         )
                     else:
                         node_counties = self.app.config.asterisk.get_counties_for_node(node)
@@ -192,10 +190,7 @@ class StatusApiMixin:
                         "alerts": node_alerts,
                         "effective_counties": sorted(allowed) if allowed else [],
                     }
-                    if (
-                        mobile_service
-                        and mobile_service.get_gps_controlled_node() == node
-                    ):
+                    if mobile_service and mobile_service.get_gps_controlled_node() == node:
                         node_entry["gps"] = {
                             "active": mobile_service.is_gps_active(),
                             "county_code": mobile_service.active_gps_county_code,
