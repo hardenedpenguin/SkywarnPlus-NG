@@ -25,7 +25,7 @@ sudo systemctl enable --now skywarnplus-ng
 sudo systemctl status skywarnplus-ng
 ```
 
-**Dashboard:** `http://<host>:8100` — default login **`admin`** / **`skywarn123`**. Change the password under **Configuration** immediately. Allow port **8100** through the firewall if you need remote access.
+**Dashboard:** `http://<host>/skywarnplus-ng/` when Apache is installed (installer enables the proxy automatically), or `http://<host>:8100/skywarnplus-ng/` direct. Default login **`admin`** / **`skywarn123`** — change under **Configuration** immediately.
 
 **Config file:** `/etc/skywarnplus-ng/config.yaml` (UI saves here; restart after manual edits).
 
@@ -66,7 +66,7 @@ journalctl -u skywarnplus-ng -f
 
 ## Reverse proxy
 
-If the app is served under a subpath (e.g. `/skywarnplus-ng`), set **`monitoring.http_server.base_path`** to match (no trailing slash). The proxy must strip that prefix and forward **WebSockets**. See **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**.
+Default **`base_path`** is **`/skywarnplus-ng`**. On Apache nodes, **`install.sh`** installs **`config/apache/skywarnplus-ng-proxy.conf`** and runs **`a2enconf`**. For **nginx** or Nginx Proxy Manager, see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**. For direct access on port 8100 only, set **`base_path: ""`** in config.
 
 ## Features
 

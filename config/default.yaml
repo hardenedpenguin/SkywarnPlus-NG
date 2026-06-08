@@ -182,7 +182,7 @@ monitoring:
     enabled: true
     host: "0.0.0.0"
     port: 8100
-    base_path: ""  # Set to "/skywarnplus-ng" for reverse proxy
+    base_path: "/skywarnplus-ng"  # Matches config/apache/skywarnplus-ng-proxy.conf; use "" for direct :8100 only
     auth:
       enabled: true
       username: "admin"

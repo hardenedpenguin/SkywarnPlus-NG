@@ -36,6 +36,9 @@ PIPER_BASE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_U
 SYSTEMD_SERVICE="/etc/systemd/system/skywarnplus-ng.service"
 LOGROTATE_CONFIG="/etc/logrotate.d/skywarnplus-ng"
 DTMF_CONFIG="/etc/asterisk/custom/rpt/skydescribe.conf"
+APACHE_PROXY_SRC="config/apache/skywarnplus-ng-proxy.conf"
+APACHE_PROXY_NAME="skywarnplus-ng-proxy"
+APACHE_PROXY_AVAILABLE="/etc/apache2/conf-available/${APACHE_PROXY_NAME}.conf"
 
 # Current directory (set once at start)
 CURRENT_DIR=$(pwd)
@@ -406,6 +409,52 @@ clear_port() {
     print_success "Port ${WEB_PORT} is available"
 }
 
+install_apache_proxy() {
+    print_section "Configuring Apache reverse proxy (if present)"
+
+    if ! command -v apache2ctl >/dev/null 2>&1 && ! command -v apachectl >/dev/null 2>&1; then
+        echo "Apache not detected; skipping reverse proxy setup."
+        echo "   Dashboard: http://localhost:${WEB_PORT}/skywarnplus-ng/"
+        return 0
+    fi
+
+    if [ ! -f "${CURRENT_DIR}/${APACHE_PROXY_SRC}" ]; then
+        print_warning "Apache proxy template not found (${APACHE_PROXY_SRC}); skipping."
+        return 0
+    fi
+
+    local apache_ctl="apache2ctl"
+    if ! command -v apache2ctl >/dev/null 2>&1; then
+        apache_ctl="apachectl"
+    fi
+
+    echo "Enabling Apache proxy modules..."
+    sudo a2enmod proxy proxy_http proxy_wstunnel >/dev/null 2>&1 || true
+
+    echo "Installing ${APACHE_PROXY_AVAILABLE}..."
+    sudo cp "${CURRENT_DIR}/${APACHE_PROXY_SRC}" "${APACHE_PROXY_AVAILABLE}"
+
+    if command -v a2enconf >/dev/null 2>&1; then
+        sudo a2enconf "${APACHE_PROXY_NAME}" >/dev/null 2>&1 || true
+    else
+        print_warning "a2enconf not found; enable ${APACHE_PROXY_NAME}.conf manually."
+        return 0
+    fi
+
+    if sudo "${apache_ctl}" configtest >/dev/null 2>&1; then
+        if command -v systemctl >/dev/null 2>&1; then
+            sudo systemctl reload apache2 2>/dev/null || sudo systemctl reload httpd 2>/dev/null || true
+        else
+            sudo "${apache_ctl}" graceful 2>/dev/null || true
+        fi
+        print_success "Apache proxy enabled at /skywarnplus-ng (WebSocket + HTTP)"
+        echo "   Dashboard (via Apache): http://$(hostname -f 2>/dev/null || hostname)/skywarnplus-ng/"
+    else
+        print_warning "Apache configtest failed after installing proxy; not reloading Apache."
+        echo "   Run: sudo ${apache_ctl} configtest"
+    fi
+}
+
 create_logrotate_config() {
     print_section "Setting up log rotation"
     
@@ -442,9 +491,16 @@ print_completion_message() {
     echo "3. Open the web dashboard and use the Configuration section for counties,"
     echo "   Asterisk node numbers, TTS, scripts, and other settings. You do not need"
     echo "   to edit ${CONFIG_DIR}/config.yaml by hand for normal setup."
-    echo "      http://localhost:${WEB_PORT}/"
-    echo "   From another machine (firewall permitting):"
-    echo "      http://${host_hint}:${WEB_PORT}/"
+    if command -v apache2ctl >/dev/null 2>&1 && [ -f "${APACHE_PROXY_AVAILABLE}" ]; then
+        echo "      http://localhost/skywarnplus-ng/"
+        echo "   Direct (bypass Apache): http://localhost:${WEB_PORT}/skywarnplus-ng/"
+        echo "   Remote (firewall permitting):"
+        echo "      http://${host_hint}/skywarnplus-ng/"
+    else
+        echo "      http://localhost:${WEB_PORT}/skywarnplus-ng/"
+        echo "   From another machine (firewall permitting):"
+        echo "      http://${host_hint}:${WEB_PORT}/skywarnplus-ng/"
+    fi
     echo "4. After saving changes in the UI, restart the service if prompted, or run:"
     echo "      sudo systemctl restart skywarnplus-ng"
     echo ""
@@ -455,7 +511,7 @@ print_completion_message() {
     echo "- DTMF config: ${DTMF_CONFIG} (generated during install)"
     echo "- Enable SkyDescribe for your node via ASL-menu"
     echo "- Audio files: ${INSTALL_ROOT}/SOUNDS/"
-    echo "- Optional: put the dashboard behind a reverse proxy on port ${WEB_PORT}"
+    echo "- Apache reverse proxy: /skywarnplus-ng → 127.0.0.1:${WEB_PORT} (installed when Apache is present)"
     echo ""
     echo "Piper TTS (default local voice):"
     if [ -f "${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx" ]; then
@@ -494,6 +550,7 @@ main() {
     create_systemd_service
     clear_port
     create_logrotate_config
+    install_apache_proxy
     
     # Completion message
     print_completion_message
