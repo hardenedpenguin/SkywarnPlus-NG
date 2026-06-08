@@ -25,7 +25,7 @@ sudo systemctl enable --now skywarnplus-ng
 sudo systemctl status skywarnplus-ng
 ```
 
-**Dashboard:** `http://<host>/skywarnplus-ng/` when Apache is installed (installer enables the proxy automatically), or `http://<host>:8100/skywarnplus-ng/` direct. Default login **`admin`** / **`skywarn123`** — change under **Configuration** immediately.
+**Dashboard:** `http://<host>/skywarnplus-ng/` (Apache proxy is installed automatically on Apache nodes). Default login **`admin`** / **`skywarn123`** — change under **Configuration** immediately.
 
 **Config file:** `/etc/skywarnplus-ng/config.yaml` (UI saves here; restart after manual edits).
 
@@ -66,7 +66,7 @@ journalctl -u skywarnplus-ng -f
 
 ## Reverse proxy
 
-Default **`base_path`** is **`/skywarnplus-ng`**. On Apache nodes, **`install.sh`** installs **`config/apache/skywarnplus-ng-proxy.conf`** and runs **`a2enconf`**. For **nginx** or Nginx Proxy Manager, see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**. For direct access on port 8100 only, set **`base_path: ""`** in config.
+The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path. Default **`base_path`** is **`/skywarnplus-ng`**. On Apache nodes, **`install.sh`** installs **`config/apache/skywarnplus-ng-proxy.conf`** and runs **`a2enconf`**. For **nginx** or Nginx Proxy Manager, see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**. For debugging without a proxy, the app listens on port **8100** locally (`http://127.0.0.1:8100/skywarnplus-ng/`); set **`base_path: ""`** if you expose **8100** directly.
 
 ## Features
 
