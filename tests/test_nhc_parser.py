@@ -86,6 +86,11 @@ def test_select_new_advisories_within_range():
     assert len(advisories) == 1
     assert advisories[0].name == "ALPHA"
     assert advisories[0].distance_miles < 500
+    tracked = service._tracked_storms
+    assert len(tracked) == 1
+    assert tracked[0]["wind"] == "50 mph"
+    assert tracked[0]["within_range"] is True
+    assert tracked[0]["announced"] is False
 
 
 def test_select_skips_already_announced():

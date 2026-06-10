@@ -104,3 +104,14 @@ class PageHandlersMixin:
             is_authenticated=await self._is_authenticated(request),
         )
         return web.Response(text=content, content_type="text/html")
+
+    async def activity_handler(self, request: Request) -> Response:
+        """Handle activity page (service summary and recent events)."""
+        template = self.template_env.get_template("activity.html")
+        content = template.render(
+            title="Activity - SkywarnPlus-NG",
+            page="activity",
+            config=self.config.model_dump(),
+            is_authenticated=await self._is_authenticated(request),
+        )
+        return web.Response(text=content, content_type="text/html")

@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 NHC_BASE_URL = "https://www.nhc.noaa.gov"
+# Throttle dashboard/status refreshes separately from voice-announcement polls
+DISPLAY_REFRESH_MINUTES = 5
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,7 @@ class NhcCycloneService:
         self._tracked_storms: List[Dict[str, Any]] = []
         self._last_fetch_ok_at: Optional[datetime] = None
         self._last_error_message: Optional[str] = None
+        self._last_display_refresh_at: Optional[datetime] = None
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -219,6 +222,8 @@ class NhcCycloneService:
             if not coords:
                 continue
             distance = haversine_miles(lat, lon, coords[0], coords[1])
+            within_range = distance <= nhc.max_distance_miles
+            announced = self._already_announced(cyclone.advisory_key, state)
             tracked.append(
                 {
                     "name": cyclone.name,
@@ -226,9 +231,14 @@ class NhcCycloneService:
                     "atcf": cyclone.atcf,
                     "distance_miles": distance,
                     "advisory_key": cyclone.advisory_key,
+                    "wind": cyclone.wind,
+                    "movement": cyclone.movement,
+                    "center": cyclone.center,
+                    "within_range": within_range,
+                    "announced": announced,
                 }
             )
-            if distance > nhc.max_distance_miles:
+            if not within_range:
                 continue
             if self._already_announced(cyclone.advisory_key, state):
                 continue
@@ -250,6 +260,34 @@ class NhcCycloneService:
 
         self._tracked_storms = tracked
         return selected
+
+    async def refresh_tracked_storms_if_stale(self, state: Dict[str, Any]) -> None:
+        """Refresh in-memory storm list for dashboard (throttled; does not affect poll cadence)."""
+        if not self.config.nhc.enabled:
+            self._tracked_storms = []
+            return
+
+        now = datetime.now(timezone.utc)
+        if self._last_display_refresh_at is not None:
+            elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
+            if elapsed_min < DISPLAY_REFRESH_MINUTES:
+                return
+
+        position = self.get_position()
+        if position is None:
+            return
+
+        xml_text = await self.fetch_feed_xml()
+        self._last_display_refresh_at = now
+        if not xml_text:
+            return
+
+        if "no tropical cyclones" in xml_text.lower():
+            self._tracked_storms = []
+            return
+
+        cyclones = parse_nhc_cyclone_xml(xml_text)
+        self.select_new_advisories(cyclones, state, position)
 
     async def poll(self, state: Dict[str, Any]) -> List[CycloneAdvisory]:
         self._last_poll_at = datetime.now(timezone.utc)
@@ -280,6 +318,7 @@ class NhcCycloneService:
 
         cyclones = parse_nhc_cyclone_xml(xml_text)
         advisories = self.select_new_advisories(cyclones, state, position)
+        self._last_display_refresh_at = datetime.now(timezone.utc)
         self._record_poll_success(state)
         if advisories:
             logger.info(
@@ -291,9 +330,12 @@ class NhcCycloneService:
 
     def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
         position = self.get_position()
+        nhc = self.config.nhc
         return {
-            "enabled": self.config.nhc.enabled,
-            "feed_path": self.config.nhc.feed_path,
+            "enabled": nhc.enabled,
+            "feed_path": nhc.feed_path,
+            "poll_interval_minutes": nhc.poll_interval_minutes,
+            "max_distance_miles": nhc.max_distance_miles,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "position": ({"lat": position[0], "lon": position[1]} if position else None),
             "tracked_storms": self._tracked_storms,

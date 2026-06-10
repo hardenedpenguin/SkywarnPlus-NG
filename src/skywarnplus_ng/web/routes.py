@@ -28,6 +28,7 @@ def register_dashboard_routes(app: web.Application, dashboard: Any) -> None:
     app.router.add_get("/logs", dashboard.logs_handler)
     app.router.add_get("/database", dashboard.database_handler)
     app.router.add_get("/metrics", dashboard.metrics_handler)
+    app.router.add_get("/activity", dashboard.activity_handler)
 
     app.router.add_get("/api/status", dashboard.api_status_handler)
     app.router.add_get("/api/alerts", dashboard.api_alerts_handler)

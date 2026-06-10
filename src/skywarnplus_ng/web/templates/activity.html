@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block breadcrumbs %}
+<nav class="mb-4 text-sm" aria-label="Breadcrumb">
+    <ol class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+        <li><a href="{{ base_path|default('') }}/" class="hover:text-gray-700 dark:hover:text-gray-300">Dashboard</a></li>
+        <li aria-hidden="true">/</li>
+        <li class="text-gray-900 dark:text-white font-medium" aria-current="page">Activity</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Activity</h1>
+        <p class="text-gray-600 dark:text-gray-400">Service summary and recent events</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</p>
+                    <p id="system-status" class="text-2xl font-bold text-gray-900 dark:text-white mt-1">—</p>
+                </div>
+                <div id="system-status-indicator" class="status-indicator status-unknown"></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Active Alerts</p>
+                    <p id="active-alerts-count" class="text-2xl font-bold text-gray-900 dark:text-white mt-1">—</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
+                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white mt-1">—</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last poll</p>
+                    <p id="last-poll" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1 leading-snug break-words">—</p>
+                    <p id="last-poll-relative" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden"></p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
+            <button type="button" onclick="loadActivityPage()" class="btn-secondary text-sm">Refresh</button>
+        </div>
+        <div id="recent-activity">
+            <div class="text-center py-4">
+                <div class="loading-spinner mx-auto mb-2"></div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Loading recent activity…</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let activityRefreshInterval = null;
+
+    function formatUptime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+    }
+
+    function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return 'Unknown';
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        if (diff < 0) return 'recent';
+        if (minutes < 1) return 'just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    function formatAbsolutePollTime(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return String(timestamp);
+        return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+    }
+
+    function updateSystemStatus(status) {
+        const statusElement = document.getElementById('system-status');
+        const indicatorElement = document.getElementById('system-status-indicator');
+        if (!statusElement || !indicatorElement) return;
+        if (status.running) {
+            statusElement.textContent = 'Running';
+            indicatorElement.className = 'status-indicator status-healthy';
+        } else {
+            statusElement.textContent = 'Stopped';
+            indicatorElement.className = 'status-indicator status-unhealthy';
+        }
+    }
+
+    function updateActiveAlertsCount(count) {
+        const el = document.getElementById('active-alerts-count');
+        if (el) el.textContent = count;
+    }
+
+    function updateUptime(uptimeSeconds) {
+        const el = document.getElementById('uptime');
+        if (el) el.textContent = formatUptime(uptimeSeconds);
+    }
+
+    function updateLastPoll(timestamp) {
+        const main = document.getElementById('last-poll');
+        const rel = document.getElementById('last-poll-relative');
+        if (!main) return;
+        if (!timestamp) {
+            main.textContent = 'Never';
+            main.removeAttribute('title');
+            if (rel) { rel.textContent = ''; rel.classList.add('hidden'); }
+            return;
+        }
+        main.textContent = formatAbsolutePollTime(timestamp);
+        try {
+            const d = new Date(timestamp);
+            if (!isNaN(d.getTime())) main.title = 'UTC: ' + d.toISOString();
+        } catch (_) {}
+        if (rel) {
+            const ago = formatRelativeTime(timestamp);
+            rel.textContent = ago && ago !== 'Never' && ago !== 'Unknown' ? ago : '';
+            rel.classList.toggle('hidden', !rel.textContent);
+        }
+    }
+
+    function renderRecentActivity(activity) {
+        const container = document.getElementById('recent-activity');
+        if (!container) return;
+
+        if (!activity || activity.length === 0) {
+            container.innerHTML = '<div class="text-center py-4"><p class="text-gray-500 dark:text-gray-400">No recent activity</p></div>';
+            return;
+        }
+
+        const iconMap = {
+            'alert-triangle': '⚠️', 'info': 'ℹ️', 'volume-2': '🔊', 'wifi': '📡',
+            'phone': '📞', 'speaker': '🔊', 'play-circle': '▶️', 'check-circle': '✅', 'x-circle': '❌'
+        };
+        const severityColors = {
+            'extreme': 'bg-red-500', 'severe': 'bg-orange-500', 'moderate': 'bg-yellow-500',
+            'minor': 'bg-blue-500', 'info': 'bg-blue-500', 'success': 'bg-green-500',
+            'warning': 'bg-yellow-500', 'error': 'bg-red-500'
+        };
+
+        container.innerHTML = activity.map(function(item) {
+            const icon = iconMap[item.icon] || '•';
+            const colorClass = severityColors[item.severity] || 'bg-blue-500';
+            const msg = (item.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const details = item.details ? '<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">' + String(item.details).replace(/</g, '&lt;') + '</p>' : '';
+            return '<div class="flex items-start space-x-3 py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">' +
+                '<div class="flex-shrink-0 w-8 h-8 ' + colorClass + ' rounded-full flex items-center justify-center text-white text-sm">' + icon + '</div>' +
+                '<div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-900 dark:text-white">' + msg + '</p>' +
+                details + '<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">' + formatRelativeTime(item.timestamp) + '</p></div></div>';
+        }).join('');
+    }
+
+    async function loadActivityPage() {
+        try {
+            const status = await apiCall('/api/status', {}, false);
+            updateSystemStatus(status);
+            updateActiveAlertsCount(status.active_alerts);
+            updateUptime(status.uptime_seconds);
+            updateLastPoll(status.last_poll);
+
+            const activity = await apiCall('/api/activity?limit=25', {}, false);
+            renderRecentActivity(activity.activities || []);
+        } catch (error) {
+            console.error('Failed to load activity:', error);
+            showNotification(error.message || 'Failed to load activity', 'error', 0, { retry: loadActivityPage });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadActivityPage();
+        activityRefreshInterval = setInterval(loadActivityPage, 30000);
+    });
+
+    window.addEventListener('beforeunload', function() {
+        if (activityRefreshInterval) clearInterval(activityRefreshInterval);
+    });
+</script>
+{% endblock %}

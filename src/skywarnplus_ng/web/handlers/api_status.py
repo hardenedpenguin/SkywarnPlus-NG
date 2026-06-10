@@ -23,6 +23,15 @@ class StatusApiMixin:
     async def api_status_handler(self, request: Request) -> Response:
         """Handle API status endpoint."""
         try:
+            nhc_service = getattr(self.app, "nhc_service", None)
+            if (
+                nhc_service
+                and self.config.nhc.enabled
+                and hasattr(self.app, "state")
+                and self.app.state is not None
+            ):
+                await nhc_service.refresh_tracked_storms_if_stale(self.app.state)
+
             status = self.app.get_status()
 
             # Get active alerts for Supermon compatibility

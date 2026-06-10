@@ -49,52 +49,6 @@
         <p id="nhc-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="card" id="card-status">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">System Status</p>
-                    <p id="system-status" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-24 align-middle"></span></p>
-                </div>
-                <div id="system-status-indicator" class="status-indicator status-unknown"></div>
-            </div>
-        </div>
-        <div class="card" id="card-alerts">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Active Alerts</p>
-                    <p id="active-alerts-count" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-12 align-middle"></span></p>
-                </div>
-                <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.725-1.36 3.49 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                </div>
-            </div>
-        </div>
-        <div class="card" id="card-uptime">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Uptime</p>
-                    <p id="uptime" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-16 align-middle"></span></p>
-                </div>
-                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>
-                </div>
-            </div>
-        </div>
-        <div class="card" id="card-poll">
-            <div class="flex items-center justify-between gap-2">
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last poll</p>
-                    <p id="last-poll" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1 leading-snug break-words"><span class="skeleton inline-block h-8 w-20 align-middle"></span></p>
-                    <p id="last-poll-relative" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden"></p>
-                </div>
-                <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Main Content Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Active Alerts -->
@@ -123,6 +77,16 @@
                     </div>
                 </div>
             </div>
+
+            <div id="nhc-cyclones-section" class="card mt-6 hidden" aria-labelledby="nhc-cyclones-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h2 id="nhc-cyclones-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Tropical Cyclones (NHC)</h2>
+                    <p id="nhc-cyclones-meta" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                </div>
+                <div id="nhc-cyclones-container">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading cyclone data…</p>
+                </div>
+            </div>
         </div>
 
         <!-- Service status (NWS, Asterisk, Audio, scripts, database; avoids duplicating a separate top summary) -->
@@ -137,20 +101,6 @@
                         <div class="loading-spinner mx-auto mb-2"></div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Loading health status...</p>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Activity -->
-    <div class="mt-8">
-        <div class="card">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Activity</h2>
-            
-            <div id="recent-activity">
-                <div class="text-center py-4">
-                    <div class="loading-spinner mx-auto mb-2"></div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading recent activity...</p>
                 </div>
             </div>
         </div>
@@ -229,21 +179,98 @@
         }
     }
 
-    // Format uptime
-    function formatUptime(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        return `${hours}h ${minutes}m`;
+    function nhcStormBadgeClass(withinRange, announced) {
+        if (announced && withinRange) {
+            return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        }
+        if (withinRange) {
+            return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+        }
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
     }
 
-    // Format timestamp
+    function nhcStormBadgeLabel(withinRange, announced) {
+        if (announced && withinRange) return 'Announced';
+        if (withinRange) return 'In range';
+        return 'Out of range';
+    }
+
+    function renderNhcStorms(nhc) {
+        var section = document.getElementById('nhc-cyclones-section');
+        var container = document.getElementById('nhc-cyclones-container');
+        var meta = document.getElementById('nhc-cyclones-meta');
+        if (!section || !container) return;
+
+        if (!nhc || !nhc.enabled) {
+            section.classList.add('hidden');
+            return;
+        }
+        section.classList.remove('hidden');
+
+        var metaParts = [];
+        if (nhc.feed_path) metaParts.push(escHtml(nhc.feed_path));
+        if (nhc.max_distance_miles) metaParts.push('Voice within ' + escHtml(nhc.max_distance_miles) + ' mi');
+        if (nhc.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(nhc.last_poll_at)));
+        if (meta) meta.innerHTML = metaParts.join(' · ');
+
+        if (!nhc.position) {
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Waiting for position — enable gpsd or set static latitude/longitude under <strong>Configuration → NHC Tropical Cyclones</strong>.</p>';
+            return;
+        }
+
+        var storms = Array.isArray(nhc.tracked_storms) ? nhc.tracked_storms.slice() : [];
+        storms.sort(function(a, b) {
+            return (a.distance_miles || 0) - (b.distance_miles || 0);
+        });
+
+        if (storms.length === 0) {
+            var emptyMsg = 'No active tropical cyclones in the NHC feed.';
+            if (nhc.last_fetch_ok_at) {
+                emptyMsg += ' Feed checked ' + escHtml(formatRelativeTime(nhc.last_fetch_ok_at)) + '.';
+            }
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">' + emptyMsg + '</p>';
+            return;
+        }
+
+        var posLabel = nhc.position.lat.toFixed(2) + ', ' + nhc.position.lon.toFixed(2);
+        var html = '<p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Distance from ' + escHtml(posLabel) + '</p>';
+        html += '<div class="space-y-3">';
+        storms.forEach(function(storm) {
+            var within = !!storm.within_range;
+            var announced = !!storm.announced;
+            var badgeCls = nhcStormBadgeClass(within, announced);
+            var badgeLabel = nhcStormBadgeLabel(within, announced);
+            html += '<div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/30">';
+            html += '<div class="flex flex-wrap items-start justify-between gap-2">';
+            html += '<div class="min-w-0">';
+            html += '<p class="text-base font-semibold text-gray-900 dark:text-white">' + escHtml(storm.name || 'Unknown') + '</p>';
+            html += '<p class="text-sm text-gray-600 dark:text-gray-400">' + escHtml(storm.type || '') + (storm.atcf ? ' · ' + escHtml(storm.atcf) : '') + '</p>';
+            html += '</div>';
+            html += '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium shrink-0 ' + badgeCls + '">' + escHtml(badgeLabel) + '</span>';
+            html += '</div>';
+            html += '<dl class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">';
+            html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Distance</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.distance_miles) + ' mi</dd></div>';
+            if (storm.wind) {
+                html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Wind</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.wind) + '</dd></div>';
+            }
+            if (storm.movement) {
+                html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Movement</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.movement) + '</dd></div>';
+            }
+            if (storm.center) {
+                html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Center</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.center) + '</dd></div>';
+            }
+            html += '</dl></div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
     function formatTimestamp(timestamp) {
         if (!timestamp) return 'Never';
         const date = new Date(timestamp);
         return date.toLocaleString();
     }
 
-    // Format relative time
     function formatRelativeTime(timestamp) {
         if (!timestamp) return 'Never';
         const date = new Date(timestamp);
@@ -271,58 +298,8 @@
         });
     }
 
-    // Update system status
-    function updateSystemStatus(status) {
-        const statusElement = document.getElementById('system-status');
-        const indicatorElement = document.getElementById('system-status-indicator');
-        
-        if (status.running) {
-            statusElement.textContent = 'Running';
-            indicatorElement.className = 'status-indicator status-healthy';
-        } else {
-            statusElement.textContent = 'Stopped';
-            indicatorElement.className = 'status-indicator status-unhealthy';
-        }
+    function updateFeedWarnings(status) {
         updateNwsFetchWarning(status);
-    }
-
-    // Update active alerts count
-    function updateActiveAlertsCount(count) {
-        document.getElementById('active-alerts-count').textContent = count;
-    }
-
-    // Update uptime
-    function updateUptime(uptimeSeconds) {
-        document.getElementById('uptime').textContent = formatUptime(uptimeSeconds);
-    }
-
-    // Update last poll (absolute local time + relative age so staleness is obvious)
-    function updateLastPoll(timestamp) {
-        const main = document.getElementById('last-poll');
-        const rel = document.getElementById('last-poll-relative');
-        if (!main) return;
-        if (!timestamp) {
-            main.textContent = 'Never';
-            main.removeAttribute('title');
-            if (rel) {
-                rel.textContent = '';
-                rel.classList.add('hidden');
-            }
-            return;
-        }
-        main.textContent = formatAbsolutePollTime(timestamp);
-        try {
-            const d = new Date(timestamp);
-            if (!isNaN(d.getTime())) main.title = 'UTC: ' + d.toISOString();
-            else main.removeAttribute('title');
-        } catch (_) {
-            main.removeAttribute('title');
-        }
-        if (rel) {
-            const ago = formatRelativeTime(timestamp);
-            rel.textContent = ago && ago !== 'Never' && ago !== 'Unknown' ? ago : '';
-            rel.classList.toggle('hidden', !rel.textContent);
-        }
     }
 
     // Render alerts
@@ -481,75 +458,13 @@
         container.innerHTML = componentsHtml;
     }
 
-    // Render recent activity
-    function renderRecentActivity(activity) {
-        const container = document.getElementById('recent-activity');
-        
-        if (!activity || activity.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-4">
-                    <p class="text-gray-500 dark:text-gray-400">No recent activity</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Icon mapping for different activity types
-        const iconMap = {
-            'alert-triangle': '⚠️',
-            'info': 'ℹ️',
-            'volume-2': '🔊',
-            'wifi': '📡',
-            'phone': '📞',
-            'speaker': '🔊',
-            'play-circle': '▶️',
-            'check-circle': '✅',
-            'x-circle': '❌'
-        };
-
-        // Severity color mapping
-        const severityColors = {
-            'extreme': 'bg-red-500',
-            'severe': 'bg-orange-500',
-            'moderate': 'bg-yellow-500',
-            'minor': 'bg-blue-500',
-            'info': 'bg-blue-500',
-            'success': 'bg-green-500',
-            'warning': 'bg-yellow-500',
-            'error': 'bg-red-500'
-        };
-
-        const activityHtml = activity.map(item => {
-            const icon = iconMap[item.icon] || '•';
-            const colorClass = severityColors[item.severity] || 'bg-blue-500';
-            
-            return `
-                <div class="flex items-start space-x-3 py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                    <div class="flex-shrink-0 w-8 h-8 ${colorClass} rounded-full flex items-center justify-center text-white text-sm">
-                        ${icon}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">${item.message}</p>
-                        ${item.details ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${item.details}</p>` : ''}
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">${formatRelativeTime(item.timestamp)}</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = activityHtml;
-    }
-
     // Load dashboard data
     async function loadDashboardData() {
         try {
             const status = await apiCall('/api/status', {}, false);
             initFirstRunChecklist(status);
-            updateSystemStatus(status);
-            updateActiveAlertsCount(status.active_alerts);
-            updateUptime(status.uptime_seconds);
-            updateLastPoll(status.last_poll);
-            updateNwsFetchWarning(status);
+            updateFeedWarnings(status);
+            renderNhcStorms(status.nhc);
 
             const alertsResp = await apiCall('/api/alerts', {}, false);
             const alertsList = Array.isArray(alertsResp) ? alertsResp : (alertsResp.alerts || []);
@@ -557,9 +472,6 @@
 
             const health = await apiCall('/api/health', {}, false);
             renderHealthComponents(health.components);
-
-            const activity = await apiCall('/api/activity?limit=10', {}, false);
-            renderRecentActivity(activity.activities || []);
 
             var u = document.getElementById('alerts-updated');
             var a = document.getElementById('alerts-updated-ago');
@@ -591,9 +503,7 @@
             if (text) text.textContent = 'Refreshing…';
             const data = await apiCall('/api/alerts', {}, false);
             const alerts = Array.isArray(data) ? data : (data.alerts || []);
-            const count = data.count !== undefined ? data.count : alerts.length;
             renderAlerts(alerts);
-            updateActiveAlertsCount(count);
             if (updatedEl) updatedEl.classList.remove('hidden');
             if (agoEl) agoEl.textContent = formatAbsolutePollTime(new Date().toISOString()) + ' · just now';
             showNotification('Alerts refreshed', 'success');
@@ -609,14 +519,17 @@
     // WebSocket message handlers
     window.updateAlerts = function(alerts) {
         renderAlerts(alerts);
-        updateActiveAlertsCount(alerts.length);
     };
 
     window.updateStatus = function(status) {
-        updateSystemStatus(status);
-        updateActiveAlertsCount(status.active_alerts);
-        updateUptime(status.uptime_seconds);
-        updateLastPoll(status.last_poll);
+        updateFeedWarnings(status);
+        renderNhcStorms(status.nhc);
+        var u = document.getElementById('alerts-updated');
+        var a = document.getElementById('alerts-updated-ago');
+        if (u && a && status.last_poll) {
+            u.classList.remove('hidden');
+            a.textContent = formatAbsolutePollTime(status.last_poll) + ' · ' + formatRelativeTime(status.last_poll);
+        }
     };
 
     function updateLiveIndicator(connected) {
