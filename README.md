@@ -68,19 +68,25 @@ journalctl -u skywarnplus-ng -f
 
 The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path. Default **`base_path`** is **`/skywarnplus-ng`**. On Apache nodes, **`install.sh`** installs **`config/apache/skywarnplus-ng-proxy.conf`** and runs **`a2enconf`**. For **nginx** or Nginx Proxy Manager, see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**. For debugging without a proxy, the app listens on port **8100** locally (`http://127.0.0.1:8100/skywarnplus-ng/`); set **`base_path: ""`** if you expose **8100** directly.
 
+## Documentation
+
+| Topic | Guide |
+|-------|--------|
+| Push alerts, email, Discord, subscribers | **[docs/](docs/README.md)** |
+| NWS county codes | [CountyCodes.md](CountyCodes.md) |
+| nginx / NPM reverse proxy | [nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md) |
+
 ## Features
 
 - NWS alert polling, voice announcements, tail messages, courtesy tones, ID changes
 - Per-node counties, SkyDescribe DTMF (**841–849** by alert index), AlertScript
 - Web dashboard with live status, health, logs, and configuration
-- Email, Pushover, and HTTPS webhooks (configure under **Configuration → Subscribers**)
+- **PushOver** (global) and **Discord webhooks** (per-subscriber filters) on new alerts — see [docs/notifications-overview.md](docs/notifications-overview.md)
 - Optional GPS mobile counties, quiet hours, NHC tropical cyclone advisories (1.1+)
 
-## DTMF & webhooks
+## DTMF
 
 **SkyDescribe:** codes **841–849** describe active alerts 1–9. Enable the menu paths on your node; DTMF only works for **currently active** alerts.
-
-**Webhooks:** add a subscriber with an **HTTPS** URL and enable the webhook delivery method. The server POSTs JSON (`title`, `message`, `timestamp`, `source`) from the node — test with **DEV → Test alert injection** and `journalctl -u skywarnplus-ng -f`. Private/local URLs are blocked by design.
 
 ## Troubleshooting
 
