@@ -161,11 +161,19 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="nws_base_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Base URL
+                        <label for="nws_base_url_select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            API Endpoint
                         </label>
-                        <input type="url" id="nws_base_url" name="nws.base_url" 
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <select id="nws_base_url_select" onchange="onConfigPresetChange('nws_base_url')"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="https://api.weather.gov">NWS API — api.weather.gov (production)</option>
+                            <option value="__custom__">Custom URL…</option>
+                        </select>
+                        <input type="url" id="nws_base_url_custom"
+                               class="hidden mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="https://api.weather.gov"
+                               oninput="onConfigPresetCustomInput('nws_base_url')">
+                        <input type="hidden" id="nws_base_url" name="nws.base_url">
                     </div>
                     
                     <div>
@@ -330,10 +338,18 @@
                         </label>
                     </div>
                     <div>
-                        <label for="nhc_feed_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Feed Path</label>
-                        <input type="text" id="nhc_feed_path" name="nhc.feed_path" value="/gis-at.xml"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Atlantic: /gis-at.xml — East Pacific: /gis-ep.xml</p>
+                        <label for="nhc_feed_path_select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">NHC Feed</label>
+                        <select id="nhc_feed_path_select" onchange="onConfigPresetChange('nhc_feed_path')"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="/gis-at.xml">Atlantic — /gis-at.xml</option>
+                            <option value="/gis-ep.xml">East Pacific — /gis-ep.xml</option>
+                            <option value="__custom__">Custom feed path…</option>
+                        </select>
+                        <input type="text" id="nhc_feed_path_custom"
+                               class="hidden mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                               placeholder="/gis-at.xml"
+                               oninput="onConfigPresetCustomInput('nhc_feed_path')">
+                        <input type="hidden" id="nhc_feed_path" name="nhc.feed_path">
                     </div>
                     <div>
                         <label for="nhc_poll_interval_minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Poll Interval (minutes)</label>
@@ -603,11 +619,25 @@
                         </div>
                         
                         <div id="tts_gtts_tld" class="tts-gtts-field">
-                            <label for="tts_tld" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="tts_tld_select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Top-Level Domain
                             </label>
-                            <input type="text" id="tts_tld" name="audio.tts.tld" 
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <select id="tts_tld_select" onchange="onConfigPresetChange('tts_tld')"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <option value="com">.com (US English, default)</option>
+                                <option value="co.uk">.co.uk (UK English)</option>
+                                <option value="com.au">.com.au (Australian English)</option>
+                                <option value="ca">.ca (Canadian English)</option>
+                                <option value="co.in">.co.in (Indian English)</option>
+                                <option value="ie">.ie (Irish English)</option>
+                                <option value="co.za">.co.za (South African English)</option>
+                                <option value="__custom__">Custom TLD…</option>
+                            </select>
+                            <input type="text" id="tts_tld_custom"
+                                   class="hidden mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                   placeholder="com"
+                                   oninput="onConfigPresetCustomInput('tts_tld')">
+                            <input type="hidden" id="tts_tld" name="audio.tts.tld">
                         </div>
                         
                         <div id="tts_gtts_slow" class="tts-gtts-field flex items-center">
@@ -1318,13 +1348,18 @@
                             
                             <div>
                                 <label for="pushover_priority" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Default Priority (-2 to 2)
+                                    Default Priority
                                 </label>
-                                <input type="number" id="pushover_priority" name="pushover.priority" min="-2" max="2" 
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
-                                       placeholder="0 (normal)">
+                                <select id="pushover_priority" name="pushover.priority"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                    <option value="-2">−2 — Silent (no notification)</option>
+                                    <option value="-1">−1 — Quiet (no sound/vibration)</option>
+                                    <option value="0">0 — Normal</option>
+                                    <option value="1">1 — High (bypass quiet hours)</option>
+                                    <option value="2">2 — Emergency (requires acknowledgment)</option>
+                                </select>
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    -2 (silent) to 2 (emergency). Alert severity overrides this.
+                                    PushOver adjusts priority by alert severity unless you override it here.
                                 </p>
                             </div>
                             
@@ -1356,11 +1391,35 @@
                                 <label for="pushover_sound" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Default Sound
                                 </label>
-                                <input type="text" id="pushover_sound" name="pushover.sound" 
-                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
-                                       placeholder="Leave empty for device default">
+                                <select id="pushover_sound" name="pushover.sound"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                    <option value="">Automatic (by alert severity)</option>
+                                    <option value="pushover">Pushover (default)</option>
+                                    <option value="bike">Bike</option>
+                                    <option value="bugle">Bugle</option>
+                                    <option value="cashregister">Cash Register</option>
+                                    <option value="classical">Classical</option>
+                                    <option value="cosmic">Cosmic</option>
+                                    <option value="falling">Falling</option>
+                                    <option value="gamelan">Gamelan</option>
+                                    <option value="incoming">Incoming</option>
+                                    <option value="intermission">Intermission</option>
+                                    <option value="magic">Magic</option>
+                                    <option value="mechanical">Mechanical</option>
+                                    <option value="pianobar">Piano Bar</option>
+                                    <option value="siren">Siren</option>
+                                    <option value="spacealarm">Space Alarm</option>
+                                    <option value="tugboat">Tugboat</option>
+                                    <option value="alien">Alien Alarm (long)</option>
+                                    <option value="climb">Climb (long)</option>
+                                    <option value="persistent">Persistent (long)</option>
+                                    <option value="echo">Echo (long)</option>
+                                    <option value="updown">Up Down (long)</option>
+                                    <option value="vibrate">Vibrate Only</option>
+                                    <option value="none">None (silent)</option>
+                                </select>
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Optional: pushover, siren, magic, etc. (see <a href="https://pushover.net/api#sounds" target="_blank" class="text-blue-600 hover:text-blue-800">available sounds</a>)
+                                    Leave on Automatic to match sounds to alert severity, or pick a fixed sound for every alert.
                                 </p>
                             </div>
                             
@@ -1429,7 +1488,7 @@
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Email Provider
                             </label>
-                            <select name="notifications.email.provider" class="form-input">
+                            <select id="notifications_email_provider" name="notifications.email.provider" class="form-input" onchange="applyEmailProviderPreset(this.value)">
                                 <option value="gmail">Gmail</option>
                                 <option value="outlook">Outlook</option>
                                 <option value="yahoo">Yahoo</option>
@@ -2095,6 +2154,98 @@
             }
         }
     }
+
+    var CONFIG_PRESET_FIELDS = {
+        nws_base_url: { selectId: 'nws_base_url_select', customId: 'nws_base_url_custom', hiddenId: 'nws_base_url' },
+        nhc_feed_path: { selectId: 'nhc_feed_path_select', customId: 'nhc_feed_path_custom', hiddenId: 'nhc_feed_path' },
+        tts_tld: { selectId: 'tts_tld_select', customId: 'tts_tld_custom', hiddenId: 'tts_tld' },
+    };
+
+    var EMAIL_PROVIDER_PRESETS = {
+        gmail: { smtp_server: 'smtp.gmail.com', smtp_port: 587, use_tls: true, use_ssl: false },
+        outlook: { smtp_server: 'smtp-mail.outlook.com', smtp_port: 587, use_tls: true, use_ssl: false },
+        yahoo: { smtp_server: 'smtp.mail.yahoo.com', smtp_port: 587, use_tls: true, use_ssl: false },
+        icloud: { smtp_server: 'smtp.mail.me.com', smtp_port: 587, use_tls: true, use_ssl: false },
+    };
+
+    function setConfigPresetField(key, value) {
+        var cfg = CONFIG_PRESET_FIELDS[key];
+        if (!cfg) return;
+        var select = document.getElementById(cfg.selectId);
+        var custom = document.getElementById(cfg.customId);
+        var hidden = document.getElementById(cfg.hiddenId);
+        if (!select || !hidden) return;
+        var val = value || '';
+        var matched = false;
+        for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === val && val !== '__custom__') {
+                select.value = val;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched && val) {
+            select.value = '__custom__';
+            if (custom) {
+                custom.value = val;
+                custom.classList.remove('hidden');
+            }
+        } else if (custom) {
+            custom.value = '';
+            custom.classList.add('hidden');
+        }
+        syncConfigPresetHidden(key);
+    }
+
+    function onConfigPresetChange(key) {
+        var cfg = CONFIG_PRESET_FIELDS[key];
+        if (!cfg) return;
+        var select = document.getElementById(cfg.selectId);
+        var custom = document.getElementById(cfg.customId);
+        if (!select || !custom) return;
+        if (select.value === '__custom__') {
+            custom.classList.remove('hidden');
+            custom.focus();
+        } else {
+            custom.classList.add('hidden');
+        }
+        syncConfigPresetHidden(key);
+    }
+
+    function onConfigPresetCustomInput(key) {
+        syncConfigPresetHidden(key);
+    }
+
+    function syncConfigPresetHidden(key) {
+        var cfg = CONFIG_PRESET_FIELDS[key];
+        if (!cfg) return;
+        var select = document.getElementById(cfg.selectId);
+        var custom = document.getElementById(cfg.customId);
+        var hidden = document.getElementById(cfg.hiddenId);
+        if (!select || !hidden) return;
+        if (select.value === '__custom__') {
+            hidden.value = custom ? custom.value.trim() : '';
+        } else {
+            hidden.value = select.value;
+        }
+    }
+
+    function syncAllConfigPresetFields() {
+        Object.keys(CONFIG_PRESET_FIELDS).forEach(syncConfigPresetHidden);
+    }
+
+    function applyEmailProviderPreset(provider) {
+        if (provider === 'custom' || !EMAIL_PROVIDER_PRESETS[provider]) return;
+        var preset = EMAIL_PROVIDER_PRESETS[provider];
+        var smtp = document.querySelector('[name="notifications.email.smtp_server"]');
+        var port = document.querySelector('[name="notifications.email.smtp_port"]');
+        var tls = document.querySelector('[name="notifications.email.use_tls"]');
+        var ssl = document.querySelector('[name="notifications.email.use_ssl"]');
+        if (smtp) smtp.value = preset.smtp_server;
+        if (port) port.value = preset.smtp_port;
+        if (tls) tls.checked = preset.use_tls;
+        if (ssl) ssl.checked = preset.use_ssl;
+    }
     
     function filterConfigSections(query) {
         var q = (query || '').trim().toLowerCase();
@@ -2183,7 +2334,7 @@
         document.getElementById('config_file').value = config.config_file || '';
 
         // NWS API
-        document.getElementById('nws_base_url').value = config.nws?.base_url || '';
+        setConfigPresetField('nws_base_url', config.nws?.base_url || 'https://api.weather.gov');
         document.getElementById('nws_timeout').value = config.nws?.timeout || 30;
         document.getElementById('nws_user_agent').value = config.nws?.user_agent || '';
 
@@ -2227,7 +2378,7 @@
         
         document.getElementById('tts_engine').value = config.audio?.tts?.engine || 'piper';
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
-        document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
+        setConfigPresetField('tts_tld', config.audio?.tts?.tld || 'com');
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
         populatePiperModelSelect(config);
         document.getElementById('tts_speed').value = config.audio?.tts?.speed || 1.0;
@@ -2260,7 +2411,7 @@
         document.getElementById('alerts_announcement_hold_minutes').value = config.alerts?.announcement_hold_minutes ?? 0;
 
         document.getElementById('nhc_enabled').checked = config.nhc?.enabled || false;
-        document.getElementById('nhc_feed_path').value = config.nhc?.feed_path || '/gis-at.xml';
+        setConfigPresetField('nhc_feed_path', config.nhc?.feed_path || '/gis-at.xml');
         document.getElementById('nhc_poll_interval_minutes').value = config.nhc?.poll_interval_minutes ?? 60;
         document.getElementById('nhc_max_distance_miles').value = config.nhc?.max_distance_miles ?? 1000;
         document.getElementById('nhc_max_advisory_age_hours').value = config.nhc?.max_advisory_age_hours ?? 4;
@@ -3095,6 +3246,7 @@
     }
 
     function buildConfigFromForm() {
+            syncAllConfigPresetFields();
             reindexCountyRows();
             const formData = new FormData(document.getElementById('config-form'));
             const config = {};
@@ -3251,6 +3403,9 @@
             }
             if (config.alerts && config.alerts.quiet_hours && config.alerts.quiet_hours.timezone === '') {
                 config.alerts.quiet_hours.timezone = null;
+            }
+            if (config.pushover) {
+                if (config.pushover.sound === '') config.pushover.sound = null;
             }
             if (config.asterisk && Array.isArray(config.asterisk.nodes)) {
                 config.asterisk.nodes = config.asterisk.nodes.map(function (node) {
