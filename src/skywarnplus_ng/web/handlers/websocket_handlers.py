@@ -14,6 +14,8 @@ from aiohttp import web, WSMsgType
 from aiohttp.web import Request, Response
 from websockets.exceptions import ConnectionClosed
 
+from ..alert_payload import build_active_alerts_payload
+
 if TYPE_CHECKING:
     pass
 
@@ -82,15 +84,8 @@ class WebsocketHandlersMixin:
     async def _get_current_alerts(self) -> List[Dict[str, Any]]:
         """Get current alerts for WebSocket updates."""
         try:
-            active_alerts = self.app.state.get("active_alerts", [])
-            alerts_data = []
-
-            for alert_id in active_alerts:
-                alert_data = self.app.state.get("last_alerts", {}).get(alert_id)
-                if alert_data:
-                    alerts_data.append(alert_data)
-
-            return alerts_data
+            config = self.config if hasattr(self, "config") else None
+            return build_active_alerts_payload(self.app.state, config)
         except Exception as e:
             logger.error(f"Error getting current alerts: {e}")
             return []

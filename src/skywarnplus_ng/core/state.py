@@ -131,62 +131,84 @@ class ApplicationState:
             state: Current state dictionary
             alert: Alert to add
         """
-        alert_data = {
-            "id": alert.id,
-            "event": alert.event,
-            "headline": alert.headline,
-            "description": alert.description,
-            "instruction": alert.instruction,
-            "severity": alert.severity.value,
-            "urgency": alert.urgency.value,
-            "certainty": alert.certainty.value,
-            "area_desc": alert.area_desc,
-            "county_codes": alert.county_codes,
-            "effective": alert.effective.isoformat(),
-            "expires": alert.expires.isoformat(),
-            "onset": alert.onset.isoformat() if alert.onset else None,
-            "ends": alert.ends.isoformat() if alert.ends else None,
-            "added_at": datetime.now(timezone.utc).isoformat(),
-        }
+        self.upsert_alert(state, alert)
 
-        state["last_alerts"][alert.id] = alert_data
-        logger.debug(f"Added alert {alert.id} to state")
+    @staticmethod
+    def weather_alert_to_state_dict(
+        alert: WeatherAlert, existing: Dict[str, Any] | None = None
+    ) -> Dict[str, Any]:
+        """Serialize a WeatherAlert for persistence in ``last_alerts``."""
+        data = alert.model_dump(mode="json")
+        data["added_at"] = (
+            existing.get("added_at")
+            if isinstance(existing, dict) and existing.get("added_at")
+            else datetime.now(timezone.utc).isoformat()
+        )
+        if isinstance(existing, dict) and existing.get("updated_at"):
+            data["updated_at"] = existing["updated_at"]
+        return data
 
-    def upsert_alert(self, state: Dict[str, Any], alert: WeatherAlert) -> None:
+    @staticmethod
+    def _alert_snapshot_changed(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
+        compare_keys = (
+            "event",
+            "headline",
+            "description",
+            "instruction",
+            "severity",
+            "urgency",
+            "certainty",
+            "status",
+            "category",
+            "area_desc",
+            "county_codes",
+            "geocode",
+            "effective",
+            "expires",
+            "onset",
+            "ends",
+            "sent",
+            "sender",
+            "sender_name",
+        )
+        for key in compare_keys:
+            if old.get(key) != new.get(key):
+                return True
+        return False
+
+    def upsert_alert(self, state: Dict[str, Any], alert: WeatherAlert) -> bool:
         """
         Insert or refresh alert metadata in state.
 
         NWS may update or extend an alert while keeping the same ``id``. The dashboard
         and API read from ``last_alerts``; without this, ``expires`` / ``ends`` / text
         can stay stuck on the first snapshot.
+
+        Returns:
+            True when the stored snapshot changed (new alert or NWS update/extension).
         """
         last = state.get("last_alerts", {})
         existing = last.get(alert.id) if isinstance(last, dict) else None
+        alert_data = self.weather_alert_to_state_dict(
+            alert, existing if isinstance(existing, dict) else None
+        )
 
-        alert_data = {
-            "id": alert.id,
-            "event": alert.event,
-            "headline": alert.headline,
-            "description": alert.description,
-            "instruction": alert.instruction,
-            "severity": alert.severity.value,
-            "urgency": alert.urgency.value,
-            "certainty": alert.certainty.value,
-            "area_desc": alert.area_desc,
-            "county_codes": alert.county_codes,
-            "effective": alert.effective.isoformat(),
-            "expires": alert.expires.isoformat(),
-            "onset": alert.onset.isoformat() if alert.onset else None,
-            "ends": alert.ends.isoformat() if alert.ends else None,
-            "added_at": (
-                existing.get("added_at")
-                if isinstance(existing, dict) and existing.get("added_at")
-                else datetime.now(timezone.utc).isoformat()
-            ),
-        }
+        changed = not isinstance(existing, dict) or self._alert_snapshot_changed(
+            existing, alert_data
+        )
+        if changed and isinstance(existing, dict):
+            alert_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            logger.info(
+                "Alert %s updated from NWS poll (%s): expires=%s ends=%s",
+                alert.id,
+                alert.event,
+                alert_data.get("expires"),
+                alert_data.get("ends"),
+            )
 
         state["last_alerts"][alert.id] = alert_data
-        logger.debug(f"Upserted alert {alert.id} in state")
+        logger.debug("Upserted alert %s in state (changed=%s)", alert.id, changed)
+        return changed
 
     def remove_alert(self, state: Dict[str, Any], alert_id: str) -> None:
         """

@@ -5,13 +5,14 @@ Alerts API handlers mixin.
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aiohttp import web
 from aiohttp.web import Request, Response
+
+from ..alert_payload import build_active_alerts_payload
 
 if TYPE_CHECKING:
     pass
@@ -23,149 +24,8 @@ class AlertsApiMixin:
     async def api_alerts_handler(self, request: Request) -> Response:
         """Handle API alerts endpoint."""
         try:
-            # Get current alerts from state
-            active_alerts = self.app.state.get("active_alerts", [])
-            alerts_data = []
-
-            # Get monitored county codes for filtering
-            monitored_county_codes = set()
-            if self.app and hasattr(self.app, "config"):
-                monitored_county_codes = {
-                    county.code for county in self.app.config.counties if county.enabled
-                }
-
-            for alert_id in active_alerts:
-                alert_data = self.app.state.get("last_alerts", {}).get(alert_id)
-                if alert_data:
-                    # Filter county codes to only monitored counties
-                    if monitored_county_codes and "county_codes" in alert_data:
-                        original_codes = alert_data.get("county_codes", [])
-                        filtered_codes = [
-                            code for code in original_codes if code in monitored_county_codes
-                        ]
-
-                        # If no county codes matched, try to extract from area_desc
-                        if not filtered_codes and self.app and hasattr(self.app, "config"):
-                            area_desc = alert_data.get("area_desc", "")
-                            if area_desc:
-                                # Build a map of county names (normalized) to county codes
-                                county_name_to_code = {}
-                                for county in self.app.config.counties:
-                                    if county.enabled and county.name:
-                                        # Normalize county name (remove " County" suffix, lowercase)
-                                        normalized_name = (
-                                            county.name.replace(" County", "")
-                                            .replace(" county", "")
-                                            .lower()
-                                        )
-                                        county_name_to_code[normalized_name] = county.code
-
-                                        # Also add without "Island", "Islands", etc. for matching
-                                        base_name = re.sub(
-                                            r"\s+(island|islands|peninsula|beach|beaches)\s*$",
-                                            "",
-                                            normalized_name,
-                                            flags=re.IGNORECASE,
-                                        )
-                                        if base_name != normalized_name:
-                                            county_name_to_code[base_name] = county.code
-
-                                # Parse area_desc and try to match county names
-                                area_parts = [part.strip() for part in re.split(r"[;,]", area_desc)]
-                                matched_codes = []
-                                for area_part in area_parts:
-                                    # Remove common suffixes and normalize
-                                    normalized_area = (
-                                        re.sub(
-                                            r"\s+(island|islands|peninsula|beach|beaches|county)\s*$",
-                                            "",
-                                            area_part,
-                                            flags=re.IGNORECASE,
-                                        )
-                                        .lower()
-                                        .strip()
-                                    )
-
-                                    # Try exact match first
-                                    if normalized_area in county_name_to_code:
-                                        code = county_name_to_code[normalized_area]
-                                        if code not in matched_codes:
-                                            matched_codes.append(code)
-                                    else:
-                                        # Try partial match (e.g., "Brazoria" in "Brazoria Islands")
-                                        for county_name, code in county_name_to_code.items():
-                                            if (
-                                                county_name in normalized_area
-                                                or normalized_area in county_name
-                                            ):
-                                                if code not in matched_codes:
-                                                    matched_codes.append(code)
-
-                                if matched_codes:
-                                    filtered_codes = matched_codes
-
-                        if filtered_codes:
-                            # Create filtered alert data
-                            filtered_alert = alert_data.copy()
-                            filtered_alert["county_codes"] = filtered_codes
-
-                            # Filter area_desc if possible
-                            if "area_desc" in filtered_alert and filtered_alert["area_desc"]:
-                                area_desc = filtered_alert["area_desc"]
-                                # Try to match county names from area_desc
-                                county_code_to_name = {
-                                    county.code: county.name
-                                    for county in self.app.config.counties
-                                    if county.enabled and county.name
-                                }
-                                area_parts = [part.strip() for part in re.split(r"[;,]", area_desc)]
-                                filtered_parts = []
-
-                                for part in area_parts:
-                                    if not part:
-                                        continue
-                                    part_lower = part.lower().strip()
-                                    matched = False
-
-                                    # Check by county name
-                                    for code, name in county_code_to_name.items():
-                                        if name:
-                                            name_lower = name.lower().strip()
-                                            if (
-                                                part_lower == name_lower
-                                                or part_lower == name_lower.replace(" county", "")
-                                                or part_lower
-                                                == name_lower.replace(" county", "").replace(
-                                                    " ", ""
-                                                )
-                                            ):
-                                                filtered_parts.append(part)
-                                                matched = True
-                                                break
-
-                                    # Check by county code
-                                    if not matched:
-                                        for code in monitored_county_codes:
-                                            if code.lower() in part_lower:
-                                                filtered_parts.append(part)
-                                                matched = True
-                                                break
-
-                                if filtered_parts:
-                                    filtered_alert["area_desc"] = "; ".join(filtered_parts)
-                                elif len(filtered_codes) < len(original_codes):
-                                    # Build area_desc from county names
-                                    county_names = []
-                                    for code in filtered_codes:
-                                        if code in county_code_to_name:
-                                            county_names.append(county_code_to_name[code])
-                                    if county_names:
-                                        filtered_alert["area_desc"] = "; ".join(county_names)
-
-                            alerts_data.append(filtered_alert)
-                        # If no monitored counties, skip this alert
-                    else:
-                        alerts_data.append(alert_data)
+            config = self.app.config if self.app and hasattr(self.app, "config") else None
+            alerts_data = build_active_alerts_payload(self.app.state, config)
 
             return web.json_response(
                 {

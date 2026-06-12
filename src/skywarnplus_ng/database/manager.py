@@ -113,11 +113,30 @@ class DatabaseManager:
                 # Check if alert already exists
                 existing = await session.get(AlertRecord, alert.id)
                 if existing:
-                    # Update existing record
+                    existing.event = alert.event
+                    existing.headline = alert.headline
+                    existing.description = alert.description
+                    existing.instruction = alert.instruction
+                    existing.severity = alert.severity.value
+                    existing.urgency = alert.urgency.value
+                    existing.certainty = alert.certainty.value
+                    existing.status = alert.status.value
+                    existing.category = alert.category.value
+                    existing.sent_time = alert.sent
+                    existing.effective_time = alert.effective
+                    existing.onset_time = alert.onset
+                    existing.expires_time = alert.expires
+                    existing.ends_time = alert.ends
+                    existing.area_desc = alert.area_desc
+                    existing.geocode = alert.geocode
+                    existing.county_codes = alert.county_codes
+                    existing.sender = alert.sender
+                    existing.sender_name = alert.sender_name
                     existing.announced = announced
                     existing.script_executed = script_executed
                     existing.announcement_nodes = announcement_nodes or []
                     existing.processed_at = datetime.now(timezone.utc)
+                    existing.metadata = {"original_alert": alert.model_dump(mode="json")}
                 else:
                     # Create new record
                     alert_record = AlertRecord(

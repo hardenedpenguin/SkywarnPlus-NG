@@ -816,6 +816,7 @@ class SkywarnPlusApplication:
             ]
 
         # Get new and expired alerts
+        existing_alert_ids = self.state_manager.get_alert_ids(self.state)
         new_alerts = self.state_manager.get_new_alerts(self.state, processed_alerts)
         expired_alerts = self.state_manager.get_expired_alerts(self.state, processed_alerts)
         had_active_alerts = bool(self.state.get("active_alerts"))
@@ -849,8 +850,22 @@ class SkywarnPlusApplication:
             await self._handle_expired_alerts(expired_alerts)
 
         # Refresh stored alert snapshots (NWS may extend/update without changing alert id)
+        updated_alerts: List[WeatherAlert] = []
         for alert in processed_alerts:
-            self.state_manager.upsert_alert(self.state, alert)
+            if self.state_manager.upsert_alert(self.state, alert):
+                if alert.id in existing_alert_ids:
+                    updated_alerts.append(alert)
+
+        if updated_alerts and self.database_manager:
+            for alert in updated_alerts:
+                try:
+                    await self.database_manager.store_alert(
+                        alert=alert,
+                        announced=alert.id in self.state.get("last_sayalert", []),
+                        script_executed=alert.id in self.state.get("alertscript_alerts", []),
+                    )
+                except DatabaseError as e:
+                    logger.error("Failed to refresh alert %s in database: %s", alert.id, e)
 
         # Check for all-clear scenario (we had alerts, now we have none - announce if enabled)
         if not processed_alerts and had_active_alerts:

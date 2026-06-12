@@ -288,11 +288,23 @@
                                 <div>${formatTimestamp(alert.expires)}</div>
                                 <div class="text-xs">${formatRelativeTime(alert.expires)}</div>
                             </div>
+                            ${alert.ends && alert.ends !== alert.expires ? `
+                            <div>
+                                <span class="font-medium">Ends:</span>
+                                <div>${formatTimestamp(alert.ends)}</div>
+                                <div class="text-xs">${formatRelativeTime(alert.ends)}</div>
+                            </div>` : ''}
                             <div>
                                 <span class="font-medium">Issued:</span>
                                 <div>${formatTimestamp(alert.sent)}</div>
                                 <div class="text-xs">${formatRelativeTime(alert.sent)}</div>
                             </div>
+                            ${alert.updated_at ? `
+                            <div>
+                                <span class="font-medium">Updated:</span>
+                                <div>${formatTimestamp(alert.updated_at)}</div>
+                                <div class="text-xs text-amber-600 dark:text-amber-400">${formatRelativeTime(alert.updated_at)}</div>
+                            </div>` : ''}
                         </div>
                     </div>
                     
