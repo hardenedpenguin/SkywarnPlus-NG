@@ -1,6 +1,6 @@
 # SMS notifications (Twilio)
 
-SkywarnPlus-NG can send **short text messages** to subscribers through [Twilio](https://www.twilio.com/). This works from **mobile repeater nodes** with outbound internet — no USB modem or local gateway on the truck.
+SkywarnPlus-NG can send **short text messages** to subscribers through [Twilio](https://www.twilio.com/). 
 
 ## Setup
 
