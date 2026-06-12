@@ -12,6 +12,7 @@ from .delivery import RetryPolicy
 from .email import EmailConfig, EmailProvider
 from .manager import NotificationConfig, NotificationManager
 from .push import PushConfig, PushProvider
+from .sms import SmsConfig
 from .webhook import WebhookConfig, webhook_provider_for_url
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ def build_notification_manager(config: AppConfig) -> Optional[NotificationManage
     email_cfg = notifications.email
     webhook_cfg = notifications.webhook
     push_cfg = notifications.push
+    sms_cfg = notifications.sms
     delivery_cfg = notifications.delivery
 
     email_configs: list[EmailConfig] = []
@@ -83,6 +85,30 @@ def build_notification_manager(config: AppConfig) -> Optional[NotificationManage
             )
         )
 
+    sms_configs: list[SmsConfig] = []
+    if (
+        sms_cfg.enabled
+        and _non_empty(sms_cfg.account_sid)
+        and _non_empty(sms_cfg.auth_token)
+        and _non_empty(sms_cfg.from_number)
+    ):
+        try:
+            sms_configs.append(
+                SmsConfig(
+                    account_sid=str(sms_cfg.account_sid).strip(),
+                    auth_token=str(sms_cfg.auth_token).strip(),
+                    from_number=str(sms_cfg.from_number).strip(),
+                    enabled=True,
+                    timeout_seconds=delivery_cfg.timeout_seconds,
+                    retry_count=delivery_cfg.max_retries,
+                    retry_delay_seconds=delivery_cfg.retry_delay,
+                    max_length=sms_cfg.max_length,
+                    all_clear_enabled=sms_cfg.all_clear_enabled,
+                )
+            )
+        except ValueError as exc:
+            logger.error("Twilio SMS config rejected: %s", exc)
+
     subscriber_file = config.data_dir / "subscribers.json"
     has_subscribers = False
     if subscriber_file.exists():
@@ -96,7 +122,13 @@ def build_notification_manager(config: AppConfig) -> Optional[NotificationManage
         except Exception:
             has_subscribers = True
 
-    if not email_configs and not webhook_configs and not push_configs and not has_subscribers:
+    if (
+        not email_configs
+        and not webhook_configs
+        and not push_configs
+        and not sms_configs
+        and not has_subscribers
+    ):
         logger.debug("No notification channels configured; notification manager disabled")
         return None
 
@@ -107,6 +139,8 @@ def build_notification_manager(config: AppConfig) -> Optional[NotificationManage
         webhook_configs=webhook_configs,
         push_enabled=bool(push_configs),
         push_configs=push_configs,
+        sms_enabled=bool(sms_configs),
+        sms_configs=sms_configs,
         delivery_queue_enabled=True,
         max_concurrent_deliveries=delivery_cfg.max_concurrent,
         delivery_timeout_seconds=delivery_cfg.timeout_seconds,

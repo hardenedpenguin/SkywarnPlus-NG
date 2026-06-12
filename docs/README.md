@@ -9,7 +9,8 @@ Guides for optional features beyond the install steps in the main [README](../RE
 | [Notifications overview](notifications-overview.md) | What fires on alerts today, where to configure each channel, testing |
 | [PushOver](pushover.md) | Mobile push alerts (global, all monitored counties) |
 | [Discord webhooks](discord-webhooks.md) | Per-subscriber Discord channels with county and severity filters |
-| [Email](email.md) | SMTP setup, Gmail app passwords, subscriber email (planned wiring) |
+| [Email](email.md) | SMTP setup, Gmail app passwords, subscriber email |
+| [SMS](sms.md) | Twilio text alerts for mobile nodes and subscriber phones |
 | [Subscribers](subscribers.md) | Filters, rate limits, storage, and delivery methods |
 
 ## Other guides

@@ -1590,6 +1590,64 @@
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">SMS Notifications (Twilio)</h3>
+                    <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p class="text-sm text-blue-800 dark:text-blue-200">
+                            Send short text alerts via <a href="https://www.twilio.com/" class="underline" target="_blank" rel="noopener">Twilio</a>. Works from mobile nodes with internet — no modem on the repeater. See <code>docs/sms.md</code>.
+                        </p>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="notifications.sms.enabled" class="form-checkbox">
+                            <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Enable Twilio SMS</label>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Account SID
+                                </label>
+                                <input type="text" name="notifications.sms.account_sid" class="form-input" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Auth Token
+                                </label>
+                                <input type="password" name="notifications.sms.auth_token" class="form-input" placeholder="Your Twilio auth token">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    From Number
+                                </label>
+                                <input type="tel" name="notifications.sms.from_number" class="form-input" placeholder="+15551234567">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Max Message Length
+                                </label>
+                                <input type="number" name="notifications.sms.max_length" class="form-input" value="160" min="70" max="1600">
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="notifications.sms.all_clear_enabled" class="form-checkbox">
+                            <label class="ml-2 text-sm text-gray-700 dark:text-gray-300">Send SMS on all-clear</label>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Test Phone Number
+                                </label>
+                                <input type="tel" id="sms-test-phone" class="form-input" placeholder="+15551234567">
+                            </div>
+                            <div class="flex items-end">
+                                <button type="button" onclick="testSmsGateway()" class="btn-secondary">
+                                    Test Twilio SMS
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Delivery Settings</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -1744,7 +1802,7 @@
                         </label>
                         <label class="inline-flex items-center gap-2">
                             <input type="checkbox" value="sms" class="form-checkbox subscriber-method">
-                            SMS (beta)
+                            SMS
                         </label>
                     </div>
                 </div>
@@ -2519,6 +2577,23 @@
                         input.value = ''; // Don't populate passwords for security
                     } else {
                         input.value = notifications.push[fieldName];
+                    }
+                }
+            });
+        }
+
+        // SMS settings
+        if (notifications.sms) {
+            const smsInputs = document.querySelectorAll('[name^="notifications.sms."]');
+            smsInputs.forEach(input => {
+                const fieldName = input.name.split('.').pop();
+                if (notifications.sms[fieldName] !== undefined) {
+                    if (input.type === 'checkbox') {
+                        input.checked = notifications.sms[fieldName];
+                    } else if (input.type === 'password') {
+                        input.value = '';
+                    } else {
+                        input.value = notifications.sms[fieldName];
                     }
                 }
             });
@@ -3524,6 +3599,51 @@
     }
 
     // Notification functions
+    async function testSmsGateway() {
+        try {
+            const formData = new FormData(document.getElementById('config-form'));
+            const smsConfig = {
+                account_sid: formData.get('notifications.sms.account_sid'),
+                auth_token: formData.get('notifications.sms.auth_token'),
+                from_number: formData.get('notifications.sms.from_number'),
+                max_length: parseInt(formData.get('notifications.sms.max_length') || '160', 10),
+                to: document.getElementById('sms-test-phone').value
+            };
+
+            if (!smsConfig.account_sid) {
+                showNotification('Twilio Account SID is required', 'error');
+                return;
+            }
+            if (!smsConfig.from_number) {
+                showNotification('Twilio From number is required', 'error');
+                return;
+            }
+            if (!smsConfig.auth_token) {
+                showNotification('Twilio Auth Token is required for test send', 'error');
+                return;
+            }
+            if (!smsConfig.to) {
+                showNotification('Enter a test phone number (E.164, e.g. +15551234567)', 'error');
+                return;
+            }
+
+            showNotification('Sending SMS test...', 'info');
+            const result = await apiCall('/api/notifications/test-sms', {
+                method: 'POST',
+                body: JSON.stringify(smsConfig)
+            });
+
+            if (result.success) {
+                showNotification('SMS test sent successfully!', 'success');
+            } else {
+                showNotification(`SMS test failed: ${result.error || result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('SMS test failed:', error);
+            showNotification('SMS test failed', 'error');
+        }
+    }
+
     async function testEmailConnection() {
         try {
             const formData = new FormData(document.getElementById('config-form'));

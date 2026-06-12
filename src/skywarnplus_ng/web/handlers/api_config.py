@@ -96,16 +96,7 @@ def _collect_runtime_warnings(config: Any) -> list[str]:
     """User-visible warnings for TTS/runtime dependencies."""
     warnings: list[str] = []
     try:
-        import onnxruntime  # noqa: PLC0415
-
-        from packaging.version import Version
-
-        ver = Version(onnxruntime.__version__)
-        if ver >= Version("1.25.1"):
-            warnings.append(
-                f"onnxruntime {onnxruntime.__version__} is installed; some nodes have seen Piper "
-                "crashes (ABRT) on 1.25.1+. Report results if you are testing a newer release."
-            )
+        import onnxruntime  # noqa: F401, PLC0415
     except ImportError:
         if getattr(config.audio, "tts", None) and config.audio.tts.engine == "piper":
             warnings.append("onnxruntime is not installed; Piper TTS will not work.")

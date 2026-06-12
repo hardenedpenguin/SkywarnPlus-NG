@@ -546,6 +546,29 @@ class NotificationPushConfig(BaseModel):
         return _empty_str_to_none(value)
 
 
+class NotificationSmsConfig(BaseModel):
+    """Twilio SMS settings for subscriber text alerts."""
+
+    enabled: bool = Field(False, description="Enable subscriber SMS via Twilio")
+    account_sid: Optional[str] = Field(None, description="Twilio Account SID")
+    auth_token: Optional[str] = Field(None, description="Twilio Auth Token")
+    from_number: Optional[str] = Field(
+        None, description="Twilio sender phone number (E.164, e.g. +15551234567)"
+    )
+    max_length: int = Field(160, description="Maximum SMS body length")
+    all_clear_enabled: bool = Field(False, description="Send SMS on all-clear events")
+
+    @field_validator("account_sid", "auth_token", "from_number", mode="before")
+    @classmethod
+    def _coerce_sms_optional_strings(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
+    @field_validator("max_length", mode="before")
+    @classmethod
+    def _coerce_sms_max_length(cls, value: Any) -> int:
+        return _empty_str_to_int(value, 160)
+
+
 class NotificationDeliveryConfig(BaseModel):
     """Delivery queue tuning."""
 
@@ -574,6 +597,7 @@ class NotificationsConfig(BaseModel):
     email: NotificationEmailConfig = Field(default_factory=NotificationEmailConfig)
     webhook: NotificationWebhookConfig = Field(default_factory=NotificationWebhookConfig)
     push: NotificationPushConfig = Field(default_factory=NotificationPushConfig)
+    sms: NotificationSmsConfig = Field(default_factory=NotificationSmsConfig)
     delivery: NotificationDeliveryConfig = Field(default_factory=NotificationDeliveryConfig)
 
 

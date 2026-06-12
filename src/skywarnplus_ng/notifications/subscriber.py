@@ -23,7 +23,7 @@ class NotificationMethod(Enum):
     EMAIL = "email"
     WEBHOOK = "webhook"
     PUSH = "push"
-    SMS = "sms"  # Future implementation
+    SMS = "sms"
 
 
 class SubscriptionStatus(Enum):

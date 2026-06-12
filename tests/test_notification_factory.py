@@ -3,7 +3,12 @@
 import json
 from pathlib import Path
 
-from skywarnplus_ng.core.config import AppConfig, NotificationsConfig, NotificationEmailConfig
+from skywarnplus_ng.core.config import (
+    AppConfig,
+    NotificationsConfig,
+    NotificationEmailConfig,
+    NotificationSmsConfig,
+)
 from skywarnplus_ng.notifications.factory import build_notification_manager
 from skywarnplus_ng.notifications.webhook import WebhookProvider, webhook_provider_for_url
 from skywarnplus_ng.web.config_merge import redact_config_for_api
@@ -65,6 +70,23 @@ def test_build_notification_manager_from_subscribers_file(tmp_path: Path) -> Non
     assert manager.subscriber_manager.get_subscriber_count() == 1
 
 
+def test_build_notification_manager_from_sms_config(tmp_path: Path) -> None:
+    config = AppConfig(
+        data_dir=tmp_path,
+        notifications=NotificationsConfig(
+            sms=NotificationSmsConfig(
+                enabled=True,
+                account_sid="ACtest123",
+                auth_token="secret",
+                from_number="+15559876543",
+            )
+        ),
+    )
+    manager = build_notification_manager(config)
+    assert manager is not None
+    assert len(manager.sms_notifiers) == 1
+
+
 def test_build_notification_manager_returns_none_when_unconfigured(tmp_path: Path) -> None:
     config = AppConfig(data_dir=tmp_path)
     assert build_notification_manager(config) is None
@@ -95,8 +117,10 @@ def test_redact_config_strips_notification_secrets() -> None:
         "notifications": {
             "email": {"password": "smtp-secret"},
             "push": {"fcm_server_key": "fcm-key"},
+            "sms": {"auth_token": "sms-token"},
         }
     }
     redacted = redact_config_for_api(data)
     assert redacted["notifications"]["email"]["password"] == ""
     assert redacted["notifications"]["push"]["fcm_server_key"] == ""
+    assert redacted["notifications"]["sms"]["auth_token"] == ""

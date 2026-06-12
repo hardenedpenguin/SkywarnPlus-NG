@@ -69,6 +69,84 @@ class NotificationsApiMixin:
             logger.error(f"Error testing email connection: {e}")
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
+    async def api_notifications_test_sms_handler(self, request: Request) -> Response:
+        """Send a test SMS through Twilio."""
+        try:
+            data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            from ...notifications.phone import validate_phone_number
+            from ...notifications.sms import SmsConfig, SmsNotifier
+
+            to = (data.get("to") or "").strip()
+            account_sid = (data.get("account_sid") or "").strip()
+            from_number = (data.get("from_number") or "").strip()
+            if not account_sid:
+                return web.json_response(
+                    {"success": False, "error": "Twilio Account SID is required"},
+                    status=400,
+                )
+            if not from_number:
+                return web.json_response(
+                    {"success": False, "error": "Twilio From number is required"},
+                    status=400,
+                )
+
+            ok, msg = validate_phone_number(to)
+            if not to or not ok:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "error": msg or "Valid test phone number required (E.164)",
+                    },
+                    status=400,
+                )
+
+            auth_token = data.get("auth_token")
+            auth_clean = (
+                str(auth_token).strip()
+                if auth_token is not None and str(auth_token).strip()
+                else None
+            )
+            if not auth_clean:
+                return web.json_response(
+                    {"success": False, "error": "Twilio Auth Token is required"},
+                    status=400,
+                )
+
+            try:
+                sms_config = SmsConfig(
+                    account_sid=account_sid,
+                    auth_token=auth_clean,
+                    from_number=from_number,
+                    timeout_seconds=int(data.get("timeout_seconds") or 30),
+                    max_length=int(data.get("max_length") or 160),
+                )
+                notifier = SmsNotifier(sms_config)
+            except ValueError as exc:
+                return web.json_response({"success": False, "error": str(exc)}, status=400)
+
+            async with notifier as sms:
+                result = await sms.send_sms(to, "SkywarnPlus-NG SMS test OK")
+
+            if result.get("success"):
+                return web.json_response(
+                    {"success": True, "message": "SMS test sent successfully", "result": result}
+                )
+            return web.json_response(
+                {
+                    "success": False,
+                    "message": "SMS test failed",
+                    "error": result.get("error", "Unknown error"),
+                    "result": result,
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error testing Twilio SMS: {e}")
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
     async def api_notifications_subscribers_handler(self, request: Request) -> Response:
         """Handle subscribers list endpoint."""
         try:
@@ -107,6 +185,12 @@ class NotificationsApiMixin:
 
             preferences = self._parse_subscription_preferences(data)
 
+            sms_err = self._subscriber_phone_validation_error(
+                data.get("phone"), preferences.enabled_methods
+            )
+            if sms_err:
+                return web.json_response({"success": False, "error": sms_err}, status=400)
+
             wh_err = self._subscriber_webhook_validation_error(data.get("webhook_url"))
             if wh_err:
                 return web.json_response(
@@ -118,13 +202,20 @@ class NotificationsApiMixin:
                 str(wh_raw).strip() if wh_raw is not None and str(wh_raw).strip() else None
             )
 
+            phone_raw = data.get("phone")
+            phone_clean = None
+            if phone_raw is not None and str(phone_raw).strip():
+                from ...notifications.phone import normalize_phone_number
+
+                phone_clean = normalize_phone_number(phone_raw)
+
             subscriber = Subscriber(
                 subscriber_id=subscriber_id,
                 name=name,
                 email=email,
                 status=status,
                 preferences=preferences,
-                phone=data.get("phone"),
+                phone=phone_clean,
                 webhook_url=webhook_clean,
                 push_tokens=self._normalize_list(data.get("push_tokens")),
             )
@@ -176,7 +267,14 @@ class NotificationsApiMixin:
                 except ValueError:
                     pass
             if "phone" in data:
-                subscriber.phone = data["phone"]
+                from ...notifications.phone import normalize_phone_number
+
+                phone_raw = data["phone"]
+                subscriber.phone = (
+                    normalize_phone_number(phone_raw)
+                    if phone_raw is not None and str(phone_raw).strip()
+                    else None
+                )
             if "webhook_url" in data:
                 wh_err = self._subscriber_webhook_validation_error(data["webhook_url"])
                 if wh_err:
@@ -194,6 +292,12 @@ class NotificationsApiMixin:
                 subscriber.preferences = self._parse_subscription_preferences(
                     data, existing=subscriber.preferences
                 )
+
+            sms_err = self._subscriber_phone_validation_error(
+                subscriber.phone, subscriber.preferences.enabled_methods
+            )
+            if sms_err:
+                return web.json_response({"error": sms_err}, status=400)
 
             # Save updated subscriber
             success = subscriber_manager.update_subscriber(subscriber)
@@ -375,7 +479,7 @@ class NotificationsApiMixin:
             subscriber_stats = subscriber_manager.get_subscriber_stats()
             stats = {
                 "subscribers": subscriber_stats,
-                "notifiers": {"email": 0, "webhook": 0, "push": 0},
+                "notifiers": {"email": 0, "webhook": 0, "push": 0, "sms": 0},
                 "delivery_queue": {"total_items": 0, "pending": 0, "sent": 0, "failed": 0},
             }
 

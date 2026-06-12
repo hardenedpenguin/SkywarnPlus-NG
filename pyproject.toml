@@ -37,7 +37,6 @@ dependencies = [
     "click>=8.1.0",
     "rich>=13.7.0",
     "gtts>=2.4.0",
-    # onnxruntime 1.25.1+ has caused Piper ABRT on some nodes (issue #6); no upper pin while testing newer releases.
     "onnxruntime>=1",
     "piper-tts>=1.0.0",
     "soundfile>=0.12.0",

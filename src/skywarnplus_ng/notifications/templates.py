@@ -309,6 +309,19 @@ class TemplateEngine:
             ),
         )
 
+        self.templates.setdefault(
+            "sms_alert_default",
+            NotificationTemplate(
+                template_id="sms_alert_default",
+                name="Default SMS Alert",
+                description="Short SMS template for weather alerts",
+                template_type=TemplateType.SMS,
+                format=TemplateFormat.TEXT,
+                subject_template="{{event}}",
+                body_template="⚠ {{event}}\n{{area_desc}}\nUntil {{expires}}",
+            ),
+        )
+
     def _load_persisted_templates(self) -> None:
         """Load templates from persistent storage."""
         if not self.storage_path.exists():

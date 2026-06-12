@@ -59,6 +59,7 @@ def register_dashboard_routes(app: web.Application, dashboard: Any) -> None:
     app.router.add_post(
         "/api/notifications/test-email", dashboard.api_notifications_test_email_handler
     )
+    app.router.add_post("/api/notifications/test-sms", dashboard.api_notifications_test_sms_handler)
     app.router.add_get(
         "/api/notifications/subscribers", dashboard.api_notifications_subscribers_handler
     )

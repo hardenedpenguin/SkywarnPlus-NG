@@ -13,6 +13,12 @@ from pathlib import Path
 from .email import EmailNotifier, EmailConfig
 from .webhook import WebhookNotifier, WebhookConfig, webhook_provider_for_url
 from .push import PushNotifier, PushConfig
+from .sms import (
+    SmsNotifier,
+    SmsConfig,
+    format_short_alert_message,
+    format_short_general_message,
+)
 from .subscriber import SubscriberManager, Subscriber, NotificationMethod
 from .templates import TemplateEngine
 from .delivery import DeliveryQueue, DeliveryItem, DeliveryMethod, DeliveryStatus
@@ -43,6 +49,10 @@ class NotificationConfig:
     push_enabled: bool = True
     push_configs: List[PushConfig] = None
 
+    # SMS settings
+    sms_enabled: bool = True
+    sms_configs: List[SmsConfig] = None
+
     # Delivery settings
     delivery_queue_enabled: bool = True
     max_concurrent_deliveries: int = 10
@@ -62,6 +72,8 @@ class NotificationConfig:
             self.webhook_configs = []
         if self.push_configs is None:
             self.push_configs = []
+        if self.sms_configs is None:
+            self.sms_configs = []
 
 
 class NotificationManager:
@@ -84,6 +96,7 @@ class NotificationManager:
         self.email_notifiers: List[EmailNotifier] = []
         self.webhook_notifiers: List[WebhookNotifier] = []
         self.push_notifiers: List[PushNotifier] = []
+        self.sms_notifiers: List[SmsNotifier] = []
 
         self._initialize_notifiers()
 
@@ -126,6 +139,15 @@ class NotificationManager:
                     self.logger.info(f"Initialized push notifier for {push_config.provider.value}")
                 except Exception as e:
                     self.logger.error(f"Failed to initialize push notifier: {e}")
+
+        if self.config.sms_enabled:
+            for sms_config in self.config.sms_configs:
+                try:
+                    notifier = SmsNotifier(sms_config)
+                    self.sms_notifiers.append(notifier)
+                    self.logger.info("Initialized Twilio SMS notifier")
+                except Exception as e:
+                    self.logger.error(f"Failed to initialize SMS notifier: {e}")
 
     async def send_alert_notifications(
         self, alert: WeatherAlert, *, skip_webhooks: bool = False
@@ -370,8 +392,32 @@ class NotificationManager:
             return "webhook_alert_default"
         elif NotificationMethod.PUSH in subscriber.preferences.enabled_methods:
             return "push_alert_default"
+        elif NotificationMethod.SMS in subscriber.preferences.enabled_methods:
+            return "sms_alert_default"
 
         return None
+
+    def _generate_sms_body(
+        self,
+        alert: Optional[WeatherAlert],
+        title: str,
+        message: str,
+    ) -> str:
+        """Build a short SMS body for an alert or general notification."""
+        max_len = self.sms_notifiers[0].config.max_length if self.sms_notifiers else 160
+
+        if alert is not None:
+            if self.template_engine.get_template("sms_alert_default"):
+                try:
+                    rendered = self.template_engine.render_alert_template("sms_alert_default", alert)
+                    body = (rendered.get("body") or "").strip()
+                    if body:
+                        return body[:max_len]
+                except Exception as e:
+                    self.logger.debug("SMS template render failed, using default: %s", e)
+            return format_short_alert_message(alert, max_len)
+
+        return format_short_general_message(title, message, max_len)
 
     def _generate_default_content(self, alert: WeatherAlert) -> Dict[str, str]:
         """Generate default notification content."""
@@ -464,10 +510,31 @@ This alert was sent by SkywarnPlus-NG.
                 results["push"] = {"success": False, "error": str(e)}
 
         if NotificationMethod.SMS in methods:
-            results["sms"] = {
-                "success": False,
-                "error": "SMS delivery is not configured",
-            }
+            if not self.sms_notifiers or not subscriber.phone:
+                results["sms"] = {
+                    "success": False,
+                    "error": "SMS not configured or no phone number",
+                }
+            elif alert is None and not self.sms_notifiers[0].config.all_clear_enabled:
+                results["sms"] = {
+                    "success": False,
+                    "skipped": True,
+                    "error": "All-clear SMS disabled",
+                }
+            else:
+                try:
+                    sms_result = await self._send_sms_notification(
+                        subscriber,
+                        alert,
+                        content["subject"],
+                        content["body"],
+                    )
+                    results["sms"] = sms_result
+                except Exception as e:
+                    self.logger.error(
+                        f"SMS notification failed for subscriber {subscriber.subscriber_id}: {e}"
+                    )
+                    results["sms"] = {"success": False, "error": str(e)}
 
         return results
 
@@ -521,6 +588,18 @@ This alert was sent by SkywarnPlus-NG.
                     scheduled_at=scheduled_at,
                 )
                 queued_count += 1
+
+        if NotificationMethod.SMS in methods and self.sms_notifiers and subscriber.phone:
+            sms_body = self._generate_sms_body(alert, content["subject"], content["body"])
+            self.delivery_queue.add_delivery(
+                alert_id=alert.id,
+                method=DeliveryMethod.SMS,
+                recipient=subscriber.phone,
+                subject=content["subject"],
+                body=sms_body,
+                scheduled_at=scheduled_at,
+            )
+            queued_count += 1
 
         return {"success": True, "queued": True, "queued_count": queued_count}
 
@@ -595,6 +674,32 @@ This alert was sent by SkywarnPlus-NG.
             title=title, body=message, device_tokens=subscriber.push_tokens
         )
 
+    async def _send_sms_notification(
+        self,
+        subscriber: Subscriber,
+        alert: Optional[WeatherAlert],
+        title: str,
+        message: str,
+    ) -> Dict[str, Any]:
+        """Send SMS notification to subscriber via the configured gateway."""
+        if not subscriber.phone:
+            raise NotificationError("No phone number configured for subscriber")
+        if not self.sms_notifiers:
+            raise NotificationError("No SMS notifiers configured")
+
+        body = self._generate_sms_body(alert, title, message)
+        notifier = self.sms_notifiers[0]
+
+        async with notifier as sms:
+            if alert is not None:
+                return await sms.send_sms(
+                    subscriber.phone,
+                    body,
+                    alert_id=alert.id,
+                    event=alert.event,
+                )
+            return await sms.send_sms(subscriber.phone, body)
+
     async def start_delivery_processor(self) -> None:
         """Start the delivery queue processor."""
         if not self.delivery_queue:
@@ -664,6 +769,8 @@ This alert was sent by SkywarnPlus-NG.
                 await self._process_webhook_delivery(delivery)
             elif delivery.method == DeliveryMethod.PUSH:
                 await self._process_push_delivery(delivery)
+            elif delivery.method == DeliveryMethod.SMS:
+                await self._process_sms_delivery(delivery)
             else:
                 raise NotificationError(f"Unsupported delivery method: {delivery.method}")
 
@@ -758,6 +865,27 @@ This alert was sent by SkywarnPlus-NG.
                 error_message=result.get("error", "Unknown error"),
             )
 
+    async def _process_sms_delivery(self, delivery: DeliveryItem) -> None:
+        """Process SMS delivery."""
+        if not self.sms_notifiers:
+            raise NotificationError("No SMS notifiers available")
+
+        notifier = self.sms_notifiers[0]
+
+        async with notifier as sms:
+            result = await sms.send_sms(delivery.recipient, delivery.body)
+
+        if result.get("success", False):
+            self.delivery_queue.update_delivery_status(
+                delivery.delivery_id, DeliveryStatus.SENT, response_data=result
+            )
+        else:
+            self.delivery_queue.update_delivery_status(
+                delivery.delivery_id,
+                DeliveryStatus.FAILED,
+                error_message=result.get("error", "Unknown error"),
+            )
+
     def get_notification_stats(self) -> Dict[str, Any]:
         """Get notification system statistics."""
         stats = {
@@ -766,6 +894,7 @@ This alert was sent by SkywarnPlus-NG.
                 "email": len(self.email_notifiers),
                 "webhook": len(self.webhook_notifiers),
                 "push": len(self.push_notifiers),
+                "sms": len(self.sms_notifiers),
             },
             "templates": self.template_engine.get_available_templates(),
         }

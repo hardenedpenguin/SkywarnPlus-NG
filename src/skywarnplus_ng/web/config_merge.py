@@ -79,6 +79,9 @@ def redact_config_for_api(config_dict: dict[str, Any]) -> dict[str, Any]:
             push_cfg = notifications.get("push")
             if isinstance(push_cfg, dict) and push_cfg.get("fcm_server_key"):
                 push_cfg["fcm_server_key"] = ""
+            sms_cfg = notifications.get("sms")
+            if isinstance(sms_cfg, dict) and sms_cfg.get("auth_token"):
+                sms_cfg["auth_token"] = ""
     except Exception:
         pass
     return out

@@ -12,15 +12,16 @@ When a **new** alert is processed (or all-clear is issued), these channels are w
 | **Email (SMTP)** | **Configuration → Notifications → Email** + **Subscribers** | Per subscriber (filters apply) | Yes (subscribers) |
 | **Discord / Slack / Teams / generic webhook** | **Subscribers** (per-recipient URL) or **Notifications → Webhooks** (global URLs) | Per subscriber or global broadcast | Yes |
 | **FCM push** | **Configuration → Notifications → Push** + subscriber device tokens | Per subscriber | Yes (subscribers) |
+| **SMS (Twilio)** | **Configuration → Notifications → SMS** + subscriber phone | Per subscriber | Optional (off by default) |
 
-PushOver remains a separate global destination (one user key). Email, webhooks, and FCM use the shared **NotificationManager**, which also runs the delivery queue for batch/retry delivery.
+PushOver remains a separate global destination (one user key). Email, webhooks, FCM, and SMS use the shared **NotificationManager**, which also runs the delivery queue for batch/retry delivery.
 
 ## Dashboard sections
 
 | Tab | Purpose |
 |-----|---------|
 | **Monitoring → PushOver** | API token, user key, optional fixed priority/sound |
-| **Notifications → Notifications** | SMTP email, Slack/Teams/generic webhook URLs, FCM keys, delivery tuning |
+| **Notifications → Notifications** | SMTP email, Slack/Teams/generic webhook URLs, FCM keys, Twilio SMS, delivery tuning |
 | **Notifications → Subscribers** | Named recipients with filters and delivery methods |
 | **Notifications → Templates** | Customize notification text |
 | **Monitoring → DEV** | Test alert injection (development only) |
@@ -37,14 +38,14 @@ Delivery queue and templates live alongside it under `data_dir`. Secrets (SMTP p
 
 The delivery processor starts with the application and handles:
 
-- Retries for failed email, webhook, and push deliveries
+- Retries for failed email, webhook, push, and SMS deliveries
 - **Batch delivery** when a subscriber enables it (notifications are queued until the batch interval elapses)
 
 Tune concurrency, timeout, and retries under **Notifications → Delivery Settings**.
 
 ## SMS
 
-Subscriber UI includes SMS as a delivery method placeholder. SMS is **not** implemented yet; enabling it logs a clear failure without affecting other channels.
+Short text messages are sent via **Twilio** (paid per message, works from mobile nodes with internet). See [SMS setup](sms.md).
 
 ## Security: webhook URLs
 
@@ -70,4 +71,5 @@ Injected alerts follow the same notification path as real NWS alerts.
 - [PushOver setup](pushover.md)
 - [Discord webhooks](discord-webhooks.md)
 - [Email SMTP](email.md)
+- [SMS (Twilio)](sms.md)
 - [Subscribers and filters](subscribers.md)

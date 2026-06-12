@@ -157,6 +157,25 @@ class WebDashboard(
         ok, msg = validate_public_https_webhook_url(s)
         return None if ok else msg
 
+    @staticmethod
+    def _subscriber_phone_validation_error(
+        phone, enabled_methods: Optional[list] = None
+    ) -> Optional[str]:
+        """Return error message if SMS is enabled but phone is missing or invalid."""
+        from ..notifications.phone import normalize_phone_number, validate_phone_number
+
+        methods = {str(m).lower() for m in (enabled_methods or [])}
+        if "sms" not in methods:
+            return None
+        if phone is None or not str(phone).strip():
+            return "Phone number is required when SMS is enabled (E.164, e.g. +15551234567)"
+        ok, msg = validate_phone_number(phone)
+        if not ok:
+            return msg
+        if not normalize_phone_number(phone):
+            return "Phone must be a valid E.164 number (e.g. +15551234567)"
+        return None
+
     def _setup_templates(self) -> None:
         """Setup Jinja2 template environment."""
         template_dir = Path(__file__).parent / "templates"

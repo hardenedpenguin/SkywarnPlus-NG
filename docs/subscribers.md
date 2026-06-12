@@ -19,7 +19,7 @@ Back up this file when migrating nodes. It is separate from `/etc/skywarnplus-ng
    - **Email** — requires SMTP in the Notifications tab; sent on new alerts and all-clear when enabled.
    - **Webhook** — Discord, Slack, Teams, or any HTTPS webhook URL. Provider is detected from the URL. See [Discord webhooks](discord-webhooks.md).
    - **Push** — requires FCM server key in the Notifications tab plus device tokens on the subscriber.
-   - **SMS** — reserved for future use.
+   - **SMS** — requires **Phone** (E.164) and Twilio credentials under **Notifications → SMS**. See [SMS](sms.md).
 5. Set **Status** to **Active** when ready.
 
 ## Geographic filters
@@ -60,7 +60,7 @@ These limits apply when the notification subsystem delivers to subscribers.
 | Email | Subscriber + SMTP | Yes |
 | Push (FCM) | Subscriber tokens + FCM keys | Yes |
 | PushOver | Monitoring tab (not subscribers) | Yes — see [PushOver](pushover.md) |
-| SMS | Subscriber phone | Not yet |
+| SMS (Twilio) | Subscriber phone + Twilio settings | Yes (short messages; all-clear optional) |
 
 ## API
 

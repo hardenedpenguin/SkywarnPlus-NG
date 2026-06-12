@@ -231,6 +231,13 @@ notifications:
   push:
     fcm_server_key: null
     fcm_project_id: null
+  sms:
+    enabled: false
+    account_sid: null   # Twilio console → Account SID
+    auth_token: null    # Twilio Auth Token
+    from_number: null   # Your Twilio number, E.164 (e.g. +15551234567)
+    max_length: 160
+    all_clear_enabled: false
   delivery:
     max_concurrent: 10
     timeout_seconds: 30
