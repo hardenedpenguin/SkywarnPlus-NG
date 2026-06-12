@@ -213,6 +213,30 @@ skydescribe:
     system_status: "*4"       # System status information
     help: "*5"                # Help and available commands
 
+# Email, webhooks, FCM, and delivery queue (Notifications tab)
+notifications:
+  email:
+    provider: gmail
+    smtp_server: ""
+    smtp_port: 587
+    use_tls: true
+    use_ssl: false
+    username: ""
+    password: null
+    from_name: SkywarnPlus-NG
+  webhook:
+    slack_url: null
+    teams_url: null
+    generic_url: null
+  push:
+    fcm_server_key: null
+    fcm_project_id: null
+  delivery:
+    max_concurrent: 10
+    timeout_seconds: 30
+    max_retries: 3
+    retry_delay: 5
+
 # PushOver notification configuration
 pushover:
   enabled: false  # Set to true to enable PushOver notifications

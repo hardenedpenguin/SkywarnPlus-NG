@@ -2,16 +2,18 @@
 
 SkywarnPlus-NG can notify you outside the repeater when NWS alerts are processed. Configuration lives in the dashboard under **Configuration**.
 
-## What sends automatically today
+## What sends automatically
 
-When a new alert is processed (or all-clear is issued), these channels are wired in the main alert loop:
+When a **new** alert is processed (or all-clear is issued), these channels are wired in the main alert loop:
 
 | Channel | Where to configure | Scope | All-clear |
 |---------|-------------------|-------|-----------|
 | **PushOver** | **Configuration → Monitoring → PushOver** | Every new alert for all monitored counties | Yes |
-| **Discord webhook** | **Configuration → Subscribers** (webhook URL must contain `discord.com/api/webhooks`) | Per subscriber — county, severity, event filters | No |
+| **Email (SMTP)** | **Configuration → Notifications → Email** + **Subscribers** | Per subscriber (filters apply) | Yes (subscribers) |
+| **Discord / Slack / Teams / generic webhook** | **Subscribers** (per-recipient URL) or **Notifications → Webhooks** (global URLs) | Per subscriber or global broadcast | Yes |
+| **FCM push** | **Configuration → Notifications → Push** + subscriber device tokens | Per subscriber | Yes (subscribers) |
 
-PushOver is a single global destination (one user key). Discord uses the subscriber system so different people or channels can get different subsets of alerts.
+PushOver remains a separate global destination (one user key). Email, webhooks, and FCM use the shared **NotificationManager**, which also runs the delivery queue for batch/retry delivery.
 
 ## Dashboard sections
 
@@ -20,7 +22,7 @@ PushOver is a single global destination (one user key). Discord uses the subscri
 | **Monitoring → PushOver** | API token, user key, optional fixed priority/sound |
 | **Notifications → Notifications** | SMTP email, Slack/Teams/generic webhook URLs, FCM keys, delivery tuning |
 | **Notifications → Subscribers** | Named recipients with filters and delivery methods |
-| **Notifications → Templates** | Customize notification text (used by the notification subsystem) |
+| **Notifications → Templates** | Customize notification text |
 | **Monitoring → DEV** | Test alert injection (development only) |
 
 Subscriber data is stored at:
@@ -29,15 +31,20 @@ Subscriber data is stored at:
 /var/lib/skywarnplus-ng/data/subscribers.json
 ```
 
-(backed up with your node; not in `/etc/skywarnplus-ng/config.yaml`).
+Delivery queue and templates live alongside it under `data_dir`. Secrets (SMTP password, FCM key) are stored in `/etc/skywarnplus-ng/config.yaml` and redacted in the dashboard API.
 
-## Email, Slack, Teams, FCM, and generic webhooks
+## Delivery queue and batch mode
 
-The **Notifications** tab saves SMTP and webhook settings to `config.yaml`, and **Test Email Connection** verifies SMTP credentials. The subscriber UI also supports email, webhook, and push methods with rich filtering.
+The delivery processor starts with the application and handles:
 
-Those pieces share a `NotificationManager` in the codebase, but that manager is **not yet called** from the main alert processing loop. Only PushOver and Discord (via subscribers) fire on live alerts today.
+- Retries for failed email, webhook, and push deliveries
+- **Batch delivery** when a subscriber enables it (notifications are queued until the batch interval elapses)
 
-If you need email or a non-Discord webhook immediately, use **AlertScripts** (**Configuration → Scripts**) to run your own command when specific events arrive — see the examples in `config/default.yaml`.
+Tune concurrency, timeout, and retries under **Notifications → Delivery Settings**.
+
+## SMS
+
+Subscriber UI includes SMS as a delivery method placeholder. SMS is **not** implemented yet; enabling it logs a clear failure without affecting other channels.
 
 ## Security: webhook URLs
 
@@ -54,7 +61,7 @@ All webhook URLs must be **public HTTPS** endpoints. Private IPs, `localhost`, a
    journalctl -u skywarnplus-ng -f
    ```
 
-5. Look for lines such as `PushOver notification sent` or `Discord webhook notification sent`.
+5. Look for lines such as `PushOver notification sent`, `Alert notifications sent`, or delivery queue activity.
 
 Injected alerts follow the same notification path as real NWS alerts.
 

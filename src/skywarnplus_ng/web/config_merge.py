@@ -70,4 +70,15 @@ def redact_config_for_api(config_dict: dict[str, Any]) -> dict[str, Any]:
                 push["user_key"] = ""
     except Exception:
         pass
+    try:
+        notifications = out.get("notifications")
+        if isinstance(notifications, dict):
+            email = notifications.get("email")
+            if isinstance(email, dict) and email.get("password"):
+                email["password"] = ""
+            push_cfg = notifications.get("push")
+            if isinstance(push_cfg, dict) and push_cfg.get("fcm_server_key"):
+                push_cfg["fcm_server_key"] = ""
+    except Exception:
+        pass
     return out

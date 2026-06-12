@@ -21,7 +21,7 @@ SkywarnPlus-NG includes SMTP configuration and subscriber email support in the d
 4. Click **Test Email Connection** before saving.
 5. **Save Configuration**.
 
-Settings are stored under `notifications.email` in `/etc/skywarnplus-ng/config.yaml`.
+Settings are stored under `notifications.email` in `/etc/skywarnplus-ng/config.yaml`. When SMTP is configured and subscribers have email enabled, new alerts and all-clear events are sent automatically through the notification manager.
 
 ### Other providers
 

@@ -2,7 +2,7 @@
 
 Discord is the recommended way to send **filtered** alert notifications to a channel. Each subscriber can have its own webhook URL and county/severity/event preferences.
 
-Discord webhooks must be configured through **Subscribers**, not the global Slack/Teams fields on the Notifications tab. The alert loop only delivers to subscriber URLs that contain `discord.com/api/webhooks`.
+Discord webhooks should be configured through **Subscribers** for per-recipient filtering. Global webhook URLs on the Notifications tab broadcast to Slack, Teams, or generic endpoints without subscriber filters.
 
 ## Create a Discord webhook
 

@@ -16,9 +16,9 @@ Back up this file when migrating nodes. It is separate from `/etc/skywarnplus-ng
 2. Required fields: **Name**, **Email** (used as the subscriber identifier even for webhook-only users).
 3. Optional contact fields: **Phone**, **Webhook URL**, **Push tokens** (one FCM token per line).
 4. Choose **Notification Methods**:
-   - **Email** — SMTP must be configured; automatic delivery on alerts not yet wired (see [Email](email.md)).
-   - **Webhook** — **Discord only** is sent on live alerts today (`discord.com/api/webhooks` URLs). See [Discord webhooks](discord-webhooks.md).
-   - **Push** — FCM keys in Notifications tab; push delivery not yet wired on alerts.
+   - **Email** — requires SMTP in the Notifications tab; sent on new alerts and all-clear when enabled.
+   - **Webhook** — Discord, Slack, Teams, or any HTTPS webhook URL. Provider is detected from the URL. See [Discord webhooks](discord-webhooks.md).
+   - **Push** — requires FCM server key in the Notifications tab plus device tokens on the subscriber.
    - **SMS** — reserved for future use.
 5. Set **Status** to **Active** when ready.
 
@@ -50,17 +50,17 @@ These limits apply when the notification subsystem delivers to subscribers.
 
 ## Notification templates
 
-**Configuration → Notifications → Templates** defines reusable message formats (email, webhook, push). Templates are used by `NotificationManager` when subscriber delivery is fully integrated.
+**Configuration → Notifications → Templates** defines reusable message formats (email, webhook, push). The notification manager uses these templates when generating subscriber content.
 
 ## Delivery status summary
 
 | Method | Configured in | Live on NWS alerts |
 |--------|---------------|-------------------|
-| Discord webhook | Subscriber webhook URL | Yes |
-| Email | Subscriber + SMTP | Not yet (SMTP test works) |
-| Webhook (non-Discord) | Subscriber or Notifications tab | Not yet |
-| Push (FCM) | Subscriber tokens + FCM keys | Not yet |
+| Discord / Slack / Teams / generic webhook | Subscriber webhook URL or Notifications tab global URLs | Yes |
+| Email | Subscriber + SMTP | Yes |
+| Push (FCM) | Subscriber tokens + FCM keys | Yes |
 | PushOver | Monitoring tab (not subscribers) | Yes — see [PushOver](pushover.md) |
+| SMS | Subscriber phone | Not yet |
 
 ## API
 

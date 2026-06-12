@@ -5,12 +5,13 @@ Coordinates all notification delivery methods and subscriber management.
 
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
 from pathlib import Path
 
 from .email import EmailNotifier, EmailConfig
-from .webhook import WebhookNotifier, WebhookConfig, WebhookProvider
+from .webhook import WebhookNotifier, WebhookConfig, webhook_provider_for_url
 from .push import PushNotifier, PushConfig
 from .subscriber import SubscriberManager, Subscriber, NotificationMethod
 from .templates import TemplateEngine
@@ -46,9 +47,13 @@ class NotificationConfig:
     delivery_queue_enabled: bool = True
     max_concurrent_deliveries: int = 10
     delivery_timeout_seconds: int = 30
+    max_retries: int = 3
+    retry_delay_seconds: int = 5
 
     # Subscriber settings
     subscriber_file: Optional[Path] = None
+    template_storage_path: Optional[Path] = None
+    delivery_queue_path: Optional[Path] = None
 
     def __post_init__(self):
         if self.email_configs is None:
@@ -68,8 +73,12 @@ class NotificationManager:
 
         # Initialize components
         self.subscriber_manager = SubscriberManager(config.subscriber_file)
-        self.template_engine = TemplateEngine()
-        self.delivery_queue = DeliveryQueue() if config.delivery_queue_enabled else None
+        self.template_engine = TemplateEngine(storage_path=config.template_storage_path)
+        self.delivery_queue = (
+            DeliveryQueue(data_file=config.delivery_queue_path)
+            if config.delivery_queue_enabled
+            else None
+        )
 
         # Initialize notifiers
         self.email_notifiers: List[EmailNotifier] = []
@@ -118,12 +127,15 @@ class NotificationManager:
                 except Exception as e:
                     self.logger.error(f"Failed to initialize push notifier: {e}")
 
-    async def send_alert_notifications(self, alert: WeatherAlert) -> Dict[str, Any]:
+    async def send_alert_notifications(
+        self, alert: WeatherAlert, *, skip_webhooks: bool = False
+    ) -> Dict[str, Any]:
         """
         Send notifications for a weather alert.
 
         Args:
             alert: Weather alert to send notifications for
+            skip_webhooks: Skip subscriber webhook delivery (e.g. already sent)
 
         Returns:
             Delivery results summary
@@ -139,27 +151,38 @@ class NotificationManager:
                 "success": True,
                 "alert_id": alert.id,
                 "subscribers_notified": 0,
+                "total_notifications": 0,
                 "delivery_results": {},
+                "webhook_success": False,
             }
 
         # Generate notifications for each subscriber
         delivery_results = {}
         total_notifications = 0
+        webhook_success = False
 
         for subscriber in subscribers:
             try:
+                if subscriber.preferences.batch_delivery and self.delivery_queue:
+                    queued = self._queue_subscriber_delivery(alert, subscriber, skip_webhooks)
+                    delivery_results[subscriber.subscriber_id] = queued
+                    total_notifications += queued.get("queued_count", 0)
+                    continue
+
                 # Generate notification content
                 notification_content = await self._generate_notification_content(alert, subscriber)
 
                 # Send notifications via enabled methods
                 subscriber_results = await self._send_subscriber_notifications(
-                    alert, subscriber, notification_content
+                    alert, subscriber, notification_content, skip_webhooks=skip_webhooks
                 )
 
                 delivery_results[subscriber.subscriber_id] = subscriber_results
                 total_notifications += sum(
                     result.get("sent_count", 0) for result in subscriber_results.values()
                 )
+                if subscriber_results.get("webhook", {}).get("success"):
+                    webhook_success = True
 
                 # Record notification for subscriber
                 subscriber.record_notification()
@@ -179,7 +202,65 @@ class NotificationManager:
             "subscribers_notified": len(subscribers),
             "total_notifications": total_notifications,
             "delivery_results": delivery_results,
+            "webhook_success": webhook_success,
         }
+
+    async def send_global_webhook_notifications(self, alert: WeatherAlert) -> Dict[str, Any]:
+        """Send alert to globally configured webhook URLs (Slack, Teams, generic)."""
+        if not self.webhook_notifiers:
+            return {"success": False, "results": [], "sent_count": 0}
+
+        results = []
+        sent_count = 0
+        for notifier in self.webhook_notifiers:
+            try:
+                async with notifier as webhook:
+                    result = await webhook.send_alert_webhook(alert)
+                    results.append(result)
+                    if result.get("success"):
+                        sent_count += 1
+            except Exception as e:
+                self.logger.error("Global webhook delivery failed: %s", e)
+                results.append({"success": False, "error": str(e)})
+
+        return {
+            "success": sent_count > 0,
+            "results": results,
+            "sent_count": sent_count,
+        }
+
+    async def send_all_clear_notifications(self, area_message: str) -> Dict[str, Any]:
+        """Notify subscribers and global webhooks that there are no active alerts."""
+        title = "All Clear"
+        message = f"No active weather alerts. {area_message}".strip()
+        subscriber_result = await self.send_general_notification(title, message)
+        global_result = await self._send_global_general_webhooks(title, message)
+        return {
+            "success": subscriber_result.get("success", False)
+            or global_result.get("success", False),
+            "subscribers": subscriber_result,
+            "global_webhooks": global_result,
+        }
+
+    async def _send_global_general_webhooks(self, title: str, message: str) -> Dict[str, Any]:
+        """Send a general notification to globally configured webhooks."""
+        if not self.webhook_notifiers:
+            return {"success": False, "results": [], "sent_count": 0}
+
+        results = []
+        sent_count = 0
+        for notifier in self.webhook_notifiers:
+            try:
+                async with notifier as webhook:
+                    result = await webhook.send_notification_webhook(title=title, message=message)
+                    results.append(result)
+                    if result.get("success"):
+                        sent_count += 1
+            except Exception as e:
+                self.logger.error("Global webhook all-clear delivery failed: %s", e)
+                results.append({"success": False, "error": str(e)})
+
+        return {"success": sent_count > 0, "results": results, "sent_count": sent_count}
 
     async def send_general_notification(
         self,
@@ -328,6 +409,8 @@ This alert was sent by SkywarnPlus-NG.
         subscriber: Subscriber,
         content: Dict[str, str],
         methods: Optional[List[NotificationMethod]] = None,
+        *,
+        skip_webhooks: bool = False,
     ) -> Dict[str, Any]:
         """Send notifications to a subscriber via their preferred methods."""
         if methods is None:
@@ -349,14 +432,13 @@ This alert was sent by SkywarnPlus-NG.
                 results["email"] = {"success": False, "error": str(e)}
 
         # Send webhook notification
-        if (
-            NotificationMethod.WEBHOOK in methods
-            and self.webhook_notifiers
-            and subscriber.webhook_url
-        ):
+        if not skip_webhooks and NotificationMethod.WEBHOOK in methods and subscriber.webhook_url:
             try:
                 webhook_result = await self._send_webhook_notification(
-                    subscriber, content["subject"], content["body"]
+                    subscriber,
+                    alert,
+                    content["subject"],
+                    content["body"],
                 )
                 results["webhook"] = webhook_result
             except Exception as e:
@@ -369,7 +451,10 @@ This alert was sent by SkywarnPlus-NG.
         if NotificationMethod.PUSH in methods and self.push_notifiers and subscriber.push_tokens:
             try:
                 push_result = await self._send_push_notification(
-                    subscriber, content["subject"], content["body"]
+                    subscriber,
+                    alert,
+                    content["subject"],
+                    content["body"],
                 )
                 results["push"] = push_result
             except Exception as e:
@@ -378,7 +463,66 @@ This alert was sent by SkywarnPlus-NG.
                 )
                 results["push"] = {"success": False, "error": str(e)}
 
+        if NotificationMethod.SMS in methods:
+            results["sms"] = {
+                "success": False,
+                "error": "SMS delivery is not configured",
+            }
+
         return results
+
+    def _queue_subscriber_delivery(
+        self,
+        alert: WeatherAlert,
+        subscriber: Subscriber,
+        skip_webhooks: bool,
+    ) -> Dict[str, Any]:
+        """Queue subscriber notifications for batch delivery."""
+        if not self.delivery_queue:
+            return {"success": False, "error": "Delivery queue not enabled"}
+
+        content = self._generate_default_content(alert)
+        scheduled_at = datetime.now(timezone.utc) + timedelta(
+            minutes=subscriber.preferences.batch_interval_minutes
+        )
+        queued_count = 0
+        methods = list(subscriber.preferences.enabled_methods)
+
+        if NotificationMethod.EMAIL in methods and self.email_notifiers:
+            self.delivery_queue.add_delivery(
+                alert_id=alert.id,
+                method=DeliveryMethod.EMAIL,
+                recipient=subscriber.email,
+                subject=content["subject"],
+                body=content["body"],
+                scheduled_at=scheduled_at,
+            )
+            queued_count += 1
+
+        if not skip_webhooks and NotificationMethod.WEBHOOK in methods and subscriber.webhook_url:
+            self.delivery_queue.add_delivery(
+                alert_id=alert.id,
+                method=DeliveryMethod.WEBHOOK,
+                recipient=subscriber.webhook_url,
+                subject=content["subject"],
+                body=content["body"],
+                scheduled_at=scheduled_at,
+            )
+            queued_count += 1
+
+        if NotificationMethod.PUSH in methods and self.push_notifiers and subscriber.push_tokens:
+            for token in subscriber.push_tokens:
+                self.delivery_queue.add_delivery(
+                    alert_id=alert.id,
+                    method=DeliveryMethod.PUSH,
+                    recipient=token,
+                    subject=content["subject"],
+                    body=content["body"],
+                    scheduled_at=scheduled_at,
+                )
+                queued_count += 1
+
+        return {"success": True, "queued": True, "queued_count": queued_count}
 
     async def _send_email_notification(
         self, subscriber: Subscriber, subject: str, body: str, html_body: Optional[str] = None
@@ -395,15 +539,23 @@ This alert was sent by SkywarnPlus-NG.
         )
 
     async def _send_webhook_notification(
-        self, subscriber: Subscriber, title: str, message: str
+        self,
+        subscriber: Subscriber,
+        alert: Optional[WeatherAlert],
+        title: str,
+        message: str,
     ) -> Dict[str, Any]:
         """Send webhook notification to subscriber."""
         if not subscriber.webhook_url:
             raise NotificationError("No webhook URL configured for subscriber")
 
-        # Create webhook config for subscriber
+        provider = webhook_provider_for_url(subscriber.webhook_url)
         webhook_config = WebhookConfig(
-            provider=WebhookProvider.GENERIC, webhook_url=subscriber.webhook_url
+            provider=provider,
+            webhook_url=subscriber.webhook_url,
+            timeout_seconds=self.config.delivery_timeout_seconds,
+            retry_count=self.config.max_retries,
+            retry_delay_seconds=self.config.retry_delay_seconds,
         )
 
         try:
@@ -417,21 +569,28 @@ This alert was sent by SkywarnPlus-NG.
             return {"success": False, "error": str(e)}
 
         async with notifier_cm as notifier:
+            if alert is not None:
+                return await notifier.send_alert_webhook(alert)
             return await notifier.send_notification_webhook(title=title, message=message)
 
     async def _send_push_notification(
-        self, subscriber: Subscriber, title: str, message: str
+        self,
+        subscriber: Subscriber,
+        alert: Optional[WeatherAlert],
+        title: str,
+        message: str,
     ) -> Dict[str, Any]:
         """Send push notification to subscriber."""
         if not subscriber.push_tokens:
             raise NotificationError("No push tokens configured for subscriber")
 
-        # Use the first available push notifier
         if not self.push_notifiers:
             raise NotificationError("No push notifiers configured")
 
         notifier = self.push_notifiers[0]
 
+        if alert is not None:
+            return await notifier.send_alert_push(alert, subscriber.push_tokens)
         return await notifier.send_notification_push(
             title=title, body=message, device_tokens=subscriber.push_tokens
         )
@@ -539,7 +698,11 @@ This alert was sent by SkywarnPlus-NG.
     async def _process_webhook_delivery(self, delivery: DeliveryItem) -> None:
         """Process webhook delivery."""
         webhook_config = WebhookConfig(
-            provider=WebhookProvider.GENERIC, webhook_url=delivery.recipient
+            provider=webhook_provider_for_url(delivery.recipient),
+            webhook_url=delivery.recipient,
+            timeout_seconds=self.config.delivery_timeout_seconds,
+            retry_count=self.config.max_retries,
+            retry_delay_seconds=self.config.retry_delay_seconds,
         )
 
         try:

@@ -46,6 +46,8 @@ from ..processing.analytics import AlertAnalytics
 from ..location.mobile_counties import MobileCountyService
 from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
 from ..playback.policy import PlaybackPolicy
+from ..notifications.factory import build_notification_manager
+from ..notifications.manager import NotificationManager
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,8 @@ class SkywarnPlusApplication:
         self.mobile_county_service: Optional[MobileCountyService] = None
         self.playback_policy: Optional[PlaybackPolicy] = None
         self.nhc_service: Optional[NhcCycloneService] = None
+        self.notification_manager: Optional[NotificationManager] = None
+        self._delivery_processor_task: Optional[asyncio.Task] = None
         self.running = False
         self._shutdown_event = asyncio.Event()
         self._start_time = datetime.now(timezone.utc)
@@ -307,6 +311,16 @@ class SkywarnPlusApplication:
             logger.warning("Alert processing pipeline will be disabled")
             self.alert_pipeline = None
 
+        # Initialize notification manager (email, webhooks, FCM, subscribers)
+        self.notification_manager = build_notification_manager(self.config)
+        if self.notification_manager:
+            logger.info("Notification manager initialized")
+            self._delivery_processor_task = asyncio.create_task(
+                self.notification_manager.start_delivery_processor()
+            )
+        else:
+            logger.info("Notification manager disabled (no channels configured)")
+
         # Handle cleanslate mode
         if self.config.dev.cleanslate:
             logger.info("DEV: Cleanslate mode enabled, clearing cached state")
@@ -508,7 +522,7 @@ class SkywarnPlusApplication:
             description="Workflow for processing severe weather alerts",
             trigger_conditions=[{"type": "severity_gte", "severity": "Severe"}],
             steps=[notification_step, escalation_step],
-            enabled=True,
+            enabled=False,  # Notifications run in _handle_new_alerts; enable when workflow dedup exists
         )
 
         return workflow
@@ -519,6 +533,15 @@ class SkywarnPlusApplication:
 
         self.running = False
         self._shutdown_event.set()
+
+        if self.notification_manager:
+            await self.notification_manager.stop_delivery_processor()
+        if self._delivery_processor_task and not self._delivery_processor_task.done():
+            self._delivery_processor_task.cancel()
+            try:
+                await self._delivery_processor_task
+            except asyncio.CancelledError:
+                pass
 
         # Close database connections
         if self.database_manager:
@@ -675,6 +698,8 @@ class SkywarnPlusApplication:
                 await self.web_dashboard.broadcast_poll_updates(self.get_status())
 
             logger.debug(f"Poll cycle complete - {len(current_alerts)} alerts processed")
+
+            await self._maybe_backup_database()
 
         except Exception as e:
             logger.error(f"Error in poll cycle: {e}", exc_info=True)
@@ -918,94 +943,7 @@ class SkywarnPlusApplication:
                     except Exception as e:
                         logger.error(f"Failed to send PushOver notification: {e}")
 
-                # Send Discord webhook notification via subscribers only
-                # Check if webhook has already been sent for this alert to prevent duplicates
-                try:
-                    # Check if webhook has already been sent for this alert
-                    if self.state_manager.has_alert_webhook_sent(self.state, alert.id):
-                        logger.debug(
-                            f"Discord webhook already sent for alert {alert.id} ({alert.event}), skipping"
-                        )
-                    else:
-                        # Only send Discord webhooks through subscribers (not main config)
-                        from ..notifications.subscriber import SubscriberManager, SubscriptionStatus
-
-                        subscriber_manager = None
-                        should_send_discord = False
-                        discord_url = None
-
-                        # Try to load subscribers to check if any match this alert
-                        try:
-                            subscriber_file = self.config.data_dir / "subscribers.json"
-                            if subscriber_file.exists():
-                                subscriber_manager = SubscriberManager(subscriber_file)
-                                matching_subscribers = subscriber_manager.get_subscribers_for_alert(
-                                    alert
-                                )
-
-                                # Check if any matching subscriber has a Discord webhook configured
-                                for subscriber in matching_subscribers:
-                                    if (
-                                        subscriber.status == SubscriptionStatus.ACTIVE
-                                        and subscriber.webhook_url
-                                        and "discord.com/api/webhooks" in subscriber.webhook_url
-                                    ):
-                                        discord_url = subscriber.webhook_url.strip()
-                                        should_send_discord = True
-                                        logger.info(
-                                            f"Found matching subscriber {subscriber.subscriber_id} with Discord webhook for alert: {alert.event} (ID: {alert.id})"
-                                        )
-                                        break
-                        except Exception as sub_e:
-                            logger.debug(
-                                f"Could not check subscribers for Discord webhook: {sub_e}"
-                            )
-
-                        if should_send_discord and discord_url and discord_url.strip():
-                            logger.info(
-                                f"Attempting to send Discord webhook for alert: {alert.event} (ID: {alert.id}) via subscriber"
-                            )
-                            from ..notifications.webhook import (
-                                WebhookNotifier,
-                                WebhookConfig,
-                                WebhookProvider,
-                            )
-
-                            webhook_cfg = WebhookConfig(
-                                provider=WebhookProvider.DISCORD,
-                                webhook_url=discord_url.strip(),
-                                enabled=True,
-                                username="SkywarnPlus-NG",
-                            )
-                            try:
-                                discord_notifier = WebhookNotifier(webhook_cfg)
-                            except ValueError as url_err:
-                                logger.warning(
-                                    "Discord webhook URL rejected for alert %s: %s",
-                                    alert.id,
-                                    url_err,
-                                )
-                            else:
-                                async with discord_notifier as webhook:
-                                    result = await webhook.send_alert_webhook(alert)
-                                    if result.get("success", False):
-                                        # Mark webhook as sent to prevent duplicates
-                                        self.state_manager.mark_alert_webhook_sent(
-                                            self.state, alert.id
-                                        )
-                                        logger.info(
-                                            f"Discord webhook notification sent for alert: {alert.event} (ID: {alert.id}) via subscriber"
-                                        )
-                                    else:
-                                        logger.warning(
-                                            f"Discord webhook notification failed for alert {alert.id}: {result.get('error', 'Unknown error')}"
-                                        )
-                        else:
-                            logger.debug(
-                                f"No matching subscriber with Discord webhook for alert: {alert.event} (ID: {alert.id})"
-                            )
-                except Exception as e:
-                    logger.error(f"Failed to send Discord webhook notification: {e}", exc_info=True)
+                await self._send_alert_notifications(alert)
 
                 # Log alert processing completion
                 processing_time = (
@@ -1156,6 +1094,19 @@ class SkywarnPlusApplication:
                         )
             except Exception as e:
                 logger.error(f"Failed to send PushOver all-clear notification: {e}")
+
+        if self.notification_manager:
+            try:
+                county_names = ", ".join(
+                    county.name for county in self.config.counties if county.enabled
+                )
+                result = await self.notification_manager.send_all_clear_notifications(county_names)
+                if result.get("success"):
+                    logger.info("Subscriber/global all-clear notifications sent")
+                else:
+                    logger.debug("No all-clear notifications delivered (no matching recipients)")
+            except Exception as e:
+                logger.error(f"Failed to send all-clear notifications: {e}")
 
         self.state_manager.update_all_clear_time(self.state)
 
@@ -1878,6 +1829,92 @@ class SkywarnPlusApplication:
         except Exception as e:
             logger.error(f"Error announcing all-clear: {e}", exc_info=True)
 
+    async def _send_alert_notifications(self, alert: WeatherAlert) -> None:
+        """Send email, webhook, and push notifications for a new alert."""
+        if not self.notification_manager:
+            return
+
+        try:
+            skip_webhooks = self.state_manager.has_alert_webhook_sent(self.state, alert.id)
+            subscriber_result = await self.notification_manager.send_alert_notifications(
+                alert, skip_webhooks=skip_webhooks
+            )
+            global_result = await self.notification_manager.send_global_webhook_notifications(alert)
+
+            webhook_delivered = subscriber_result.get("webhook_success") or global_result.get(
+                "success"
+            )
+            if webhook_delivered and not skip_webhooks:
+                self.state_manager.mark_alert_webhook_sent(self.state, alert.id)
+
+            total = subscriber_result.get("total_notifications", 0)
+            global_sent = global_result.get("sent_count", 0)
+            if total or global_sent:
+                logger.info(
+                    "Alert notifications sent for %s: %s subscriber deliveries, %s global webhooks",
+                    alert.event,
+                    total,
+                    global_sent,
+                )
+        except Exception as e:
+            logger.error(
+                "Failed to send alert notifications for %s (%s): %s",
+                alert.event,
+                alert.id,
+                e,
+                exc_info=True,
+            )
+
+    async def _maybe_backup_database(self) -> None:
+        """Run scheduled database backup when enabled."""
+        if not self.database_manager or not self.config.database.backup_enabled:
+            return
+
+        interval_seconds = self.config.database.backup_interval_hours * 3600
+        now = datetime.now(timezone.utc)
+        last_raw = self.state.get("last_db_backup_at")
+        if last_raw:
+            last_dt = datetime.fromisoformat(str(last_raw).replace("Z", "+00:00"))
+            if (now - last_dt).total_seconds() < interval_seconds:
+                return
+
+        try:
+            await self.database_manager.backup_database()
+            self.state["last_db_backup_at"] = now.isoformat()
+            self.state_manager.save_state(self.state)
+            logger.info("Automatic database backup completed")
+        except Exception as e:
+            logger.error("Automatic database backup failed: %s", e)
+
+    async def _reload_notification_manager(self) -> None:
+        """Rebuild notification manager after configuration changes."""
+        if self._delivery_processor_task and not self._delivery_processor_task.done():
+            if self.notification_manager:
+                await self.notification_manager.stop_delivery_processor()
+            self._delivery_processor_task.cancel()
+            try:
+                await self._delivery_processor_task
+            except asyncio.CancelledError:
+                pass
+
+        self.notification_manager = build_notification_manager(self.config)
+        if self.notification_manager:
+            logger.info("Notification manager reloaded")
+            self._delivery_processor_task = asyncio.create_task(
+                self.notification_manager.start_delivery_processor()
+            )
+        else:
+            self._delivery_processor_task = None
+            logger.info("Notification manager disabled after config reload")
+
+    def _schedule_notification_manager_reload(self) -> None:
+        """Schedule async notification manager reload from sync config apply."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._reload_notification_manager())
+        except RuntimeError:
+            self.notification_manager = build_notification_manager(self.config)
+
     def apply_runtime_config(self, config: AppConfig) -> None:
         """Push a new AppConfig to services that cache config references at init."""
         self.config = config
@@ -1916,6 +1953,8 @@ class SkywarnPlusApplication:
         if config.nhc.enabled:
             logger.info("NHC tropical cyclone monitoring enabled (config updated)")
 
+        self._schedule_notification_manager_reload()
+
     def _update_geographic_filter(self, allowed_counties: List[str]) -> None:
         """Keep the geographic pipeline filter aligned with the current poll counties."""
         if not self.filter_chain:
@@ -1953,6 +1992,7 @@ class SkywarnPlusApplication:
             "validator_available": self.validator is not None,
             "workflow_engine_available": self.workflow_engine is not None,
             "analytics_available": self.analytics is not None,
+            "notification_manager_available": self.notification_manager is not None,
             "uptime_seconds": (datetime.now(timezone.utc) - self._start_time).total_seconds(),
         }
 

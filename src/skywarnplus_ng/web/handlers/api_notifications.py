@@ -367,6 +367,10 @@ class NotificationsApiMixin:
     async def api_notifications_stats_handler(self, request: Request) -> Response:
         """Handle notification statistics endpoint."""
         try:
+            if getattr(self.app, "notification_manager", None):
+                stats = self.app.notification_manager.get_notification_stats()
+                return web.json_response(stats)
+
             subscriber_manager = self._get_subscriber_manager()
             subscriber_stats = subscriber_manager.get_subscriber_stats()
             stats = {

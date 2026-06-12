@@ -484,6 +484,54 @@ class SkyDescribeConfig(BaseModel):
     max_words: int = Field(150, description="Maximum words in description")
 
 
+class NotificationEmailConfig(BaseModel):
+    """SMTP email notification settings (Notifications tab)."""
+
+    provider: str = Field(
+        "gmail", description="Email provider preset (gmail, outlook, custom, etc.)"
+    )
+    smtp_server: str = Field("", description="SMTP server hostname")
+    smtp_port: int = Field(587, description="SMTP port")
+    use_tls: bool = Field(True, description="Use STARTTLS")
+    use_ssl: bool = Field(False, description="Use SSL/TLS from connect")
+    username: str = Field("", description="SMTP username / from address")
+    password: Optional[str] = Field(None, description="SMTP password or app password")
+    from_name: str = Field("SkywarnPlus-NG", description="Display name for From header")
+
+
+class NotificationWebhookConfig(BaseModel):
+    """Global webhook URLs (Slack, Teams, generic)."""
+
+    slack_url: Optional[str] = Field(None, description="Slack incoming webhook URL")
+    teams_url: Optional[str] = Field(None, description="Microsoft Teams webhook URL")
+    generic_url: Optional[str] = Field(None, description="Generic HTTPS webhook URL")
+
+
+class NotificationPushConfig(BaseModel):
+    """FCM push notification settings."""
+
+    fcm_server_key: Optional[str] = Field(None, description="Firebase Cloud Messaging server key")
+    fcm_project_id: Optional[str] = Field(None, description="Firebase project ID")
+
+
+class NotificationDeliveryConfig(BaseModel):
+    """Delivery queue tuning."""
+
+    max_concurrent: int = Field(10, description="Max concurrent outbound deliveries")
+    timeout_seconds: int = Field(30, description="Per-delivery timeout in seconds")
+    max_retries: int = Field(3, description="Max retry attempts for failed deliveries")
+    retry_delay: int = Field(5, description="Initial retry delay in seconds")
+
+
+class NotificationsConfig(BaseModel):
+    """Dashboard Notifications tab settings."""
+
+    email: NotificationEmailConfig = Field(default_factory=NotificationEmailConfig)
+    webhook: NotificationWebhookConfig = Field(default_factory=NotificationWebhookConfig)
+    push: NotificationPushConfig = Field(default_factory=NotificationPushConfig)
+    delivery: NotificationDeliveryConfig = Field(default_factory=NotificationDeliveryConfig)
+
+
 class PushOverConfig(BaseModel):
     """PushOver notification configuration."""
 
@@ -541,6 +589,7 @@ class AppConfig(BaseSettings):
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     skydescribe: SkyDescribeConfig = Field(default_factory=SkyDescribeConfig)
     pushover: PushOverConfig = Field(default_factory=PushOverConfig)
+    notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     dev: DevConfig = Field(default_factory=DevConfig)
     gpsd: GpsdConfig = Field(default_factory=GpsdConfig)
     nhc: NhcConfig = Field(default_factory=NhcConfig)

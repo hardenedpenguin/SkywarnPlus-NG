@@ -32,6 +32,22 @@ class WebhookProvider(Enum):
     GENERIC = "generic"
 
 
+def webhook_provider_for_url(url: str) -> WebhookProvider:
+    """Detect webhook provider from URL host/path."""
+    normalized = (url or "").lower()
+    if "discord.com/api/webhooks" in normalized or "discordapp.com/api/webhooks" in normalized:
+        return WebhookProvider.DISCORD
+    if "hooks.slack.com" in normalized:
+        return WebhookProvider.SLACK
+    if (
+        "office.com/webhook" in normalized
+        or "office365.com" in normalized
+        or "outlook.office.com/webhook" in normalized
+    ):
+        return WebhookProvider.TEAMS
+    return WebhookProvider.GENERIC
+
+
 @dataclass
 class WebhookConfig:
     """Webhook configuration."""
