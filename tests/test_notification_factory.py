@@ -70,6 +70,26 @@ def test_build_notification_manager_returns_none_when_unconfigured(tmp_path: Pat
     assert build_notification_manager(config) is None
 
 
+def test_notifications_config_accepts_empty_dashboard_strings() -> None:
+    config = AppConfig(
+        notifications={
+            "email": {
+                "provider": "gmail",
+                "smtp_server": "",
+                "smtp_port": "",
+                "username": "",
+                "password": "",
+                "from_name": "",
+            },
+            "webhook": {"slack_url": "", "teams_url": "", "generic_url": ""},
+            "push": {"fcm_server_key": "", "fcm_project_id": ""},
+        }
+    )
+    assert config.notifications.email.smtp_port == 587
+    assert config.notifications.webhook.slack_url is None
+    assert config.notifications.push.fcm_server_key is None
+
+
 def test_redact_config_strips_notification_secrets() -> None:
     data = {
         "notifications": {

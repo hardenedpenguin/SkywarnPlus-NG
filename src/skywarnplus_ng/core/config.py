@@ -21,6 +21,18 @@ def _empty_str_to_none(value: Any) -> Any:
     return value
 
 
+def _empty_str_to_int(value: Any, default: int) -> int:
+    """Coerce blank form/YAML strings to a default integer."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "":
+            return default
+        return int(stripped)
+    return int(value)
+
+
 class ConfigError(Exception):
     """Raised when configuration cannot be loaded or is invalid."""
 
@@ -498,6 +510,16 @@ class NotificationEmailConfig(BaseModel):
     password: Optional[str] = Field(None, description="SMTP password or app password")
     from_name: str = Field("SkywarnPlus-NG", description="Display name for From header")
 
+    @field_validator("smtp_port", mode="before")
+    @classmethod
+    def _coerce_smtp_port(cls, value: Any) -> int:
+        return _empty_str_to_int(value, 587)
+
+    @field_validator("password", mode="before")
+    @classmethod
+    def _coerce_password(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
 
 class NotificationWebhookConfig(BaseModel):
     """Global webhook URLs (Slack, Teams, generic)."""
@@ -506,12 +528,22 @@ class NotificationWebhookConfig(BaseModel):
     teams_url: Optional[str] = Field(None, description="Microsoft Teams webhook URL")
     generic_url: Optional[str] = Field(None, description="Generic HTTPS webhook URL")
 
+    @field_validator("slack_url", "teams_url", "generic_url", mode="before")
+    @classmethod
+    def _coerce_webhook_urls(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
 
 class NotificationPushConfig(BaseModel):
     """FCM push notification settings."""
 
     fcm_server_key: Optional[str] = Field(None, description="Firebase Cloud Messaging server key")
     fcm_project_id: Optional[str] = Field(None, description="Firebase project ID")
+
+    @field_validator("fcm_server_key", "fcm_project_id", mode="before")
+    @classmethod
+    def _coerce_push_fields(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
 
 
 class NotificationDeliveryConfig(BaseModel):
@@ -521,6 +553,19 @@ class NotificationDeliveryConfig(BaseModel):
     timeout_seconds: int = Field(30, description="Per-delivery timeout in seconds")
     max_retries: int = Field(3, description="Max retry attempts for failed deliveries")
     retry_delay: int = Field(5, description="Initial retry delay in seconds")
+
+    @field_validator(
+        "max_concurrent", "timeout_seconds", "max_retries", "retry_delay", mode="before"
+    )
+    @classmethod
+    def _coerce_delivery_ints(cls, value: Any, info) -> int:
+        defaults = {
+            "max_concurrent": 10,
+            "timeout_seconds": 30,
+            "max_retries": 3,
+            "retry_delay": 5,
+        }
+        return _empty_str_to_int(value, defaults.get(info.field_name, 0))
 
 
 class NotificationsConfig(BaseModel):
