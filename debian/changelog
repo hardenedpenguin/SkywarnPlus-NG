@@ -1,0 +1,7 @@
+skywarnplus-ng (1.1.0-1) unstable; urgency=medium
+
+  * Initial Debian packages for amd64 and arm64 with prebuilt virtualenv.
+  * Depends on asl3-asterisk for AllStar Link 3 nodes.
+  * Metapackage skywarnplus-ng-all pulls app + default voice model.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Wed, 11 Jun 2026 22:45:00 -0500

@@ -1,0 +1,20 @@
+[Unit]
+Description=SkywarnPlus-NG Weather Alert System
+After=network.target asterisk.service
+Wants=asterisk.service
+
+[Service]
+Type=simple
+User=asterisk
+Group=asterisk
+WorkingDirectory=/var/lib/skywarnplus-ng
+ExecStart=/var/lib/skywarnplus-ng/venv/bin/python -m skywarnplus_ng.cli run --config /etc/skywarnplus-ng/config.yaml
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=SKYWARNPLUS_NG_DATA=/var/lib/skywarnplus-ng/data
+Environment=SKYWARNPLUS_NG_LOGS=/var/log/skywarnplus-ng
+
+[Install]
+WantedBy=multi-user.target

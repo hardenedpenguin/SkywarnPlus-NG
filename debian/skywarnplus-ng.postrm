@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge)
+        echo "skywarnplus-ng: purge complete." >&2
+        echo "skywarnplus-ng: /etc/skywarnplus-ng/config.yaml and /var/lib/skywarnplus-ng/data/ were not removed." >&2
+        ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

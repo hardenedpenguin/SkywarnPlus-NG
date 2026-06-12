@@ -2,11 +2,11 @@
 #
 # Before tagging:
 #   1. Bump version in pyproject.toml and src/skywarnplus_ng/__init__.py to match the tag.
-#   2. Commit, then: git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push && git push origin vX.Y.Z
+#   2. Update debian/changelog (or run scripts/debian/sync-changelog-version.py).
+#   3. Commit, then: git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push && git push origin vX.Y.Z
 # This workflow: verifies pyproject.toml version matches tag, updates README.md download URLs
-# for this release, runs create_release.py (tarball includes updated README), creates the GitHub
-# Release with generate_release_notes, and uploads the tarball. Release notes live on GitHub—
-# do not maintain a "What's New" section in README.
+# for this release, runs create_release.py (tarball includes updated README), builds amd64/arm64
+# .deb packages, creates the GitHub Release with generate_release_notes, and uploads assets.
 
 name: Release
 
@@ -19,7 +19,44 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  build-deb:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm64
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install deb build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y devscripts debhelper python3 python3-pip python3-venv curl ca-certificates
+
+      - name: Build Debian packages (${{ matrix.arch }})
+        run: |
+          chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
+          ./scripts/build_deb.sh
+
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs-${{ matrix.arch }}
+          path: dist/debs/*.deb
+          if-no-files-found: error
+
   release:
+    needs: build-deb
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,16 +84,21 @@ jobs:
 
       - name: Update README.md download URLs to this release
         run: |
-          # Update release download URLs (e.g. .../download/v1.0.6/...1.0.6.tar.gz -> .../download/v1.0.7/...1.0.7.tar.gz)
           sed -i "s|releases/download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|releases/download/${TAG}/skywarnplus-ng-${VERSION}.tar.gz|g" README.md
-          # Update tarball filenames and directory names in code blocks
           sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
           sed -i "s|cd skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|cd skywarnplus-ng-${VERSION}|g" README.md
 
       - name: Create release tarball
         run: python3 scripts/create_release.py
 
-      - name: Create Release and upload tarball
+      - name: Download Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: debs-*
+          path: dist/debs
+          merge-multiple: true
+
+      - name: Create Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -65,6 +107,7 @@ jobs:
           generate_release_notes: true
           files: |
             skywarnplus-ng-${{ env.VERSION }}.tar.gz
+            dist/debs/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

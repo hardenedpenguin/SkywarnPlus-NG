@@ -1,0 +1,141 @@
+#!/bin/sh
+set -e
+
+APP_USER=asterisk
+APP_GROUP=asterisk
+WEB_PORT=8100
+INSTALL_ROOT=/var/lib/skywarnplus-ng
+CONFIG_DIR=/etc/skywarnplus-ng
+LOG_DIR=/var/log/skywarnplus-ng
+TMP_AUDIO_DIR=/tmp/skywarnplus-ng-audio
+DTMF_SCRIPT="${INSTALL_ROOT}/scripts/generate_dtmf_conf.py"
+VENV_PYTHON="${INSTALL_ROOT}/venv/bin/python"
+DTMF_CONFIG=/etc/asterisk/custom/rpt/skydescribe.conf
+
+warn() {
+    echo "skywarnplus-ng: $*" >&2
+}
+
+ensure_asterisk_user() {
+    if ! getent passwd "${APP_USER}" >/dev/null 2>&1; then
+        warn "Error: ${APP_USER} user not found. Install asl3-asterisk before skywarnplus-ng."
+        exit 1
+    fi
+}
+
+setup_directories() {
+    mkdir -p "${INSTALL_ROOT}/data" "${INSTALL_ROOT}/descriptions" "${INSTALL_ROOT}/audio" "${INSTALL_ROOT}/piper"
+    mkdir -p "${LOG_DIR}" "${TMP_AUDIO_DIR}"
+    mkdir -p "${CONFIG_DIR}"
+    mkdir -p /etc/asterisk/custom/rpt
+}
+
+setup_config() {
+    if [ ! -f "${CONFIG_DIR}/config.yaml" ]; then
+        if [ -f "${CONFIG_DIR}/config.yaml.example" ]; then
+            cp "${CONFIG_DIR}/config.yaml.example" "${CONFIG_DIR}/config.yaml"
+            warn "Created ${CONFIG_DIR}/config.yaml from shipped example."
+        fi
+    else
+        warn "Keeping existing ${CONFIG_DIR}/config.yaml (see config.yaml.example for new defaults)."
+    fi
+}
+
+fix_ownership() {
+    chown -R "${APP_USER}:${APP_GROUP}" "${INSTALL_ROOT}" "${LOG_DIR}" "${TMP_AUDIO_DIR}" 2>/dev/null || true
+    chown -R "${APP_USER}:${APP_GROUP}" "${CONFIG_DIR}" 2>/dev/null || true
+}
+
+check_web_port() {
+    if ! command -v ss >/dev/null 2>&1 && ! command -v lsof >/dev/null 2>&1; then
+        return 0
+    fi
+
+    in_use=false
+    if command -v ss >/dev/null 2>&1; then
+        if ss -ltn "sport = :${WEB_PORT}" 2>/dev/null | grep -q ":${WEB_PORT}"; then
+            in_use=true
+        fi
+    elif command -v lsof >/dev/null 2>&1; then
+        if lsof -iTCP:"${WEB_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+            in_use=true
+        fi
+    fi
+
+    if [ "${in_use}" = "true" ]; then
+        warn "Error: port ${WEB_PORT} is already in use."
+        warn "Stop the other process or change monitoring.http_server.port in ${CONFIG_DIR}/config.yaml"
+        exit 1
+    fi
+}
+
+generate_dtmf() {
+    if [ ! -x "${VENV_PYTHON}" ] || [ ! -f "${DTMF_SCRIPT}" ]; then
+        warn "Skipping DTMF config (venv or ${DTMF_SCRIPT} missing)."
+        return 0
+    fi
+    log_file="/var/tmp/skywarnplus-ng-dtmf-install.log"
+    if env TMPDIR=/var/tmp "${VENV_PYTHON}" "${DTMF_SCRIPT}" >"${log_file}" 2>&1; then
+        if [ -f "${DTMF_CONFIG}" ]; then
+            warn "DTMF configuration updated at ${DTMF_CONFIG}"
+        else
+            warn "DTMF script ran but ${DTMF_CONFIG} was not created."
+            grep -i "error\\|warning" "${log_file}" 2>/dev/null || true
+        fi
+    else
+        warn "Failed to generate DTMF configuration. See ${log_file}"
+        grep -i "error\\|warning" "${log_file}" 2>/dev/null || true
+    fi
+    rm -f "${log_file}"
+}
+
+configure_apache() {
+    if ! command -v a2enconf >/dev/null 2>&1; then
+        warn "Apache not detected; dashboard: http://localhost:${WEB_PORT}/skywarnplus-ng/"
+        return 0
+    fi
+    if [ ! -f /etc/apache2/conf-available/skywarnplus-ng-proxy.conf ]; then
+        return 0
+    fi
+
+    a2enmod proxy proxy_http proxy_wstunnel >/dev/null 2>&1 || true
+    a2enconf skywarnplus-ng-proxy >/dev/null 2>&1 || true
+
+    apache_ctl="apache2ctl"
+    if ! command -v apache2ctl >/dev/null 2>&1; then
+        apache_ctl="apachectl"
+    fi
+
+    if "${apache_ctl}" configtest >/dev/null 2>&1; then
+        deb-systemd-invoke reload apache2.service >/dev/null 2>&1 \
+            || deb-systemd-invoke reload httpd.service >/dev/null 2>&1 \
+            || true
+        warn "Apache proxy enabled at /skywarnplus-ng/"
+    else
+        warn "Apache configtest failed after installing skywarnplus-ng-proxy."
+        warn "Run: sudo ${apache_ctl} configtest"
+        warn "Direct dashboard: http://localhost:${WEB_PORT}/skywarnplus-ng/"
+    fi
+}
+
+case "$1" in
+    configure)
+        ensure_asterisk_user
+        setup_directories
+        setup_config
+        fix_ownership
+        check_web_port
+        generate_dtmf
+        configure_apache
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

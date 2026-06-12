@@ -13,7 +13,22 @@ Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Ma
 
 ## Install
 
-**Prerequisites:** 64-bit Linux, **Python 3.11+**, Asterisk with user **`asterisk`**, outbound Internet. Run **`install.sh` as a normal user** (not root) — it uses `sudo` where needed. Use an [official release tarball](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (includes pre-built dashboard CSS).
+**Prerequisites:** 64-bit Linux (**amd64** or **arm64**), **Python 3.11+** (tarball install only), Asterisk with user **`asterisk`**, outbound Internet.
+
+### Debian package (recommended on Debian/Ubuntu nodes)
+
+Prebuilt packages skip `pip install` on the node. Download from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (match your architecture):
+
+```bash
+sudo apt install ./skywarnplus-ng-all_1.1.0_amd64.deb
+sudo systemctl enable --now skywarnplus-ng
+```
+
+Replace `amd64` with `arm64` on ARM nodes. See **[docs/debian.md](docs/debian.md)** for component packages and upgrades.
+
+### Release tarball
+
+Run **`install.sh` as a normal user** (not root) — it uses `sudo` where needed. Use an [official release tarball](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (includes pre-built dashboard CSS).
 
 ```bash
 wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.1.0/skywarnplus-ng-1.1.0.tar.gz

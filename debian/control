@@ -1,0 +1,50 @@
+Source: skywarnplus-ng
+Section: hamradio
+Priority: optional
+Maintainer: Jory A. Pratt <geekypenguin@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               python3 (>= 3.11),
+               python3-pip,
+               python3-venv,
+               curl,
+               ca-certificates
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/hardenedpenguin/SkywarnPlus-NG
+Vcs-Browser: https://github.com/hardenedpenguin/SkywarnPlus-NG
+Vcs-Git: https://github.com/hardenedpenguin/SkywarnPlus-NG.git
+
+Package: skywarnplus-ng
+Architecture: amd64 arm64
+Depends: asl3-asterisk,
+         ${misc:Depends},
+         libgomp1,
+         libopenblas0 | libopenblas0-pthread | libopenblas0-serial,
+         libsndfile1,
+         ffmpeg,
+         sox,
+         curl,
+         ca-certificates
+Recommends: apache2,
+             skywarnplus-ng-voice-en-us-amy-low (= ${binary:Version})
+Description: Weather alert system for Asterisk/app_rpt nodes
+ SkywarnPlus-NG polls NWS alerts, drives voice announcements on Asterisk
+ nodes, and provides a web dashboard. This package ships a prebuilt Python
+ virtualenv so nodes do not download dependencies with pip at install time.
+ .
+ Target systems are AllStar Link 3 nodes with asl3-asterisk already installed.
+
+Package: skywarnplus-ng-voice-en-us-amy-low
+Architecture: amd64 arm64
+Depends: skywarnplus-ng (= ${binary:Version}),
+         ${misc:Depends}
+Description: Piper en_US-amy-low voice for SkywarnPlus-NG
+ Optional voice model files for local Piper TTS (default SkywarnPlus-NG voice).
+
+Package: skywarnplus-ng-all
+Architecture: amd64 arm64
+Depends: skywarnplus-ng (= ${binary:Version}),
+         skywarnplus-ng-voice-en-us-amy-low (= ${binary:Version})
+Section: metapackages
+Description: SkywarnPlus-NG with default Piper voice (metapackage)
+ Installs skywarnplus-ng and the recommended en_US-amy-low Piper voice model.

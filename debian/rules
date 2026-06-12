@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	chmod +x scripts/debian/*.sh
+	./scripts/debian/build-venv.sh "$(CURDIR)/debian/.venv-staging"
+	./scripts/debian/fetch-piper-voice.sh "$(CURDIR)/debian/piper-voice-staging"
+
+override_dh_auto_install:
+	./scripts/debian/stage-install.sh "$(CURDIR)/debian/.venv-staging" "$(CURDIR)/debian/skywarnplus-ng"
+	./scripts/debian/stage-voice.sh "$(CURDIR)/debian/piper-voice-staging" "$(CURDIR)/debian/skywarnplus-ng-voice-en-us-amy-low"
+	install -d debian/skywarnplus-ng-all/usr/share/doc/skywarnplus-ng-all
+	install -m644 debian/copyright debian/skywarnplus-ng-all/usr/share/doc/skywarnplus-ng-all/copyright
+
+override_dh_auto_test:
+
+override_dh_python3:
+
+override_dh_shlibdeps:
+
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_install:
+	dh_install
+	dh_installsystemd --name=skywarnplus-ng
+	dh_installlogrotate --name=skywarnplus-ng

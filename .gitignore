@@ -58,6 +58,21 @@ logs/
 # Release artifacts
 *.tar.gz
 *.zip
+dist/debs/
+debian/.debhelper/
+debian/.venv-staging/
+debian/piper-voice-staging/
+debian/skywarnplus-ng/
+debian/skywarnplus-ng-all/
+debian/skywarnplus-ng-voice-en-us-amy-low/
+debian/debhelper-build-stamp
+debian/files
+debian/*.debhelper*
+debian/*.substvars
+*.deb
+*.changes
+*.buildinfo
+*.dsc
 
 # Local configuration
 config/local.yaml
