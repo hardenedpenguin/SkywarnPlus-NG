@@ -7,6 +7,7 @@
 # This workflow: verifies pyproject.toml version matches tag, updates README.md download URLs
 # for this release, runs create_release.py (tarball includes updated README), builds amd64/arm64
 # .deb packages, creates the GitHub Release with generate_release_notes, and uploads assets.
+# amd64 debs + tarball publish as soon as amd64 build finishes; arm64 debs upload when available.
 
 name: Release
 
@@ -19,16 +20,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-deb:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            arch: amd64
-          - runner: ubuntu-24.04-arm64
-            arch: arm64
-    runs-on: ${{ matrix.runner }}
+  build-deb-amd64:
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -43,7 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y devscripts debhelper build-essential python3 python3-pip python3-venv curl ca-certificates
 
-      - name: Build Debian packages (${{ matrix.arch }})
+      - name: Build Debian packages (amd64)
         run: |
           chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
           ./scripts/build_deb.sh
@@ -51,12 +44,41 @@ jobs:
       - name: Upload Debian packages
         uses: actions/upload-artifact@v4
         with:
-          name: debs-${{ matrix.arch }}
+          name: debs-amd64
+          path: dist/debs/*.deb
+          if-no-files-found: error
+
+  build-deb-arm64:
+    runs-on: ubuntu-24.04-arm64
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install deb build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y devscripts debhelper build-essential python3 python3-pip python3-venv curl ca-certificates
+
+      - name: Build Debian packages (arm64)
+        run: |
+          chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
+          ./scripts/build_deb.sh
+
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs-arm64
           path: dist/debs/*.deb
           if-no-files-found: error
 
   release:
-    needs: build-deb
+    needs: build-deb-amd64
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,12 +113,11 @@ jobs:
       - name: Create release tarball
         run: python3 scripts/create_release.py
 
-      - name: Download Debian packages
+      - name: Download amd64 Debian packages
         uses: actions/download-artifact@v4
         with:
-          pattern: debs-*
+          name: debs-amd64
           path: dist/debs
-          merge-multiple: true
 
       - name: Create Release and upload assets
         uses: softprops/action-gh-release@v2
@@ -127,3 +148,24 @@ jobs:
             git commit -m "docs: sync README download URLs for ${TAG}"
             git push origin main
           fi
+
+  publish-arm64-debs:
+    needs: [release, build-deb-arm64]
+    if: needs.build-deb-arm64.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download arm64 Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          name: debs-arm64
+          path: dist/debs
+
+      - name: Upload arm64 debs to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/debs/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
