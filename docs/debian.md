@@ -29,6 +29,18 @@ sudo apt install ./skywarnplus-ng_1.2.0_amd64.deb ./skywarnplus-ng-voice-en-us-a
 
 Replace `amd64` with `arm64` on ARM nodes.
 
+## Migrating from tarball (`install.sh`)
+
+If SkywarnPlus-NG is already running from a release tarball, **stop the service before installing the deb**. The package refuses to configure while port 8100 is in use, and tarball installs are not stopped automatically by `apt`.
+
+```bash
+sudo systemctl stop skywarnplus-ng
+sudo apt install ./skywarnplus-ng-all_1.2.0_amd64.deb
+sudo systemctl enable --now skywarnplus-ng
+```
+
+You do **not** need to remove the old install, delete `config.yaml`, or wipe `/var/lib/skywarnplus-ng/data/`. The deb uses the same paths; config and alert history are preserved. Optional cleanup afterward: remove leftover `/var/lib/skywarnplus-ng/src/` from the tarball layout (the deb ships only the venv).
+
 ## Packages
 
 | Package | Contents |

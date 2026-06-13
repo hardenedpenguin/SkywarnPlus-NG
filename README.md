@@ -26,6 +26,16 @@ sudo systemctl enable --now skywarnplus-ng
 
 Replace `amd64` with `arm64` on ARM nodes. See **[docs/debian.md](docs/debian.md)** for component packages and upgrades.
 
+**Already running from a tarball?** Stop the service first so port 8100 is free, then install the deb — your config and data are kept:
+
+```bash
+sudo systemctl stop skywarnplus-ng
+sudo apt install ./skywarnplus-ng-all_1.2.0_amd64.deb
+sudo systemctl enable --now skywarnplus-ng
+```
+
+No need to remove the old tarball install or edit `config.yaml` first.
+
 ### Release tarball
 
 Run **`install.sh` as a normal user** (not root) — it uses `sudo` where needed. Use an [official release tarball](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (includes pre-built dashboard CSS).
