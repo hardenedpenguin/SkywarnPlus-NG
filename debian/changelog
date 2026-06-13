@@ -1,3 +1,12 @@
+skywarnplus-ng (1.2.0-1) unstable; urgency=medium
+
+  * Release 1.2.0: subscriber notifications (email, webhooks, FCM, delivery queue).
+  * Twilio SMS for alert subscribers.
+  * Debian packages for amd64/arm64 ASL3 nodes with prebuilt virtualenv.
+  * Dashboard alert refresh, Activity page, and configuration improvements.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Fri, 12 Jun 2026 19:03:39 -0500
+
 skywarnplus-ng (1.1.0-1) unstable; urgency=medium
 
   * Initial Debian packages for amd64 and arm64 with prebuilt virtualenv.
