@@ -20,10 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -32,10 +28,12 @@ jobs:
       - name: Build Debian packages
         run: |
           chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
-          ./scripts/build_deb.sh
+          PYTHON=/usr/bin/python3 ./scripts/build_deb.sh
 
       - name: Verify packages
         run: |
           ls -lh dist/debs/
           test "$(ls -1 dist/debs/*.deb | wc -l)" -eq 3
           dpkg-deb -I dist/debs/skywarnplus-ng_*_amd64.deb | grep -E 'Depends|Package' | head -5
+          dpkg-deb -x dist/debs/skywarnplus-ng_*_amd64.deb /tmp/swp-deb-check
+          ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg

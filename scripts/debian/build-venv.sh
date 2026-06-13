@@ -4,9 +4,14 @@ set -euo pipefail
 
 VENV_DIR="${1:?usage: build-venv.sh <venv-output-dir>}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PYTHON="${PYTHON:-python3}"
+# Debian/CI builds must use distro python3, not actions/setup-python (hostedtoolcache paths break on nodes).
+if [[ -z "${PYTHON:-}" && -x /usr/bin/python3 ]]; then
+  PYTHON=/usr/bin/python3
+else
+  PYTHON="${PYTHON:-python3}"
+fi
 
-echo "Building virtualenv at ${VENV_DIR} (project: ${PROJECT_ROOT})"
+echo "Building virtualenv at ${VENV_DIR} (project: ${PROJECT_ROOT}, python: ${PYTHON})"
 
 rm -rf "${VENV_DIR}"
 "${PYTHON}" -m venv "${VENV_DIR}"

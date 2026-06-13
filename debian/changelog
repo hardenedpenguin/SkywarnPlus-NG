@@ -1,3 +1,10 @@
+skywarnplus-ng (1.2.1-1) unstable; urgency=medium
+
+  * Fix Debian venv using system Python on build hosts (not GitHub hostedtoolcache).
+  * postinst repoints broken CI-built venvs to /usr/bin/python3 on install/upgrade.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Fri, 13 Jun 2026 02:10:00 -0500
+
 skywarnplus-ng (1.2.0-1) unstable; urgency=medium
 
   * Release 1.2.0: subscriber notifications (email, webhooks, FCM, delivery queue).

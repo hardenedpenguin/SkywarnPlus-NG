@@ -26,11 +26,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
       - name: Install deb build dependencies
         run: |
           sudo apt-get update
@@ -39,7 +34,12 @@ jobs:
       - name: Build Debian packages (amd64)
         run: |
           chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
-          ./scripts/build_deb.sh
+          PYTHON=/usr/bin/python3 ./scripts/build_deb.sh
+
+      - name: Verify venv uses system Python
+        run: |
+          dpkg-deb -x dist/debs/skywarnplus-ng_*_amd64.deb /tmp/swp-deb-check
+          ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
 
       - name: Upload Debian packages
         uses: actions/upload-artifact@v4
@@ -55,11 +55,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
       - name: Install deb build dependencies
         run: |
           sudo apt-get update
@@ -68,7 +63,12 @@ jobs:
       - name: Build Debian packages (arm64)
         run: |
           chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
-          ./scripts/build_deb.sh
+          PYTHON=/usr/bin/python3 ./scripts/build_deb.sh
+
+      - name: Verify venv uses system Python
+        run: |
+          dpkg-deb -x dist/debs/skywarnplus-ng_*_arm64.deb /tmp/swp-deb-check
+          ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
 
       - name: Upload Debian packages
         uses: actions/upload-artifact@v4
