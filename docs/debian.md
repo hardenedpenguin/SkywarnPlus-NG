@@ -78,7 +78,7 @@ Tarball install remains supported for development and non-Debian systems.
 Native **amd64** or **arm64** host:
 
 ```bash
-sudo apt install devscripts debhelper python3 python3-pip python3-venv curl
+sudo apt install devscripts debhelper build-essential python3 python3-pip python3-venv curl
 ./scripts/build_deb.sh
 ```
 
