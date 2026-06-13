@@ -26,20 +26,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
       - name: Install deb build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y devscripts debhelper build-essential python3 python3-pip python3-venv curl ca-certificates
+          sudo apt-get install -y devscripts debhelper build-essential curl ca-certificates
 
       - name: Build Debian packages (amd64)
         run: |
           chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
-          PYTHON=/usr/bin/python3 ./scripts/build_deb.sh
+          ./scripts/build_deb.sh
 
-      - name: Verify venv uses system Python
+      - name: Verify bundled venv
         run: |
           dpkg-deb -x dist/debs/skywarnplus-ng_*_amd64.deb /tmp/swp-deb-check
+          file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          grep -q '^version = 3.13' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
 
       - name: Upload Debian packages
         uses: actions/upload-artifact@v4
@@ -55,20 +63,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
       - name: Install deb build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y devscripts debhelper build-essential python3 python3-pip python3-venv curl ca-certificates
+          sudo apt-get install -y devscripts debhelper build-essential curl ca-certificates
 
       - name: Build Debian packages (arm64)
         run: |
           chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
-          PYTHON=/usr/bin/python3 ./scripts/build_deb.sh
+          ./scripts/build_deb.sh
 
-      - name: Verify venv uses system Python
+      - name: Verify bundled venv
         run: |
           dpkg-deb -x dist/debs/skywarnplus-ng_*_arm64.deb /tmp/swp-deb-check
+          file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          grep -q '^version = 3.13' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
 
       - name: Upload Debian packages
         uses: actions/upload-artifact@v4

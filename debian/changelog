@@ -1,3 +1,10 @@
+skywarnplus-ng (1.2.2-1) unstable; urgency=medium
+
+  * Build Debian venv with embedded Python 3.13 (--copies) for ASL3 nodes.
+  * Remove postinst symlink repointing that broke 3.12-built venvs on 3.13 systems.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Fri, 13 Jun 2026 02:20:00 -0500
+
 skywarnplus-ng (1.2.1-1) unstable; urgency=medium
 
   * Fix Debian venv using system Python on build hosts (not GitHub hostedtoolcache).

@@ -17,14 +17,14 @@ From [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/release
 **One-step (app + default Piper voice):**
 
 ```bash
-sudo apt install ./skywarnplus-ng-all_1.2.1_amd64.deb
+sudo apt install ./skywarnplus-ng-all_1.2.2_amd64.deb
 sudo systemctl status skywarnplus-ng
 ```
 
 **Or install components separately:**
 
 ```bash
-sudo apt install ./skywarnplus-ng_1.2.1_amd64.deb ./skywarnplus-ng-voice-en-us-amy-low_1.2.1_amd64.deb
+sudo apt install ./skywarnplus-ng_1.2.2_amd64.deb ./skywarnplus-ng-voice-en-us-amy-low_1.2.2_amd64.deb
 ```
 
 Replace `amd64` with `arm64` on ARM nodes.
@@ -35,7 +35,7 @@ If SkywarnPlus-NG is already running from a release tarball, **stop the service 
 
 ```bash
 sudo systemctl stop skywarnplus-ng
-sudo apt install ./skywarnplus-ng-all_1.2.1_amd64.deb
+sudo apt install ./skywarnplus-ng-all_1.2.2_amd64.deb
 sudo systemctl enable --now skywarnplus-ng
 ```
 

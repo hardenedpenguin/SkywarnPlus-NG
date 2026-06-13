@@ -46,34 +46,6 @@ fix_ownership() {
     chown -R "${APP_USER}:${APP_GROUP}" "${CONFIG_DIR}" 2>/dev/null || true
 }
 
-fix_venv_python() {
-    pyvenv_cfg="${INSTALL_ROOT}/venv/pyvenv.cfg"
-    if [ ! -f "${pyvenv_cfg}" ]; then
-        return 0
-    fi
-    if ! grep -q 'hostedtoolcache\|/opt/hostedtoolcache' "${pyvenv_cfg}" 2>/dev/null \
-        && [ -x "${VENV_PYTHON}" ]; then
-        return 0
-    fi
-    sys_python=""
-    for candidate in /usr/bin/python3.13 /usr/bin/python3; do
-        if [ -x "${candidate}" ]; then
-            sys_python="${candidate}"
-            break
-        fi
-    done
-    if [ -z "${sys_python}" ]; then
-        warn "Bundled venv python is broken and /usr/bin/python3 is missing."
-        return 0
-    fi
-    warn "Repointing bundled venv to system Python (${sys_python})."
-    sed -i "s|^home = .*|home = /usr/bin|" "${pyvenv_cfg}"
-    sed -i "s|^executable = .*|executable = ${sys_python}|" "${pyvenv_cfg}"
-    ln -sf "${sys_python}" "${INSTALL_ROOT}/venv/bin/python3"
-    ln -sf python3 "${INSTALL_ROOT}/venv/bin/python"
-    ln -sf python3 "${INSTALL_ROOT}/venv/bin/python3.13"
-}
-
 check_web_port() {
     if ! command -v ss >/dev/null 2>&1 && ! command -v lsof >/dev/null 2>&1; then
         return 0
@@ -151,8 +123,6 @@ case "$1" in
         ensure_asterisk_user
         setup_directories
         setup_config
-        fix_ownership
-        fix_venv_python
         fix_ownership
         check_web_port
         generate_dtmf
