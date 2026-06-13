@@ -409,7 +409,9 @@ class NotificationManager:
         if alert is not None:
             if self.template_engine.get_template("sms_alert_default"):
                 try:
-                    rendered = self.template_engine.render_alert_template("sms_alert_default", alert)
+                    rendered = self.template_engine.render_alert_template(
+                        "sms_alert_default", alert
+                    )
                     body = (rendered.get("body") or "").strip()
                     if body:
                         return body[:max_len]
