@@ -268,14 +268,14 @@
         if (isNaN(date.getTime())) return 'Unknown';
         const now = new Date();
         const diff = now - date;
-        const minutes = Math.floor(diff / 60000);
-        if (diff < 0) return 'recent';
-        if (minutes < 1) return 'just now';
-        if (minutes < 60) return `${minutes}m ago`;
+        const future = diff < 0;
+        const minutes = Math.floor(Math.abs(diff) / 60000);
+        if (minutes < 1) return future ? 'soon' : 'just now';
+        if (minutes < 60) return future ? `in ${minutes}m` : `${minutes}m ago`;
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
+        if (hours < 24) return future ? `in ${hours}h` : `${hours}h ago`;
         const days = Math.floor(hours / 24);
-        return `${days}d ago`;
+        return future ? `in ${days}d` : `${days}d ago`;
     }
 
     /** Wall-clock time of last NWS poll (local timezone); tooltip carries UTC ISO. */
@@ -329,6 +329,10 @@
             const expandBlock = longDesc ? `
                         <div id="alert-desc-full-${idx}" class="hidden text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed whitespace-pre-wrap">${fullHtml}</div>
                         <button type="button" id="alert-desc-btn-${idx}" class="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline mb-2" onclick="toggleAlertDescription(${idx})">Show full description</button>` : '';
+            const showEnds = alert.ends && alert.ends !== alert.expires;
+            const untilLabel = showEnds ? 'Valid until' : 'Expires';
+            const untilTime = showEnds ? alert.ends : alert.expires;
+            const messageExpiresLine = showEnds ? `<span title="When this NWS message update expires; the alert may remain active until Valid until">Message expires: ${formatTimestamp(alert.expires)} · ${formatRelativeTime(alert.expires)}</span>` : '';
             return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 last:mb-0">
                 <div class="flex items-start justify-between">
@@ -350,9 +354,9 @@
                         <p id="alert-desc-short-${idx}" class="text-sm text-gray-600 dark:text-gray-400 mb-2 leading-relaxed whitespace-pre-wrap">${shortHtml}</p>
                         ${expandBlock}
                         ${areaLine}
-                        <div class="flex flex-wrap items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
-                            <span>Effective: ${formatTimestamp(alert.effective)}</span>
-                            <span>Expires: ${formatTimestamp(alert.expires)}</span>
+                        <div class="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+                            <span>Effective: ${formatTimestamp(alert.effective)} · ${formatRelativeTime(alert.effective)} · ${untilLabel}: ${formatTimestamp(untilTime)} · ${formatRelativeTime(untilTime)}</span>
+                            ${messageExpiresLine}
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
