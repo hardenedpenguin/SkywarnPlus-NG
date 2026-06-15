@@ -185,3 +185,12 @@ jobs:
           files: dist/debs/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-apt-repo:
+    needs: [release, publish-arm64-debs]
+    if: >-
+      always() && needs.release.result == 'success' &&
+      (needs.publish-arm64-debs.result == 'success' || needs.publish-arm64-debs.result == 'skipped')
+    uses: hardenedpenguin/hardenedpenguin-apt/.github/workflows/dispatch-apt-publish.yml@main
+    secrets:
+      APT_REPO_DISPATCH_TOKEN: ${{ secrets.APT_REPO_DISPATCH_TOKEN }}
