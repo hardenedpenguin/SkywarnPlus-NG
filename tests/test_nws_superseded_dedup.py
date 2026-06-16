@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from skywarnplus_ng.core.models import AlertSeverity, AlertUrgency, WeatherAlert
-from skywarnplus_ng.processing.deduplication import collapse_superseded_nws_alerts
+from skywarnplus_ng.processing.deduplication import (
+    collapse_superseded_nws_alerts,
+    merge_same_issuance_zone_splits,
+)
 
 
 def _flood(
@@ -96,3 +99,49 @@ def test_four_floods_all_touching_txc039_collapse_to_one() -> None:
     out = collapse_superseded_nws_alerts(alerts)
     assert len([a for a in out if a.event == "Flood Advisory"]) == 1
     assert out[0].id == "f4"
+
+
+def test_same_issuance_disjoint_counties_merge_for_supermon() -> None:
+    """NWS zone splits at the same sent time (e.g. marine zones) become one alert."""
+    sent = "2026-06-16T10:38:00-05:00"
+    brazoria = WeatherAlert(
+        id="tsw-brazoria",
+        event="Tropical Storm Watch",
+        description="Brazoria Islands",
+        severity=AlertSeverity.SEVERE,
+        urgency=AlertUrgency.FUTURE,
+        sent=datetime.fromisoformat(sent),
+        effective=datetime.fromisoformat(sent),
+        expires=datetime(2026, 6, 16, 18, 45, tzinfo=timezone.utc),
+        county_codes=["TXC039"],
+        area_desc="Brazoria Islands",
+        sender="test",
+        sender_name="NWS Houston/Galveston TX",
+    )
+    galveston = WeatherAlert(
+        id="tsw-galveston",
+        event="Tropical Storm Watch",
+        description="Bolivar Peninsula",
+        severity=AlertSeverity.SEVERE,
+        urgency=AlertUrgency.FUTURE,
+        sent=datetime.fromisoformat(sent),
+        effective=datetime.fromisoformat(sent),
+        expires=datetime(2026, 6, 16, 18, 45, tzinfo=timezone.utc),
+        county_codes=["TXC167"],
+        area_desc="Bolivar Peninsula",
+        sender="test",
+        sender_name="NWS Houston/Galveston TX",
+    )
+
+    out = merge_same_issuance_zone_splits([brazoria, galveston])
+    assert len(out) == 1
+    assert set(out[0].county_codes) == {"TXC039", "TXC167"}
+    assert "Brazoria Islands" in out[0].area_desc
+    assert "Bolivar Peninsula" in out[0].area_desc
+
+
+def test_different_issuance_minutes_same_event_not_merged() -> None:
+    a = _flood("fa", "2026-05-20T08:00:00-05:00", ["TXC039"])
+    b = _flood("fb", "2026-05-20T08:05:00-05:00", ["TXC201"])
+    out = merge_same_issuance_zone_splits([a, b])
+    assert {x.id for x in out} == {"fa", "fb"}

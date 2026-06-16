@@ -4,6 +4,7 @@ Alert deduplication and merging system for SkywarnPlus-NG.
 
 import hashlib
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
@@ -35,6 +36,89 @@ def _county_codes_set(alert: WeatherAlert) -> set[str]:
 def _alerts_share_county(a: WeatherAlert, b: WeatherAlert) -> bool:
     """True when two alerts list at least one of the same county/zone code."""
     return bool(_county_codes_set(a) & _county_codes_set(b))
+
+
+def _issuance_minute(alert: WeatherAlert) -> str:
+    """Bucket alerts by issuance minute for zone-split merge grouping."""
+    return _alert_issue_time(alert).strftime("%Y-%m-%dT%H:%M")
+
+
+def merge_same_issuance_zone_splits(alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+    """
+    Merge NWS CAP messages split across zones for the same event and issuance minute.
+
+    NWS often publishes separate products per marine/land zone (e.g. Brazoria Islands
+    vs Bolivar Peninsula) at the same sent time. Union their county lists so dashboards
+    and Supermon show one alert per event instead of one per zone fragment.
+    """
+    if len(alerts) < 2:
+        return alerts
+
+    by_key: Dict[tuple, List[WeatherAlert]] = {}
+    for alert in alerts:
+        key = (
+            _normalize_event_name(alert.event),
+            _issuance_minute(alert),
+            (alert.sender_name or "").strip(),
+        )
+        by_key.setdefault(key, []).append(alert)
+
+    merged_out: List[WeatherAlert] = []
+    removed = 0
+
+    for group in by_key.values():
+        if len(group) < 2:
+            merged_out.extend(group)
+            continue
+
+        group_sorted = sorted(
+            group,
+            key=lambda a: (_alert_issue_time(a), len(_county_codes_set(a))),
+            reverse=True,
+        )
+        primary = group_sorted[0]
+        all_codes: List[str] = []
+        seen_codes: set[str] = set()
+        geocodes: List[str] = []
+        seen_geo: set[str] = set()
+        area_parts: List[str] = []
+
+        for alert in group_sorted:
+            for code in alert.county_codes or []:
+                normalized = str(code).strip().upper()
+                if normalized and normalized not in seen_codes:
+                    seen_codes.add(normalized)
+                    all_codes.append(normalized)
+            for geocode in alert.geocode or []:
+                if geocode and geocode not in seen_geo:
+                    seen_geo.add(geocode)
+                    geocodes.append(geocode)
+            if alert.area_desc:
+                for part in re.split(r"[;,]", alert.area_desc):
+                    cleaned = part.strip()
+                    if cleaned and cleaned not in area_parts:
+                        area_parts.append(cleaned)
+
+        removed += len(group) - 1
+        merged_out.append(
+            primary.model_copy(
+                update={
+                    "county_codes": all_codes,
+                    "geocode": geocodes,
+                    "area_desc": "; ".join(area_parts) if area_parts else primary.area_desc,
+                }
+            )
+        )
+
+    if removed:
+        logger.info(
+            "Merged %s zone-split NWS alert(s) into combined county lists; %s -> %s",
+            removed,
+            len(alerts),
+            len(merged_out),
+        )
+
+    return merged_out
 
 
 def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAlert]:

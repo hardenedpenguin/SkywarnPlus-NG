@@ -32,6 +32,7 @@ from ..processing.deduplication import (
     AlertDeduplicator,
     DuplicateDetectionStrategy,
     collapse_superseded_nws_alerts,
+    merge_same_issuance_zone_splits,
 )
 from ..processing.prioritization import AlertPrioritizer
 from ..processing.validation import AlertValidator
@@ -749,10 +750,17 @@ class SkywarnPlusApplication:
             )
             before_collapse = len(active_alerts)
             active_alerts = collapse_superseded_nws_alerts(active_alerts)
+            before_merge = len(active_alerts)
+            active_alerts = merge_same_issuance_zone_splits(active_alerts)
             if len(active_alerts) < before_collapse:
                 logger.info(
                     "Collapsed %s superseded NWS alert(s); %s active after deduplication",
                     before_collapse - len(active_alerts),
+                    len(active_alerts),
+                )
+            elif len(active_alerts) < before_merge:
+                logger.info(
+                    "Merged zone-split NWS alert(s); %s active after combining counties",
                     len(active_alerts),
                 )
 
