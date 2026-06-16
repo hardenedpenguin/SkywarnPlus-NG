@@ -4,8 +4,44 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
+
+# NHC advisories include the local abbreviation (CDT, EDT, etc.) for that issuance.
+_NHC_TZ_OFFSETS: dict[str, timezone] = {
+    "AST": timezone(timedelta(hours=-4)),
+    "ADT": timezone(timedelta(hours=-3)),
+    "EDT": timezone(timedelta(hours=-4)),
+    "EST": timezone(timedelta(hours=-5)),
+    "CDT": timezone(timedelta(hours=-5)),
+    "CST": timezone(timedelta(hours=-6)),
+    "MDT": timezone(timedelta(hours=-6)),
+    "MST": timezone(timedelta(hours=-7)),
+    "PDT": timezone(timedelta(hours=-7)),
+    "PST": timezone(timedelta(hours=-8)),
+}
+
+_NHC_HUMAN_DT = re.compile(
+    r"^(?P<hour>\d{1,2}):(?P<minute>\d{2})\s+(?P<ampm>AM|PM)\s+"
+    r"(?P<tz>[A-Z]{2,4})\s+(?P<dow>[A-Za-z]{3})\s+(?P<mon>[A-Za-z]{3})\s+(?P<day>\d{1,2})"
+    r"(?:\s+(?P<year>\d{4}))?$",
+    re.IGNORECASE,
+)
+
+_MONTHS = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
 
 
 @dataclass(frozen=True)
@@ -104,18 +140,70 @@ def filter_active_cyclones(cyclones: List[ParsedCyclone]) -> List[ParsedCyclone]
     return active
 
 
+def _parse_nhc_human_datetime(text: str) -> Optional[datetime]:
+    """Parse NHC strings like ``10:00 AM CDT Tue Jun 16 2026`` into UTC."""
+    match = _NHC_HUMAN_DT.match(text.strip())
+    if not match:
+        return None
+
+    tz_abbr = match.group("tz").upper()
+    tzinfo = _NHC_TZ_OFFSETS.get(tz_abbr)
+    if tzinfo is None:
+        return None
+
+    year = match.group("year")
+    if year is None:
+        year = str(datetime.now(timezone.utc).year)
+
+    month = _MONTHS.get(match.group("mon").lower())
+    if month is None:
+        return None
+
+    hour = int(match.group("hour"))
+    minute = int(match.group("minute"))
+    ampm = match.group("ampm").upper()
+    if ampm == "PM" and hour != 12:
+        hour += 12
+    elif ampm == "AM" and hour == 12:
+        hour = 0
+
+    try:
+        local_dt = datetime(
+            int(year),
+            month,
+            int(match.group("day")),
+            hour,
+            minute,
+            tzinfo=tzinfo,
+        )
+    except ValueError:
+        return None
+
+    return local_dt.astimezone(timezone.utc)
+
+
 def parse_cyclone_datetime(raw: str) -> Optional[datetime]:
     text = (raw or "").strip()
     if not text:
         return None
+
+    if "T" in text:
+        iso = text.replace("Z", "+00:00") if text.endswith("Z") else text
+        try:
+            dt = datetime.fromisoformat(iso)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except ValueError:
+            pass
+
     if not re.search(r"\b\d{4}\b", text):
         text = f"{text} {datetime.now(timezone.utc).year}"
-    try:
-        if text.endswith("Z"):
-            return datetime.fromisoformat(text.replace("Z", "+00:00"))
-        return datetime.fromisoformat(text).replace(tzinfo=timezone.utc)
-    except ValueError:
-        pass
+
+    human_dt = _parse_nhc_human_datetime(text)
+    if human_dt is not None:
+        return human_dt
+
     try:
         return datetime.strptime(text, "%I:%M %p %Z %a %b %d %Y").replace(tzinfo=timezone.utc)
     except ValueError:
