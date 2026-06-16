@@ -1,11 +1,13 @@
 """Tests for NHC cyclone XML parser and selection."""
 
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 from skywarnplus_ng.core.config import AppConfig, NhcConfig, NWSApiConfig
+from skywarnplus_ng.nhc import parser as nhc_parser
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
 from skywarnplus_ng.nhc.parser import (
     build_cyclone_tts_text,
@@ -22,10 +24,13 @@ FROZEN_NOW = datetime(2026, 6, 5, 6, 0, tzinfo=timezone.utc)
 
 @contextmanager
 def frozen_nhc_time():
-    with patch("skywarnplus_ng.nhc.parser.datetime") as mock_dt:
-        mock_dt.now.return_value = FROZEN_NOW
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.strptime = datetime.strptime
+    with patch.object(nhc_parser.datetime, "now", return_value=FROZEN_NOW):
+        yield
+
+
+@contextmanager
+def frozen_time(now: datetime):
+    with patch.object(nhc_parser.datetime, "now", return_value=now):
         yield
 
 
@@ -73,15 +78,12 @@ def test_parse_cyclone_datetime_cdt_converts_to_utc():
 
 
 def test_is_cyclone_current_cdt_advisory_within_max_age():
-    cyclone = parse_nhc_cyclone_xml(FIXTURE.read_text())[0]
-    cyclone = cyclone.__class__(
-        **{**cyclone.__dict__, "datetime_raw": "10:00 AM CDT Tue Jun 16 2026"}
+    cyclone = replace(
+        parse_nhc_cyclone_xml(FIXTURE.read_text())[0],
+        datetime_raw="10:00 AM CDT Tue Jun 16 2026",
     )
     now = datetime(2026, 6, 16, 16, 12, tzinfo=timezone.utc)
-    with patch("skywarnplus_ng.nhc.parser.datetime") as mock_dt:
-        mock_dt.now.return_value = now
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.strptime = datetime.strptime
+    with frozen_time(now):
         assert is_cyclone_current(cyclone, max_age_hours=4) is True
 
 
@@ -99,21 +101,15 @@ def test_select_new_advisories_cdt_advisory_within_four_hour_window():
         ),
     )
     service = NhcCycloneService(config)
-    cyclone = parse_nhc_cyclone_xml(FIXTURE.read_text())[0]
-    cyclone = cyclone.__class__(
-        **{
-            **cyclone.__dict__,
-            "datetime_raw": "10:00 AM CDT Tue Jun 16 2026",
-            "center": "27.0,-98.0",
-            "name": "One",
-            "type": "Potential Tropical Cyclone",
-        }
+    cyclone = replace(
+        parse_nhc_cyclone_xml(FIXTURE.read_text())[0],
+        datetime_raw="10:00 AM CDT Tue Jun 16 2026",
+        center="27.0,-98.0",
+        name="One",
+        type="Potential Tropical Cyclone",
     )
     now = datetime(2026, 6, 16, 16, 12, tzinfo=timezone.utc)
-    with patch("skywarnplus_ng.nhc.parser.datetime") as mock_dt:
-        mock_dt.now.return_value = now
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.strptime = datetime.strptime
+    with frozen_time(now):
         advisories = service.select_new_advisories([cyclone], {}, (29.42, -95.26))
     assert len(advisories) == 1
     assert advisories[0].name == "One"
@@ -155,5 +151,6 @@ def test_select_skips_already_announced():
     service = NhcCycloneService(config)
     cyclones = parse_nhc_cyclone_xml(FIXTURE.read_text())
     state = {"nhc_announced_advisories": [cyclones[0].advisory_key]}
-    advisories = service.select_new_advisories(cyclones, state, (29.95, -90.07))
+    with frozen_nhc_time():
+        advisories = service.select_new_advisories(cyclones, state, (29.95, -90.07))
     assert advisories == []
