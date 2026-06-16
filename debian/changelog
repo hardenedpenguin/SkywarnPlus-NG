@@ -1,3 +1,13 @@
+skywarnplus-ng (1.2.3-1) unstable; urgency=medium
+
+  * fix(nhc): parse advisory CDT/EDT times as local, not UTC (NHC dashboard).
+  * fix(nws): merge zone-split CAP alerts for the same event (Supermon display).
+  * fix(dashboard): show Valid until when NWS ends differs from expires.
+  * fix(dashboard): remove duplicate title and refresh note.
+  * ci: trigger apt repo publish after release assets are uploaded.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Tue, 17 Jun 2026 12:00:00 -0500
+
 skywarnplus-ng (1.2.2-1) unstable; urgency=medium
 
   * Build Debian venv with embedded Python 3.13 (--copies) for ASL3 nodes.

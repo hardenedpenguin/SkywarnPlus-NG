@@ -20,7 +20,7 @@ Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Ma
 Prebuilt packages skip `pip install` on the node. Download from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (match your architecture):
 
 ```bash
-sudo apt install ./skywarnplus-ng-all_1.2.2_amd64.deb
+sudo apt install ./skywarnplus-ng-all_1.2.3_amd64.deb
 sudo systemctl enable --now skywarnplus-ng
 ```
 
@@ -30,7 +30,7 @@ Replace `amd64` with `arm64` on ARM nodes. See **[docs/debian.md](docs/debian.md
 
 ```bash
 sudo systemctl stop skywarnplus-ng
-sudo apt install ./skywarnplus-ng-all_1.2.2_amd64.deb
+sudo apt install ./skywarnplus-ng-all_1.2.3_amd64.deb
 sudo systemctl enable --now skywarnplus-ng
 ```
 
@@ -41,9 +41,9 @@ No need to remove the old tarball install or edit `config.yaml` first.
 Run **`install.sh` as a normal user** (not root) — it uses `sudo` where needed. Use an [official release tarball](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (includes pre-built dashboard CSS).
 
 ```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.2.2/skywarnplus-ng-1.2.2.tar.gz
-tar -xzf skywarnplus-ng-1.2.2.tar.gz
-cd skywarnplus-ng-1.2.2
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.2.3/skywarnplus-ng-1.2.3.tar.gz
+tar -xzf skywarnplus-ng-1.2.3.tar.gz
+cd skywarnplus-ng-1.2.3
 ./install.sh
 
 sudo systemctl enable --now skywarnplus-ng
