@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from skywarnplus_ng.core.config import AppConfig, NhcConfig, NWSApiConfig
-from skywarnplus_ng.nhc import parser as nhc_parser
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
 from skywarnplus_ng.nhc.parser import (
     build_cyclone_tts_text,
@@ -23,14 +22,20 @@ FROZEN_NOW = datetime(2026, 6, 5, 6, 0, tzinfo=timezone.utc)
 
 
 @contextmanager
-def frozen_nhc_time():
-    with patch.object(nhc_parser.datetime, "now", return_value=FROZEN_NOW):
+def frozen_time(now: datetime):
+    """Freeze parser.datetime.now while keeping the real datetime constructor."""
+    real_datetime = datetime
+    with patch("skywarnplus_ng.nhc.parser.datetime") as mock_datetime:
+        mock_datetime.side_effect = lambda *args, **kwargs: real_datetime(*args, **kwargs)
+        mock_datetime.now.return_value = now
+        mock_datetime.fromisoformat = real_datetime.fromisoformat
+        mock_datetime.strptime = real_datetime.strptime
         yield
 
 
 @contextmanager
-def frozen_time(now: datetime):
-    with patch.object(nhc_parser.datetime, "now", return_value=now):
+def frozen_nhc_time():
+    with frozen_time(FROZEN_NOW):
         yield
 
 
