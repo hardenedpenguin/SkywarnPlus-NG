@@ -4,20 +4,15 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
 from aiohttp import web
 from aiohttp.web import Request, Response
 
 from ...audio.tts_voices import TTSVoiceError, build_voices_payload, install_voice
 
-if TYPE_CHECKING:
-    from ...core.config import AppConfig
-
 logger = logging.getLogger(__name__)
 
 
-def _tts_voices_dir(config: Any) -> Path:
+def _tts_voices_dir(config: object) -> Path:
     tts = getattr(getattr(config, "audio", None), "tts", None)
     if tts and getattr(tts, "voices_dir", None):
         return Path(str(tts.voices_dir))

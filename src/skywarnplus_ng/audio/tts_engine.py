@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from .audio_utils import AudioSegment
 from ..core.config import TTSConfig
