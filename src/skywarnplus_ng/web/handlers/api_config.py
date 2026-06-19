@@ -13,7 +13,6 @@ from aiohttp import web
 from aiohttp.web import Request, Response
 
 from ...audio.tts_voices import build_voices_payload, list_voice_models
-
 from ..auth_security import incoming_sets_non_default_password
 from ..setup_status import is_dashboard_configured
 from ..config_merge import (
