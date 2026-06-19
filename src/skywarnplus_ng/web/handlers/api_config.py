@@ -92,9 +92,7 @@ def _collect_runtime_warnings(config: Any) -> list[str]:
     if engine in ("asl-tts", "asltts", "piper"):
         binary = str(getattr(tts, "asl_tts_binary", "asl-tts") or "asl-tts")
         if not Path(binary).is_file() and not shutil.which(binary):
-            warnings.append(
-                f"asl-tts binary not found ({binary}). Install the asl3-tts package."
-            )
+            warnings.append(f"asl-tts binary not found ({binary}). Install the asl3-tts package.")
         voices_dir = _tts_voices_dir(config)
         voice = str(getattr(tts, "voice", "") or "en_US-amy-low.onnx")
         if not (voices_dir / voice).is_file():
