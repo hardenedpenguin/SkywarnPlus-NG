@@ -1955,6 +1955,12 @@ class SkywarnPlusApplication:
             self.nhc_service.config = config
         if self.audio_manager:
             self.audio_manager.config = config.audio
+            self.audio_manager.reload_tts_engine()
+        if self.tail_message_manager:
+            try:
+                self.tail_message_manager.sync_audio_config(config.audio)
+            except Exception as exc:
+                logger.warning("Failed to refresh tail message TTS engine: %s", exc)
         if self.script_manager:
             self.script_manager.config = config.scripts
         if self.web_dashboard:

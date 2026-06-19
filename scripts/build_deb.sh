@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build skywarnplus-ng .deb packages (amd64 or arm64 native builders only).
+# Build skywarnplus-ng .deb package (amd64 or arm64 native builders only).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,7 +25,7 @@ chmod +x scripts/debian/*.sh debian/rules
 
 python3 scripts/debian/sync-changelog-version.py
 
-echo "Building Debian packages for ${ARCH}..."
+echo "Building Debian package for ${ARCH}..."
 export DEB_BUILD_OPTIONS=nocheck
 dpkg-buildpackage -us -uc -b
 
@@ -34,11 +34,7 @@ PARENT="$(dirname "${ROOT}")"
 mkdir -p "${OUT_DIR}"
 
 shopt -s nullglob
-for deb in \
-  "${PARENT}"/skywarnplus-ng_*.deb \
-  "${PARENT}"/skywarnplus-ng-voice-en-us-amy-low_*.deb \
-  "${PARENT}"/skywarnplus-ng-all_*.deb
-do
+for deb in "${PARENT}"/skywarnplus-ng_*.deb; do
   mv -f "${deb}" "${OUT_DIR}/"
 done
 
@@ -48,9 +44,8 @@ if ! compgen -G "${OUT_DIR}/*.deb" >/dev/null; then
 fi
 
 echo ""
-echo "Debian packages:"
+echo "Debian package:"
 ls -lh "${OUT_DIR}/"*.deb
 echo ""
 echo "Install on target node (${ARCH}):"
-echo "  sudo apt install ./dist/debs/skywarnplus-ng-all_*_${ARCH}.deb"
-echo "  # or: skywarnplus-ng + skywarnplus-ng-voice-en-us-amy-low"
+echo "  sudo apt install ./dist/debs/skywarnplus-ng_*_${ARCH}.deb"

@@ -1,0 +1,1480 @@
+{
+  "catalog_version": "piper-voices",
+  "source": "https://huggingface.co/rhasspy/piper-voices/raw/main/voices.json",
+  "regions": [
+    "Americas",
+    "Europe",
+    "Asia-Pacific",
+    "Middle East & Africa",
+    "Other"
+  ],
+  "voices": {
+    "ar_JO-kareem-low": {
+      "label": "Kareem — Arabic (Jordan), low",
+      "huggingface_path": "ar/ar_JO/kareem/low",
+      "region": "Middle East & Africa",
+      "language": "Arabic",
+      "locale": "ar_JO",
+      "quality": "low",
+      "curated": false
+    },
+    "ar_JO-kareem-medium": {
+      "label": "Kareem — Arabic (Jordan), medium",
+      "huggingface_path": "ar/ar_JO/kareem/medium",
+      "region": "Middle East & Africa",
+      "language": "Arabic",
+      "locale": "ar_JO",
+      "quality": "medium",
+      "curated": true
+    },
+    "bg_BG-dimitar-medium": {
+      "label": "Dimitar — Bulgarian (Bulgaria), medium",
+      "huggingface_path": "bg/bg_BG/dimitar/medium",
+      "region": "Europe",
+      "language": "Bulgarian",
+      "locale": "bg_BG",
+      "quality": "medium",
+      "curated": false
+    },
+    "ca_ES-upc_ona-medium": {
+      "label": "Upc Ona — Catalan (Spain), medium",
+      "huggingface_path": "ca/ca_ES/upc_ona/medium",
+      "region": "Europe",
+      "language": "Catalan",
+      "locale": "ca_ES",
+      "quality": "medium",
+      "curated": false
+    },
+    "ca_ES-upc_ona-x_low": {
+      "label": "Upc Ona — Catalan (Spain), x_low",
+      "huggingface_path": "ca/ca_ES/upc_ona/x_low",
+      "region": "Europe",
+      "language": "Catalan",
+      "locale": "ca_ES",
+      "quality": "x_low",
+      "curated": false
+    },
+    "ca_ES-upc_pau-x_low": {
+      "label": "Upc Pau — Catalan (Spain), x_low",
+      "huggingface_path": "ca/ca_ES/upc_pau/x_low",
+      "region": "Europe",
+      "language": "Catalan",
+      "locale": "ca_ES",
+      "quality": "x_low",
+      "curated": false
+    },
+    "cs_CZ-jirka-low": {
+      "label": "Jirka — Czech (Czech Republic), low",
+      "huggingface_path": "cs/cs_CZ/jirka/low",
+      "region": "Europe",
+      "language": "Czech",
+      "locale": "cs_CZ",
+      "quality": "low",
+      "curated": false
+    },
+    "cs_CZ-jirka-medium": {
+      "label": "Jirka — Czech (Czech Republic), medium",
+      "huggingface_path": "cs/cs_CZ/jirka/medium",
+      "region": "Europe",
+      "language": "Czech",
+      "locale": "cs_CZ",
+      "quality": "medium",
+      "curated": false
+    },
+    "cy_GB-bu_tts-medium": {
+      "label": "Bu Tts — Welsh (Great Britain), medium",
+      "huggingface_path": "cy/cy_GB/bu_tts/medium",
+      "region": "Europe",
+      "language": "Welsh",
+      "locale": "cy_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "cy_GB-gwryw_gogleddol-medium": {
+      "label": "Gwryw Gogleddol — Welsh (Great Britain), medium",
+      "huggingface_path": "cy/cy_GB/gwryw_gogleddol/medium",
+      "region": "Europe",
+      "language": "Welsh",
+      "locale": "cy_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "da_DK-talesyntese-medium": {
+      "label": "Talesyntese — Danish (Denmark), medium",
+      "huggingface_path": "da/da_DK/talesyntese/medium",
+      "region": "Europe",
+      "language": "Danish",
+      "locale": "da_DK",
+      "quality": "medium",
+      "curated": false
+    },
+    "de_DE-eva_k-x_low": {
+      "label": "Eva K — German (Germany), x_low",
+      "huggingface_path": "de/de_DE/eva_k/x_low",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "x_low",
+      "curated": false
+    },
+    "de_DE-karlsson-low": {
+      "label": "Karlsson — German (Germany), low",
+      "huggingface_path": "de/de_DE/karlsson/low",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "low",
+      "curated": false
+    },
+    "de_DE-kerstin-low": {
+      "label": "Kerstin — German (Germany), low",
+      "huggingface_path": "de/de_DE/kerstin/low",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "low",
+      "curated": false
+    },
+    "de_DE-mls-medium": {
+      "label": "Mls — German (Germany), medium",
+      "huggingface_path": "de/de_DE/mls/medium",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "medium",
+      "curated": false
+    },
+    "de_DE-pavoque-low": {
+      "label": "Pavoque — German (Germany), low",
+      "huggingface_path": "de/de_DE/pavoque/low",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "low",
+      "curated": false
+    },
+    "de_DE-ramona-low": {
+      "label": "Ramona — German (Germany), low",
+      "huggingface_path": "de/de_DE/ramona/low",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "low",
+      "curated": false
+    },
+    "de_DE-thorsten-high": {
+      "label": "Thorsten — German (Germany), high",
+      "huggingface_path": "de/de_DE/thorsten/high",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "high",
+      "curated": false
+    },
+    "de_DE-thorsten-low": {
+      "label": "Thorsten — German (Germany), low",
+      "huggingface_path": "de/de_DE/thorsten/low",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "low",
+      "curated": false
+    },
+    "de_DE-thorsten-medium": {
+      "label": "Thorsten — German (Germany), medium",
+      "huggingface_path": "de/de_DE/thorsten/medium",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "medium",
+      "curated": true
+    },
+    "de_DE-thorsten_emotional-medium": {
+      "label": "Thorsten Emotional — German (Germany), medium",
+      "huggingface_path": "de/de_DE/thorsten_emotional/medium",
+      "region": "Europe",
+      "language": "German",
+      "locale": "de_DE",
+      "quality": "medium",
+      "curated": false
+    },
+    "el_GR-joy-medium": {
+      "label": "Joy — Greek (Greece), medium",
+      "huggingface_path": "el/el_GR/joy/medium",
+      "region": "Europe",
+      "language": "Greek",
+      "locale": "el_GR",
+      "quality": "medium",
+      "curated": false
+    },
+    "el_GR-rapunzelina-low": {
+      "label": "Rapunzelina — Greek (Greece), low",
+      "huggingface_path": "el/el_GR/rapunzelina/low",
+      "region": "Europe",
+      "language": "Greek",
+      "locale": "el_GR",
+      "quality": "low",
+      "curated": false
+    },
+    "el_GR-rapunzelina-medium": {
+      "label": "Rapunzelina — Greek (Greece), medium",
+      "huggingface_path": "el/el_GR/rapunzelina/medium",
+      "region": "Europe",
+      "language": "Greek",
+      "locale": "el_GR",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-alan-low": {
+      "label": "Alan — English (Great Britain), low",
+      "huggingface_path": "en/en_GB/alan/low",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "low",
+      "curated": true
+    },
+    "en_GB-alan-medium": {
+      "label": "Alan — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/alan/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-alba-medium": {
+      "label": "Alba — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/alba/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-aru-medium": {
+      "label": "Aru — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/aru/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-cori-high": {
+      "label": "Cori — English (Great Britain), high",
+      "huggingface_path": "en/en_GB/cori/high",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "high",
+      "curated": false
+    },
+    "en_GB-cori-medium": {
+      "label": "Cori — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/cori/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-jenny_dioco-medium": {
+      "label": "Jenny Dioco — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/jenny_dioco/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": true
+    },
+    "en_GB-northern_english_male-medium": {
+      "label": "Northern English Male — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/northern_english_male/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-semaine-medium": {
+      "label": "Semaine — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/semaine/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_GB-southern_english_female-low": {
+      "label": "Southern English Female — English (Great Britain), low",
+      "huggingface_path": "en/en_GB/southern_english_female/low",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "low",
+      "curated": true
+    },
+    "en_GB-vctk-medium": {
+      "label": "Vctk — English (Great Britain), medium",
+      "huggingface_path": "en/en_GB/vctk/medium",
+      "region": "Europe",
+      "language": "English",
+      "locale": "en_GB",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-amy-low": {
+      "label": "Amy — English (United States), low",
+      "huggingface_path": "en/en_US/amy/low",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "low",
+      "curated": true
+    },
+    "en_US-amy-medium": {
+      "label": "Amy — English (United States), medium",
+      "huggingface_path": "en/en_US/amy/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-arctic-medium": {
+      "label": "Arctic — English (United States), medium",
+      "huggingface_path": "en/en_US/arctic/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-bryce-medium": {
+      "label": "Bryce — English (United States), medium",
+      "huggingface_path": "en/en_US/bryce/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-danny-low": {
+      "label": "Danny — English (United States), low",
+      "huggingface_path": "en/en_US/danny/low",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "low",
+      "curated": false
+    },
+    "en_US-hfc_female-medium": {
+      "label": "Hfc Female — English (United States), medium",
+      "huggingface_path": "en/en_US/hfc_female/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-hfc_male-medium": {
+      "label": "Hfc Male — English (United States), medium",
+      "huggingface_path": "en/en_US/hfc_male/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-joe-medium": {
+      "label": "Joe — English (United States), medium",
+      "huggingface_path": "en/en_US/joe/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": true
+    },
+    "en_US-john-medium": {
+      "label": "John — English (United States), medium",
+      "huggingface_path": "en/en_US/john/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-kathleen-low": {
+      "label": "Kathleen — English (United States), low",
+      "huggingface_path": "en/en_US/kathleen/low",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "low",
+      "curated": false
+    },
+    "en_US-kristin-medium": {
+      "label": "Kristin — English (United States), medium",
+      "huggingface_path": "en/en_US/kristin/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": true
+    },
+    "en_US-kusal-medium": {
+      "label": "Kusal — English (United States), medium",
+      "huggingface_path": "en/en_US/kusal/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-l2arctic-medium": {
+      "label": "L2Arctic — English (United States), medium",
+      "huggingface_path": "en/en_US/l2arctic/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-lessac-high": {
+      "label": "Lessac — English (United States), high",
+      "huggingface_path": "en/en_US/lessac/high",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "high",
+      "curated": false
+    },
+    "en_US-lessac-low": {
+      "label": "Lessac — English (United States), low",
+      "huggingface_path": "en/en_US/lessac/low",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "low",
+      "curated": false
+    },
+    "en_US-lessac-medium": {
+      "label": "Lessac — English (United States), medium",
+      "huggingface_path": "en/en_US/lessac/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": true
+    },
+    "en_US-libritts-high": {
+      "label": "Libritts — English (United States), high",
+      "huggingface_path": "en/en_US/libritts/high",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "high",
+      "curated": false
+    },
+    "en_US-libritts_r-medium": {
+      "label": "Libritts R — English (United States), medium",
+      "huggingface_path": "en/en_US/libritts_r/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-ljspeech-high": {
+      "label": "Ljspeech — English (United States), high",
+      "huggingface_path": "en/en_US/ljspeech/high",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "high",
+      "curated": false
+    },
+    "en_US-ljspeech-medium": {
+      "label": "Ljspeech — English (United States), medium",
+      "huggingface_path": "en/en_US/ljspeech/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-norman-medium": {
+      "label": "Norman — English (United States), medium",
+      "huggingface_path": "en/en_US/norman/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-reza_ibrahim-medium": {
+      "label": "Reza Ibrahim — English (United States), medium",
+      "huggingface_path": "en/en_US/reza_ibrahim/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-ryan-high": {
+      "label": "Ryan — English (United States), high",
+      "huggingface_path": "en/en_US/ryan/high",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "high",
+      "curated": false
+    },
+    "en_US-ryan-low": {
+      "label": "Ryan — English (United States), low",
+      "huggingface_path": "en/en_US/ryan/low",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "low",
+      "curated": true
+    },
+    "en_US-ryan-medium": {
+      "label": "Ryan — English (United States), medium",
+      "huggingface_path": "en/en_US/ryan/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "en_US-sam-medium": {
+      "label": "Sam — English (United States), medium",
+      "huggingface_path": "en/en_US/sam/medium",
+      "region": "Americas",
+      "language": "English",
+      "locale": "en_US",
+      "quality": "medium",
+      "curated": false
+    },
+    "es_AR-daniela-high": {
+      "label": "Daniela — Spanish (Argentina), high",
+      "huggingface_path": "es/es_AR/daniela/high",
+      "region": "Americas",
+      "language": "Spanish",
+      "locale": "es_AR",
+      "quality": "high",
+      "curated": true
+    },
+    "es_ES-carlfm-x_low": {
+      "label": "Carlfm — Spanish (Spain), x_low",
+      "huggingface_path": "es/es_ES/carlfm/x_low",
+      "region": "Europe",
+      "language": "Spanish",
+      "locale": "es_ES",
+      "quality": "x_low",
+      "curated": false
+    },
+    "es_ES-davefx-medium": {
+      "label": "Davefx — Spanish (Spain), medium",
+      "huggingface_path": "es/es_ES/davefx/medium",
+      "region": "Europe",
+      "language": "Spanish",
+      "locale": "es_ES",
+      "quality": "medium",
+      "curated": true
+    },
+    "es_ES-mls_10246-low": {
+      "label": "Mls 10246 — Spanish (Spain), low",
+      "huggingface_path": "es/es_ES/mls_10246/low",
+      "region": "Europe",
+      "language": "Spanish",
+      "locale": "es_ES",
+      "quality": "low",
+      "curated": false
+    },
+    "es_ES-mls_9972-low": {
+      "label": "Mls 9972 — Spanish (Spain), low",
+      "huggingface_path": "es/es_ES/mls_9972/low",
+      "region": "Europe",
+      "language": "Spanish",
+      "locale": "es_ES",
+      "quality": "low",
+      "curated": false
+    },
+    "es_ES-sharvard-medium": {
+      "label": "Sharvard — Spanish (Spain), medium",
+      "huggingface_path": "es/es_ES/sharvard/medium",
+      "region": "Europe",
+      "language": "Spanish",
+      "locale": "es_ES",
+      "quality": "medium",
+      "curated": false
+    },
+    "es_MX-ald-medium": {
+      "label": "Ald — Spanish (Mexico), medium",
+      "huggingface_path": "es/es_MX/ald/medium",
+      "region": "Americas",
+      "language": "Spanish",
+      "locale": "es_MX",
+      "quality": "medium",
+      "curated": true
+    },
+    "es_MX-ald-x_low": {
+      "label": "Ald — Spanish (Mexico), x_low",
+      "huggingface_path": "es/es_MX/ald/x_low",
+      "region": "Americas",
+      "language": "Spanish",
+      "locale": "es_MX",
+      "quality": "x_low",
+      "curated": false
+    },
+    "es_MX-claude-high": {
+      "label": "Claude — Spanish (Mexico), high",
+      "huggingface_path": "es/es_MX/claude/high",
+      "region": "Americas",
+      "language": "Spanish",
+      "locale": "es_MX",
+      "quality": "high",
+      "curated": true
+    },
+    "eu_ES-antton-medium": {
+      "label": "Antton — Basque (Spain), medium",
+      "huggingface_path": "eu/eu_ES/antton/medium",
+      "region": "Europe",
+      "language": "Basque",
+      "locale": "eu_ES",
+      "quality": "medium",
+      "curated": false
+    },
+    "eu_ES-maider-medium": {
+      "label": "Maider — Basque (Spain), medium",
+      "huggingface_path": "eu/eu_ES/maider/medium",
+      "region": "Europe",
+      "language": "Basque",
+      "locale": "eu_ES",
+      "quality": "medium",
+      "curated": false
+    },
+    "fa_IR-amir-medium": {
+      "label": "Amir — Farsi (Iran), medium",
+      "huggingface_path": "fa/fa_IR/amir/medium",
+      "region": "Middle East & Africa",
+      "language": "Farsi",
+      "locale": "fa_IR",
+      "quality": "medium",
+      "curated": false
+    },
+    "fa_IR-ganji-medium": {
+      "label": "Ganji — Farsi (Iran), medium",
+      "huggingface_path": "fa/fa_IR/ganji/medium",
+      "region": "Middle East & Africa",
+      "language": "Farsi",
+      "locale": "fa_IR",
+      "quality": "medium",
+      "curated": true
+    },
+    "fa_IR-ganji_adabi-medium": {
+      "label": "Ganji Adabi — Farsi (Iran), medium",
+      "huggingface_path": "fa/fa_IR/ganji_adabi/medium",
+      "region": "Middle East & Africa",
+      "language": "Farsi",
+      "locale": "fa_IR",
+      "quality": "medium",
+      "curated": false
+    },
+    "fa_IR-gyro-medium": {
+      "label": "Gyro — Farsi (Iran), medium",
+      "huggingface_path": "fa/fa_IR/gyro/medium",
+      "region": "Middle East & Africa",
+      "language": "Farsi",
+      "locale": "fa_IR",
+      "quality": "medium",
+      "curated": false
+    },
+    "fa_IR-reza_ibrahim-medium": {
+      "label": "Reza Ibrahim — Farsi (Iran), medium",
+      "huggingface_path": "fa/fa_IR/reza_ibrahim/medium",
+      "region": "Middle East & Africa",
+      "language": "Farsi",
+      "locale": "fa_IR",
+      "quality": "medium",
+      "curated": false
+    },
+    "fi_FI-harri-low": {
+      "label": "Harri — Finnish (Finland), low",
+      "huggingface_path": "fi/fi_FI/harri/low",
+      "region": "Europe",
+      "language": "Finnish",
+      "locale": "fi_FI",
+      "quality": "low",
+      "curated": false
+    },
+    "fi_FI-harri-medium": {
+      "label": "Harri — Finnish (Finland), medium",
+      "huggingface_path": "fi/fi_FI/harri/medium",
+      "region": "Europe",
+      "language": "Finnish",
+      "locale": "fi_FI",
+      "quality": "medium",
+      "curated": false
+    },
+    "fr_FR-gilles-low": {
+      "label": "Gilles — French (France), low",
+      "huggingface_path": "fr/fr_FR/gilles/low",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "low",
+      "curated": false
+    },
+    "fr_FR-mls-medium": {
+      "label": "Mls — French (France), medium",
+      "huggingface_path": "fr/fr_FR/mls/medium",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "medium",
+      "curated": false
+    },
+    "fr_FR-mls_1840-low": {
+      "label": "Mls 1840 — French (France), low",
+      "huggingface_path": "fr/fr_FR/mls_1840/low",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "low",
+      "curated": false
+    },
+    "fr_FR-siwis-low": {
+      "label": "Siwis — French (France), low",
+      "huggingface_path": "fr/fr_FR/siwis/low",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "low",
+      "curated": false
+    },
+    "fr_FR-siwis-medium": {
+      "label": "Siwis — French (France), medium",
+      "huggingface_path": "fr/fr_FR/siwis/medium",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "medium",
+      "curated": true
+    },
+    "fr_FR-tom-medium": {
+      "label": "Tom — French (France), medium",
+      "huggingface_path": "fr/fr_FR/tom/medium",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "medium",
+      "curated": false
+    },
+    "fr_FR-upmc-medium": {
+      "label": "Upmc — French (France), medium",
+      "huggingface_path": "fr/fr_FR/upmc/medium",
+      "region": "Europe",
+      "language": "French",
+      "locale": "fr_FR",
+      "quality": "medium",
+      "curated": false
+    },
+    "hi_IN-pratham-medium": {
+      "label": "Pratham — Hindi (India), medium",
+      "huggingface_path": "hi/hi_IN/pratham/medium",
+      "region": "Asia-Pacific",
+      "language": "Hindi",
+      "locale": "hi_IN",
+      "quality": "medium",
+      "curated": true
+    },
+    "hi_IN-priyamvada-medium": {
+      "label": "Priyamvada — Hindi (India), medium",
+      "huggingface_path": "hi/hi_IN/priyamvada/medium",
+      "region": "Asia-Pacific",
+      "language": "Hindi",
+      "locale": "hi_IN",
+      "quality": "medium",
+      "curated": false
+    },
+    "hi_IN-rohan-medium": {
+      "label": "Rohan — Hindi (India), medium",
+      "huggingface_path": "hi/hi_IN/rohan/medium",
+      "region": "Asia-Pacific",
+      "language": "Hindi",
+      "locale": "hi_IN",
+      "quality": "medium",
+      "curated": false
+    },
+    "hu_HU-anna-medium": {
+      "label": "Anna — Hungarian (Hungary), medium",
+      "huggingface_path": "hu/hu_HU/anna/medium",
+      "region": "Europe",
+      "language": "Hungarian",
+      "locale": "hu_HU",
+      "quality": "medium",
+      "curated": false
+    },
+    "hu_HU-berta-medium": {
+      "label": "Berta — Hungarian (Hungary), medium",
+      "huggingface_path": "hu/hu_HU/berta/medium",
+      "region": "Europe",
+      "language": "Hungarian",
+      "locale": "hu_HU",
+      "quality": "medium",
+      "curated": false
+    },
+    "hu_HU-imre-medium": {
+      "label": "Imre — Hungarian (Hungary), medium",
+      "huggingface_path": "hu/hu_HU/imre/medium",
+      "region": "Europe",
+      "language": "Hungarian",
+      "locale": "hu_HU",
+      "quality": "medium",
+      "curated": false
+    },
+    "id_ID-news_tts-medium": {
+      "label": "News Tts — Indonesian (Indonesia), medium",
+      "huggingface_path": "id/id_ID/news_tts/medium",
+      "region": "Asia-Pacific",
+      "language": "Indonesian",
+      "locale": "id_ID",
+      "quality": "medium",
+      "curated": true
+    },
+    "is_IS-bui-medium": {
+      "label": "Bui — Icelandic (Iceland), medium",
+      "huggingface_path": "is/is_IS/bui/medium",
+      "region": "Europe",
+      "language": "Icelandic",
+      "locale": "is_IS",
+      "quality": "medium",
+      "curated": false
+    },
+    "is_IS-salka-medium": {
+      "label": "Salka — Icelandic (Iceland), medium",
+      "huggingface_path": "is/is_IS/salka/medium",
+      "region": "Europe",
+      "language": "Icelandic",
+      "locale": "is_IS",
+      "quality": "medium",
+      "curated": false
+    },
+    "is_IS-steinn-medium": {
+      "label": "Steinn — Icelandic (Iceland), medium",
+      "huggingface_path": "is/is_IS/steinn/medium",
+      "region": "Europe",
+      "language": "Icelandic",
+      "locale": "is_IS",
+      "quality": "medium",
+      "curated": false
+    },
+    "is_IS-ugla-medium": {
+      "label": "Ugla — Icelandic (Iceland), medium",
+      "huggingface_path": "is/is_IS/ugla/medium",
+      "region": "Europe",
+      "language": "Icelandic",
+      "locale": "is_IS",
+      "quality": "medium",
+      "curated": false
+    },
+    "it_IT-paola-medium": {
+      "label": "Paola — Italian (Italy), medium",
+      "huggingface_path": "it/it_IT/paola/medium",
+      "region": "Europe",
+      "language": "Italian",
+      "locale": "it_IT",
+      "quality": "medium",
+      "curated": true
+    },
+    "it_IT-riccardo-x_low": {
+      "label": "Riccardo — Italian (Italy), x_low",
+      "huggingface_path": "it/it_IT/riccardo/x_low",
+      "region": "Europe",
+      "language": "Italian",
+      "locale": "it_IT",
+      "quality": "x_low",
+      "curated": false
+    },
+    "ka_GE-natia-medium": {
+      "label": "Natia — Georgian (Georgia), medium",
+      "huggingface_path": "ka/ka_GE/natia/medium",
+      "region": "Other",
+      "language": "Georgian",
+      "locale": "ka_GE",
+      "quality": "medium",
+      "curated": false
+    },
+    "kk_KZ-iseke-x_low": {
+      "label": "Iseke — Kazakh (Kazakhstan), x_low",
+      "huggingface_path": "kk/kk_KZ/iseke/x_low",
+      "region": "Asia-Pacific",
+      "language": "Kazakh",
+      "locale": "kk_KZ",
+      "quality": "x_low",
+      "curated": false
+    },
+    "kk_KZ-issai-high": {
+      "label": "Issai — Kazakh (Kazakhstan), high",
+      "huggingface_path": "kk/kk_KZ/issai/high",
+      "region": "Asia-Pacific",
+      "language": "Kazakh",
+      "locale": "kk_KZ",
+      "quality": "high",
+      "curated": false
+    },
+    "kk_KZ-raya-x_low": {
+      "label": "Raya — Kazakh (Kazakhstan), x_low",
+      "huggingface_path": "kk/kk_KZ/raya/x_low",
+      "region": "Asia-Pacific",
+      "language": "Kazakh",
+      "locale": "kk_KZ",
+      "quality": "x_low",
+      "curated": false
+    },
+    "ku_TR-berfin_renas-medium": {
+      "label": "Berfin Renas — Kurmanji Kurdish (Turkey), medium",
+      "huggingface_path": "ku/ku_TR/berfin_renas/medium",
+      "region": "Middle East & Africa",
+      "language": "Kurmanji Kurdish",
+      "locale": "ku_TR",
+      "quality": "medium",
+      "curated": false
+    },
+    "lb_LU-marylux-medium": {
+      "label": "Marylux — Luxembourgish (Luxembourg), medium",
+      "huggingface_path": "lb/lb_LU/marylux/medium",
+      "region": "Europe",
+      "language": "Luxembourgish",
+      "locale": "lb_LU",
+      "quality": "medium",
+      "curated": false
+    },
+    "lv_LV-aivars-medium": {
+      "label": "Aivars — Latvian (Latvia), medium",
+      "huggingface_path": "lv/lv_LV/aivars/medium",
+      "region": "Europe",
+      "language": "Latvian",
+      "locale": "lv_LV",
+      "quality": "medium",
+      "curated": false
+    },
+    "ml_IN-arjun-medium": {
+      "label": "Arjun — Malayalam (India), medium",
+      "huggingface_path": "ml/ml_IN/arjun/medium",
+      "region": "Asia-Pacific",
+      "language": "Malayalam",
+      "locale": "ml_IN",
+      "quality": "medium",
+      "curated": false
+    },
+    "ml_IN-meera-medium": {
+      "label": "Meera — Malayalam (India), medium",
+      "huggingface_path": "ml/ml_IN/meera/medium",
+      "region": "Asia-Pacific",
+      "language": "Malayalam",
+      "locale": "ml_IN",
+      "quality": "medium",
+      "curated": true
+    },
+    "ne_NP-chitwan-medium": {
+      "label": "Chitwan — Nepali (Nepal), medium",
+      "huggingface_path": "ne/ne_NP/chitwan/medium",
+      "region": "Asia-Pacific",
+      "language": "Nepali",
+      "locale": "ne_NP",
+      "quality": "medium",
+      "curated": false
+    },
+    "ne_NP-google-medium": {
+      "label": "Google — Nepali (Nepal), medium",
+      "huggingface_path": "ne/ne_NP/google/medium",
+      "region": "Asia-Pacific",
+      "language": "Nepali",
+      "locale": "ne_NP",
+      "quality": "medium",
+      "curated": true
+    },
+    "ne_NP-google-x_low": {
+      "label": "Google — Nepali (Nepal), x_low",
+      "huggingface_path": "ne/ne_NP/google/x_low",
+      "region": "Asia-Pacific",
+      "language": "Nepali",
+      "locale": "ne_NP",
+      "quality": "x_low",
+      "curated": false
+    },
+    "nl_BE-nathalie-medium": {
+      "label": "Nathalie — Dutch (Belgium), medium",
+      "huggingface_path": "nl/nl_BE/nathalie/medium",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_BE",
+      "quality": "medium",
+      "curated": false
+    },
+    "nl_BE-nathalie-x_low": {
+      "label": "Nathalie — Dutch (Belgium), x_low",
+      "huggingface_path": "nl/nl_BE/nathalie/x_low",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_BE",
+      "quality": "x_low",
+      "curated": false
+    },
+    "nl_BE-rdh-medium": {
+      "label": "Rdh — Dutch (Belgium), medium",
+      "huggingface_path": "nl/nl_BE/rdh/medium",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_BE",
+      "quality": "medium",
+      "curated": false
+    },
+    "nl_BE-rdh-x_low": {
+      "label": "Rdh — Dutch (Belgium), x_low",
+      "huggingface_path": "nl/nl_BE/rdh/x_low",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_BE",
+      "quality": "x_low",
+      "curated": false
+    },
+    "nl_NL-alex-medium": {
+      "label": "Alex — Dutch (Netherlands), medium",
+      "huggingface_path": "nl/nl_NL/alex/medium",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_NL",
+      "quality": "medium",
+      "curated": false
+    },
+    "nl_NL-mls-medium": {
+      "label": "Mls — Dutch (Netherlands), medium",
+      "huggingface_path": "nl/nl_NL/mls/medium",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_NL",
+      "quality": "medium",
+      "curated": true
+    },
+    "nl_NL-mls_5809-low": {
+      "label": "Mls 5809 — Dutch (Netherlands), low",
+      "huggingface_path": "nl/nl_NL/mls_5809/low",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_NL",
+      "quality": "low",
+      "curated": false
+    },
+    "nl_NL-mls_7432-low": {
+      "label": "Mls 7432 — Dutch (Netherlands), low",
+      "huggingface_path": "nl/nl_NL/mls_7432/low",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_NL",
+      "quality": "low",
+      "curated": false
+    },
+    "nl_NL-pim-medium": {
+      "label": "Pim — Dutch (Netherlands), medium",
+      "huggingface_path": "nl/nl_NL/pim/medium",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_NL",
+      "quality": "medium",
+      "curated": false
+    },
+    "nl_NL-ronnie-medium": {
+      "label": "Ronnie — Dutch (Netherlands), medium",
+      "huggingface_path": "nl/nl_NL/ronnie/medium",
+      "region": "Europe",
+      "language": "Dutch",
+      "locale": "nl_NL",
+      "quality": "medium",
+      "curated": false
+    },
+    "no_NO-nvcc-medium": {
+      "label": "Nvcc — Norwegian (Norway), medium",
+      "huggingface_path": "no/no_NO/nvcc/medium",
+      "region": "Europe",
+      "language": "Norwegian",
+      "locale": "no_NO",
+      "quality": "medium",
+      "curated": false
+    },
+    "no_NO-talesyntese-medium": {
+      "label": "Talesyntese — Norwegian (Norway), medium",
+      "huggingface_path": "no/no_NO/talesyntese/medium",
+      "region": "Europe",
+      "language": "Norwegian",
+      "locale": "no_NO",
+      "quality": "medium",
+      "curated": false
+    },
+    "pl_PL-bass-high": {
+      "label": "Bass — Polish (Poland), high",
+      "huggingface_path": "pl/pl_PL/bass/high",
+      "region": "Europe",
+      "language": "Polish",
+      "locale": "pl_PL",
+      "quality": "high",
+      "curated": false
+    },
+    "pl_PL-darkman-medium": {
+      "label": "Darkman — Polish (Poland), medium",
+      "huggingface_path": "pl/pl_PL/darkman/medium",
+      "region": "Europe",
+      "language": "Polish",
+      "locale": "pl_PL",
+      "quality": "medium",
+      "curated": false
+    },
+    "pl_PL-gosia-medium": {
+      "label": "Gosia — Polish (Poland), medium",
+      "huggingface_path": "pl/pl_PL/gosia/medium",
+      "region": "Europe",
+      "language": "Polish",
+      "locale": "pl_PL",
+      "quality": "medium",
+      "curated": true
+    },
+    "pl_PL-mc_speech-medium": {
+      "label": "Mc Speech — Polish (Poland), medium",
+      "huggingface_path": "pl/pl_PL/mc_speech/medium",
+      "region": "Europe",
+      "language": "Polish",
+      "locale": "pl_PL",
+      "quality": "medium",
+      "curated": false
+    },
+    "pl_PL-mls_6892-low": {
+      "label": "Mls 6892 — Polish (Poland), low",
+      "huggingface_path": "pl/pl_PL/mls_6892/low",
+      "region": "Europe",
+      "language": "Polish",
+      "locale": "pl_PL",
+      "quality": "low",
+      "curated": false
+    },
+    "pt_BR-cadu-medium": {
+      "label": "Cadu — Portuguese (Brazil), medium",
+      "huggingface_path": "pt/pt_BR/cadu/medium",
+      "region": "Americas",
+      "language": "Portuguese",
+      "locale": "pt_BR",
+      "quality": "medium",
+      "curated": false
+    },
+    "pt_BR-edresson-low": {
+      "label": "Edresson — Portuguese (Brazil), low",
+      "huggingface_path": "pt/pt_BR/edresson/low",
+      "region": "Americas",
+      "language": "Portuguese",
+      "locale": "pt_BR",
+      "quality": "low",
+      "curated": false
+    },
+    "pt_BR-faber-medium": {
+      "label": "Faber — Portuguese (Brazil), medium",
+      "huggingface_path": "pt/pt_BR/faber/medium",
+      "region": "Americas",
+      "language": "Portuguese",
+      "locale": "pt_BR",
+      "quality": "medium",
+      "curated": true
+    },
+    "pt_BR-jeff-medium": {
+      "label": "Jeff — Portuguese (Brazil), medium",
+      "huggingface_path": "pt/pt_BR/jeff/medium",
+      "region": "Americas",
+      "language": "Portuguese",
+      "locale": "pt_BR",
+      "quality": "medium",
+      "curated": false
+    },
+    "pt_PT-tugão-medium": {
+      "label": "Tugão — Portuguese (Portugal), medium",
+      "huggingface_path": "pt/pt_PT/tugão/medium",
+      "region": "Europe",
+      "language": "Portuguese",
+      "locale": "pt_PT",
+      "quality": "medium",
+      "curated": false
+    },
+    "ro_RO-mihai-medium": {
+      "label": "Mihai — Romanian (Romania), medium",
+      "huggingface_path": "ro/ro_RO/mihai/medium",
+      "region": "Europe",
+      "language": "Romanian",
+      "locale": "ro_RO",
+      "quality": "medium",
+      "curated": false
+    },
+    "ru_RU-denis-medium": {
+      "label": "Denis — Russian (Russia), medium",
+      "huggingface_path": "ru/ru_RU/denis/medium",
+      "region": "Europe",
+      "language": "Russian",
+      "locale": "ru_RU",
+      "quality": "medium",
+      "curated": false
+    },
+    "ru_RU-dmitri-medium": {
+      "label": "Dmitri — Russian (Russia), medium",
+      "huggingface_path": "ru/ru_RU/dmitri/medium",
+      "region": "Europe",
+      "language": "Russian",
+      "locale": "ru_RU",
+      "quality": "medium",
+      "curated": false
+    },
+    "ru_RU-irina-medium": {
+      "label": "Irina — Russian (Russia), medium",
+      "huggingface_path": "ru/ru_RU/irina/medium",
+      "region": "Europe",
+      "language": "Russian",
+      "locale": "ru_RU",
+      "quality": "medium",
+      "curated": false
+    },
+    "ru_RU-ruslan-medium": {
+      "label": "Ruslan — Russian (Russia), medium",
+      "huggingface_path": "ru/ru_RU/ruslan/medium",
+      "region": "Europe",
+      "language": "Russian",
+      "locale": "ru_RU",
+      "quality": "medium",
+      "curated": false
+    },
+    "sk_SK-lili-medium": {
+      "label": "Lili — Slovak (Slovakia), medium",
+      "huggingface_path": "sk/sk_SK/lili/medium",
+      "region": "Europe",
+      "language": "Slovak",
+      "locale": "sk_SK",
+      "quality": "medium",
+      "curated": false
+    },
+    "sl_SI-artur-medium": {
+      "label": "Artur — Slovenian (Slovenia), medium",
+      "huggingface_path": "sl/sl_SI/artur/medium",
+      "region": "Europe",
+      "language": "Slovenian",
+      "locale": "sl_SI",
+      "quality": "medium",
+      "curated": false
+    },
+    "sq_AL-edon-medium": {
+      "label": "Edon — Albanian (Albania), medium",
+      "huggingface_path": "sq/sq_AL/edon/medium",
+      "region": "Europe",
+      "language": "Albanian",
+      "locale": "sq_AL",
+      "quality": "medium",
+      "curated": false
+    },
+    "sr_RS-serbski_institut-medium": {
+      "label": "Serbski Institut — Serbian (Serbia), medium",
+      "huggingface_path": "sr/sr_RS/serbski_institut/medium",
+      "region": "Europe",
+      "language": "Serbian",
+      "locale": "sr_RS",
+      "quality": "medium",
+      "curated": false
+    },
+    "sv_SE-alma-medium": {
+      "label": "Alma — Swedish (Sweden), medium",
+      "huggingface_path": "sv/sv_SE/alma/medium",
+      "region": "Europe",
+      "language": "Swedish",
+      "locale": "sv_SE",
+      "quality": "medium",
+      "curated": false
+    },
+    "sv_SE-lisa-medium": {
+      "label": "Lisa — Swedish (Sweden), medium",
+      "huggingface_path": "sv/sv_SE/lisa/medium",
+      "region": "Europe",
+      "language": "Swedish",
+      "locale": "sv_SE",
+      "quality": "medium",
+      "curated": false
+    },
+    "sv_SE-nst-medium": {
+      "label": "Nst — Swedish (Sweden), medium",
+      "huggingface_path": "sv/sv_SE/nst/medium",
+      "region": "Europe",
+      "language": "Swedish",
+      "locale": "sv_SE",
+      "quality": "medium",
+      "curated": true
+    },
+    "sw_CD-lanfrica-medium": {
+      "label": "Lanfrica — Swahili (Democratic Republic of the Congo), medium",
+      "huggingface_path": "sw/sw_CD/lanfrica/medium",
+      "region": "Middle East & Africa",
+      "language": "Swahili",
+      "locale": "sw_CD",
+      "quality": "medium",
+      "curated": true
+    },
+    "te_IN-maya-medium": {
+      "label": "Maya — Telugu (India), medium",
+      "huggingface_path": "te/te_IN/maya/medium",
+      "region": "Asia-Pacific",
+      "language": "Telugu",
+      "locale": "te_IN",
+      "quality": "medium",
+      "curated": false
+    },
+    "te_IN-padmavathi-medium": {
+      "label": "Padmavathi — Telugu (India), medium",
+      "huggingface_path": "te/te_IN/padmavathi/medium",
+      "region": "Asia-Pacific",
+      "language": "Telugu",
+      "locale": "te_IN",
+      "quality": "medium",
+      "curated": true
+    },
+    "te_IN-venkatesh-medium": {
+      "label": "Venkatesh — Telugu (India), medium",
+      "huggingface_path": "te/te_IN/venkatesh/medium",
+      "region": "Asia-Pacific",
+      "language": "Telugu",
+      "locale": "te_IN",
+      "quality": "medium",
+      "curated": false
+    },
+    "tr_TR-dfki-medium": {
+      "label": "Dfki — Turkish (Turkey), medium",
+      "huggingface_path": "tr/tr_TR/dfki/medium",
+      "region": "Middle East & Africa",
+      "language": "Turkish",
+      "locale": "tr_TR",
+      "quality": "medium",
+      "curated": true
+    },
+    "uk_UA-lada-x_low": {
+      "label": "Lada — Ukrainian (Ukraine), x_low",
+      "huggingface_path": "uk/uk_UA/lada/x_low",
+      "region": "Europe",
+      "language": "Ukrainian",
+      "locale": "uk_UA",
+      "quality": "x_low",
+      "curated": false
+    },
+    "uk_UA-mykyta-high": {
+      "label": "Mykyta — Ukrainian (Ukraine), high",
+      "huggingface_path": "uk/uk_UA/mykyta/high",
+      "region": "Europe",
+      "language": "Ukrainian",
+      "locale": "uk_UA",
+      "quality": "high",
+      "curated": false
+    },
+    "uk_UA-oleksa-high": {
+      "label": "Oleksa — Ukrainian (Ukraine), high",
+      "huggingface_path": "uk/uk_UA/oleksa/high",
+      "region": "Europe",
+      "language": "Ukrainian",
+      "locale": "uk_UA",
+      "quality": "high",
+      "curated": false
+    },
+    "uk_UA-tetiana-high": {
+      "label": "Tetiana — Ukrainian (Ukraine), high",
+      "huggingface_path": "uk/uk_UA/tetiana/high",
+      "region": "Europe",
+      "language": "Ukrainian",
+      "locale": "uk_UA",
+      "quality": "high",
+      "curated": false
+    },
+    "uk_UA-ukrainian_tts-medium": {
+      "label": "Ukrainian Tts — Ukrainian (Ukraine), medium",
+      "huggingface_path": "uk/uk_UA/ukrainian_tts/medium",
+      "region": "Europe",
+      "language": "Ukrainian",
+      "locale": "uk_UA",
+      "quality": "medium",
+      "curated": false
+    },
+    "ur_PK-fasih-medium": {
+      "label": "Fasih — Urdu (Pakistan), medium",
+      "huggingface_path": "ur/ur_PK/fasih/medium",
+      "region": "Asia-Pacific",
+      "language": "Urdu",
+      "locale": "ur_PK",
+      "quality": "medium",
+      "curated": false
+    },
+    "vi_VN-25hours_single-low": {
+      "label": "25Hours Single — Vietnamese (Vietnam), low",
+      "huggingface_path": "vi/vi_VN/25hours_single/low",
+      "region": "Asia-Pacific",
+      "language": "Vietnamese",
+      "locale": "vi_VN",
+      "quality": "low",
+      "curated": false
+    },
+    "vi_VN-vais1000-medium": {
+      "label": "Vais1000 — Vietnamese (Vietnam), medium",
+      "huggingface_path": "vi/vi_VN/vais1000/medium",
+      "region": "Asia-Pacific",
+      "language": "Vietnamese",
+      "locale": "vi_VN",
+      "quality": "medium",
+      "curated": true
+    },
+    "vi_VN-vivos-x_low": {
+      "label": "Vivos — Vietnamese (Vietnam), x_low",
+      "huggingface_path": "vi/vi_VN/vivos/x_low",
+      "region": "Asia-Pacific",
+      "language": "Vietnamese",
+      "locale": "vi_VN",
+      "quality": "x_low",
+      "curated": false
+    },
+    "zh_CN-chaowen-medium": {
+      "label": "Chaowen — Chinese (China), medium",
+      "huggingface_path": "zh/zh_CN/chaowen/medium",
+      "region": "Asia-Pacific",
+      "language": "Chinese",
+      "locale": "zh_CN",
+      "quality": "medium",
+      "curated": false
+    },
+    "zh_CN-huayan-medium": {
+      "label": "Huayan — Chinese (China), medium",
+      "huggingface_path": "zh/zh_CN/huayan/medium",
+      "region": "Asia-Pacific",
+      "language": "Chinese",
+      "locale": "zh_CN",
+      "quality": "medium",
+      "curated": true
+    },
+    "zh_CN-huayan-x_low": {
+      "label": "Huayan — Chinese (China), x_low",
+      "huggingface_path": "zh/zh_CN/huayan/x_low",
+      "region": "Asia-Pacific",
+      "language": "Chinese",
+      "locale": "zh_CN",
+      "quality": "x_low",
+      "curated": false
+    },
+    "zh_CN-xiao_ya-medium": {
+      "label": "Xiao Ya — Chinese (China), medium",
+      "huggingface_path": "zh/zh_CN/xiao_ya/medium",
+      "region": "Asia-Pacific",
+      "language": "Chinese",
+      "locale": "zh_CN",
+      "quality": "medium",
+      "curated": false
+    }
+  }
+}

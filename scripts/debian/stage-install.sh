@@ -37,4 +37,8 @@ if [[ -f "${PROJECT_ROOT}/docs/debian.md" ]]; then
   install -m 644 "${PROJECT_ROOT}/docs/debian.md" "${PKG_DIR}/usr/share/doc/skywarnplus-ng/debian.md"
 fi
 
+install -d -m 755 "${PKG_DIR}/etc/sudoers.d"
+install -m 0440 "${PROJECT_ROOT}/debian/skywarnplus-ng-tts.sudoers" \
+  "${PKG_DIR}/etc/sudoers.d/skywarnplus-ng-tts"
+
 echo "Staged main package under ${PKG_DIR}"

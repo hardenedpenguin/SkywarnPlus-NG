@@ -604,7 +604,7 @@
                             <select id="tts_engine" name="audio.tts.engine" 
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
                                     onchange="updateTTSEngineFields()">
-                                <option value="piper">Piper TTS (Local)</option>
+                                <option value="asl-tts">asl-tts (ASL3 Piper)</option>
                                 <option value="gtts">Google Text-to-Speech (gTTS)</option>
                             </select>
                         </div>
@@ -647,30 +647,58 @@
                             </label>
                         </div>
                         
-                        <!-- Piper-specific fields -->
-                        <div id="tts_piper_model_path" class="tts-piper-field">
-                            <label for="tts_model_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Piper voice model (.onnx)
+                        <!-- asl-tts fields -->
+                        <div id="tts_asl_voice" class="tts-asl-field md:col-span-2">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label for="tts_voice_region" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Region
+                                    </label>
+                                    <select id="tts_voice_region"
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                            onchange="syncTtsVoiceSelection()">
+                                        <option value="Americas">Americas</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col justify-end">
+                                    <label class="inline-flex items-center text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                        <input type="checkbox" id="tts_show_all_voices" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                               onchange="renderTtsVoiceSelect()">
+                                        <span class="ml-2">Show all voices in region</span>
+                                    </label>
+                                    <span id="tts_voice_count_hint" class="text-xs text-gray-500 dark:text-gray-400"></span>
+                                </div>
+                            </div>
+                            <label for="tts_voice" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Piper voice (asl-tts)
                             </label>
-                            <select id="tts_model_path" name="audio.tts.model_path"
-                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <select id="tts_voice" name="audio.tts.voice"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                                    onchange="updateTtsVoiceHint()">
                                 <option value="">Loading…</option>
                             </select>
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Lists <code class="text-xs">*.onnx</code> files in your Piper directory (next to <code class="text-xs">data_dir</code>). Add models there and reload this page. Each model needs its matching <code class="text-xs">.onnx.json</code> beside it.
-                                More voices: <a class="text-blue-600 dark:text-blue-400 hover:underline" href="https://huggingface.co/rhasspy/piper-voices/tree/main" target="_blank" rel="noopener noreferrer">rhasspy/piper-voices on Hugging Face</a>.
+                            <p id="tts_voice_language_hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400 hidden"></p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <button type="button" id="tts_install_voice_btn" class="btn-secondary text-sm hidden"
+                                        onclick="installTtsVoice()">Install voice</button>
+                                <button type="button" id="tts_refresh_voices_btn" class="btn-secondary text-sm"
+                                        onclick="loadTtsVoices(true)">Refresh voices</button>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                Catalog matches supermon-ng / ASL3. Installed voices live in
+                                <code class="text-xs">/var/lib/piper-tts</code>. Large models download on demand (~30–80&nbsp;MB).
                             </p>
                         </div>
-                        
-                        <div id="tts_piper_speed" class="tts-piper-field">
-                            <label for="tts_speed" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Speech Speed
+
+                        <div id="tts_asl_node" class="tts-asl-field">
+                            <label for="tts_node_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                AllStar node (asl-tts -n)
                             </label>
-                            <input type="number" id="tts_speed" name="audio.tts.speed" min="0.5" max="2.0" step="0.1"
+                            <input type="number" id="tts_node_number" name="audio.tts.node_number" min="1" step="1"
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
-                                   placeholder="1.0">
+                                   placeholder="546050">
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                1.0 = normal speed, &gt;1.0 = faster, &lt;1.0 = slower
+                                Node number passed to asl-tts. Defaults to your first configured node.
                             </p>
                         </div>
                         
@@ -2123,90 +2151,212 @@
             .replace(/"/g, '&quot;');
     }
 
-    // Default Piper model path (install script puts en_US-amy here; API may provide piper_default_model_path)
-    function getDefaultPiperModelPath(config) {
-        if (config?.piper_default_model_path) return config.piper_default_model_path;
-        const d = String(config?.data_dir || '/var/lib/skywarnplus-ng/data').replace(/\/$/, '');
-        const base = d.endsWith('/data') ? d.slice(0, -5) : d.split('/').slice(0, -1).join('/');
-        return (base || '/var/lib/skywarnplus-ng') + '/piper/en_US-amy-low.onnx';
+    var ttsVoicesCatalog = [];
+    var ttsVoiceRegions = ['Americas', 'Europe', 'Asia-Pacific', 'Middle East & Africa', 'Other'];
+    var ttsVoiceDefault = 'en_US-amy-low.onnx';
+    var ttsVoiceInstalling = false;
+
+    function getDefaultAslVoice(config) {
+        if (config?.tts_default_voice) return config.tts_default_voice;
+        if (config?.tts_voices?.default) return config.tts_voices.default;
+        return 'en_US-amy-low.onnx';
     }
 
-    function populatePiperModelSelect(config) {
-        const sel = document.getElementById('tts_model_path');
-        if (!sel || sel.tagName !== 'SELECT') return;
-        while (sel.firstChild) sel.removeChild(sel.firstChild);
-        const models = Array.isArray(config.piper_available_models)
-            ? [...config.piper_available_models]
-            : [];
-        const def = config.piper_default_model_path || getDefaultPiperModelPath(config);
-        const current = (config.audio && config.audio.tts && config.audio.tts.model_path) || '';
-        const seen = new Set();
+    function selectedTtsVoiceEntry() {
+        const sel = document.getElementById('tts_voice');
+        if (!sel) return null;
+        return ttsVoicesCatalog.find(function (v) { return v.file === sel.value; }) || null;
+    }
 
-        function addOpt(val, text, title) {
-            if (!val || seen.has(val)) return;
-            seen.add(val);
-            const o = document.createElement('option');
-            o.value = val;
-            o.textContent = text;
-            if (title) o.title = title;
-            sel.appendChild(o);
-        }
+    function filteredTtsVoiceOptions() {
+        const regionEl = document.getElementById('tts_voice_region');
+        const region = regionEl ? regionEl.value : 'Americas';
+        const showAll = document.getElementById('tts_show_all_voices');
+        const showAllVoices = showAll ? showAll.checked : false;
+        const sel = document.getElementById('tts_voice');
+        const current = sel ? sel.value : '';
 
-        if (current && models.indexOf(current) < 0) {
-            const baseName = current.split('/').pop() || current;
-            addOpt(current, baseName + ' (current path)', current);
-        }
-        models.sort(function (a, b) {
-            const na = (a.split('/').pop() || a).toLowerCase();
-            const nb = (b.split('/').pop() || b).toLowerCase();
-            return na.localeCompare(nb);
+        let list = ttsVoicesCatalog.filter(function (voice) {
+            if (!voice.catalog) return true;
+            return voice.region === region;
         });
-        for (let i = 0; i < models.length; i++) {
-            const p = models[i];
-            const baseName = p.split('/').pop() || p;
-            addOpt(p, baseName, p);
-        }
-        if (def && !seen.has(def)) {
-            const baseName = def.split('/').pop() || def;
-            addOpt(def, baseName + ' (suggested default)', def);
-        }
-        if (sel.options.length === 0 && def) {
-            const baseName = def.split('/').pop() || def;
-            addOpt(def, baseName + ' (no scans yet — add .onnx files)', def);
+
+        if (!showAllVoices) {
+            const curated = list.filter(function (voice) { return !voice.catalog || voice.curated; });
+            if (curated.length > 0) list = curated;
         }
 
-        const want = (current && seen.has(current)) ? current : (current || def);
-        const opts = [...sel.options];
-        if (want && opts.some(function (o) { return o.value === want; })) sel.value = want;
-        else if (def && opts.some(function (o) { return o.value === def; })) sel.value = def;
-        else if (opts.length) sel.selectedIndex = 0;
+        if (current && !list.some(function (v) { return v.file === current; })) {
+            const selected = ttsVoicesCatalog.find(function (v) { return v.file === current; });
+            if (selected) list = [selected].concat(list);
+        }
+
+        return list.slice().sort(function (a, b) {
+            if (a.installed !== b.installed) return a.installed ? -1 : 1;
+            if (a.curated !== b.curated) return a.curated ? -1 : 1;
+            return String(a.label).localeCompare(String(b.label));
+        });
+    }
+
+    function renderTtsVoiceSelect(preferred) {
+        const sel = document.getElementById('tts_voice');
+        if (!sel || sel.tagName !== 'SELECT') return;
+        const options = filteredTtsVoiceOptions();
+        const want = preferred || sel.value || ttsVoiceDefault;
+        while (sel.firstChild) sel.removeChild(sel.firstChild);
+
+        options.forEach(function (voice) {
+            const o = document.createElement('option');
+            o.value = voice.file;
+            o.textContent = voice.label + (voice.installed ? '' : ' (not installed)');
+            o.title = voice.file;
+            sel.appendChild(o);
+        });
+
+        if (want && [...sel.options].some(function (o) { return o.value === want; })) {
+            sel.value = want;
+        } else {
+            const installed = options.find(function (v) { return v.installed; });
+            if (installed) sel.value = installed.file;
+            else if (options.length) sel.selectedIndex = 0;
+        }
+
+        const hint = document.getElementById('tts_voice_count_hint');
+        if (hint) hint.textContent = options.length + ' shown';
+
+        updateTtsVoiceHint();
+    }
+
+    function syncTtsVoiceSelection() {
+        renderTtsVoiceSelect();
+    }
+
+    function updateTtsVoiceHint() {
+        const voice = selectedTtsVoiceEntry();
+        const langHint = document.getElementById('tts_voice_language_hint');
+        const installBtn = document.getElementById('tts_install_voice_btn');
+        if (langHint) {
+            if (voice && voice.language) {
+                langHint.textContent = 'Match your alert text to ' + voice.language + '.';
+                langHint.classList.remove('hidden');
+            } else {
+                langHint.textContent = '';
+                langHint.classList.add('hidden');
+            }
+        }
+        if (installBtn) {
+            if (voice && !voice.installed && voice.catalog) {
+                installBtn.classList.remove('hidden');
+                installBtn.disabled = ttsVoiceInstalling;
+                installBtn.textContent = ttsVoiceInstalling ? 'Installing…' : 'Install voice';
+            } else {
+                installBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    async function loadTtsVoices(showNotice) {
+        try {
+            const data = await apiCall('/api/tts/voices', {}, false);
+            ttsVoicesCatalog = Array.isArray(data.voices) ? data.voices : [];
+            if (Array.isArray(data.regions) && data.regions.length) {
+                ttsVoiceRegions = data.regions;
+            }
+            if (data.default) ttsVoiceDefault = data.default;
+
+            const regionEl = document.getElementById('tts_voice_region');
+            if (regionEl) {
+                const prevRegion = regionEl.value;
+                while (regionEl.firstChild) regionEl.removeChild(regionEl.firstChild);
+                ttsVoiceRegions.forEach(function (region) {
+                    const o = document.createElement('option');
+                    o.value = region;
+                    o.textContent = region;
+                    regionEl.appendChild(o);
+                });
+                const defaultEntry = ttsVoicesCatalog.find(function (v) { return v.file === ttsVoiceDefault; });
+                if (defaultEntry && defaultEntry.region && ttsVoiceRegions.indexOf(defaultEntry.region) >= 0) {
+                    regionEl.value = defaultEntry.region;
+                } else if (prevRegion && ttsVoiceRegions.indexOf(prevRegion) >= 0) {
+                    regionEl.value = prevRegion;
+                }
+            }
+
+            const sel = document.getElementById('tts_voice');
+            renderTtsVoiceSelect(sel ? sel.value : ttsVoiceDefault);
+            if (showNotice) showNotification('Voice list refreshed', 'success');
+        } catch (error) {
+            console.error('Failed to load TTS voices:', error);
+            if (showNotice) showNotification(error.message || 'Failed to load voices', 'error');
+        }
+    }
+
+    async function installTtsVoice() {
+        const voice = selectedTtsVoiceEntry();
+        if (!voice || voice.installed || !voice.catalog || ttsVoiceInstalling) return;
+        ttsVoiceInstalling = true;
+        updateTtsVoiceHint();
+        try {
+            const resp = await apiCall('/api/tts/voices/install', {
+                method: 'POST',
+                body: JSON.stringify({ voice_id: voice.id })
+            }, false);
+            if (resp && resp.file) {
+                const sel = document.getElementById('tts_voice');
+                if (sel) sel.value = resp.file;
+            }
+            showNotification(resp.message || 'Voice installed', 'success');
+            await loadTtsVoices(false);
+        } catch (error) {
+            showNotification(error.message || 'Voice install failed', 'error', 0, { retry: installTtsVoice });
+        } finally {
+            ttsVoiceInstalling = false;
+            updateTtsVoiceHint();
+        }
+    }
+
+    function populateAslVoiceSelect(config) {
+        if (config && config.tts_voices && Array.isArray(config.tts_voices.voices)) {
+            ttsVoicesCatalog = config.tts_voices.voices;
+            if (Array.isArray(config.tts_voices.regions)) ttsVoiceRegions = config.tts_voices.regions;
+            if (config.tts_voices.default) ttsVoiceDefault = config.tts_voices.default;
+        }
+        const regionEl = document.getElementById('tts_voice_region');
+        if (regionEl) {
+            while (regionEl.firstChild) regionEl.removeChild(regionEl.firstChild);
+            ttsVoiceRegions.forEach(function (region) {
+                const o = document.createElement('option');
+                o.value = region;
+                o.textContent = region;
+                regionEl.appendChild(o);
+            });
+            const defaultEntry = ttsVoicesCatalog.find(function (v) { return v.file === ttsVoiceDefault; });
+            if (defaultEntry && defaultEntry.region) regionEl.value = defaultEntry.region;
+        }
+        const current = (config.audio && config.audio.tts && config.audio.tts.voice) || '';
+        const legacyPath = (config.audio && config.audio.tts && config.audio.tts.model_path) || '';
+        let wantCurrent = current;
+        if (!wantCurrent && legacyPath) wantCurrent = legacyPath.split('/').pop() || legacyPath;
+        renderTtsVoiceSelect(wantCurrent || ttsVoiceDefault);
+        loadTtsVoices(false);
     }
 
     // Tab management
     function updateTTSEngineFields() {
         const engine = document.getElementById('tts_engine').value;
         const gttsFields = document.querySelectorAll('.tts-gtts-field');
-        const piperFields = document.querySelectorAll('.tts-piper-field');
-        
+        const aslFields = document.querySelectorAll('.tts-asl-field');
+        const isAsl = engine === 'asl-tts' || engine === 'piper';
+
         if (engine === 'gtts') {
-            // Show gTTS fields, hide Piper fields
-            gttsFields.forEach(field => {
-                field.style.display = 'block';
-            });
-            piperFields.forEach(field => {
-                field.style.display = 'none';
-            });
-        } else if (engine === 'piper') {
-            // Show Piper fields, hide gTTS fields
-            gttsFields.forEach(field => {
-                field.style.display = 'none';
-            });
-            piperFields.forEach(field => {
-                field.style.display = 'block';
-            });
-            const sel = document.getElementById('tts_model_path');
+            gttsFields.forEach(field => { field.style.display = 'block'; });
+            aslFields.forEach(field => { field.style.display = 'none'; });
+        } else if (isAsl) {
+            gttsFields.forEach(field => { field.style.display = 'none'; });
+            aslFields.forEach(field => { field.style.display = 'block'; });
+            const sel = document.getElementById('tts_voice');
             if (sel && sel.tagName === 'SELECT' && !sel.value) {
-                const def = getDefaultPiperModelPath(window.currentConfig || {});
+                const def = getDefaultAslVoice(window.currentConfig || {});
                 if ([...sel.options].some(function (o) { return o.value === def; })) sel.value = def;
                 else if (sel.options.length) sel.selectedIndex = 0;
             }
@@ -2434,12 +2584,16 @@
         document.getElementById('audio_separator_sound').value = config.audio?.separator_sound || '';
         document.getElementById('audio_temp_dir').value = config.audio?.temp_dir || '';
         
-        document.getElementById('tts_engine').value = config.audio?.tts?.engine || 'piper';
+        document.getElementById('tts_engine').value = config.audio?.tts?.engine || 'asl-tts';
+        if (config.audio?.tts?.engine === 'piper') {
+            document.getElementById('tts_engine').value = 'asl-tts';
+        }
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
         setConfigPresetField('tts_tld', config.audio?.tts?.tld || 'com');
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
-        populatePiperModelSelect(config);
-        document.getElementById('tts_speed').value = config.audio?.tts?.speed || 1.0;
+        populateAslVoiceSelect(config);
+        document.getElementById('tts_node_number').value =
+            config.audio?.tts?.node_number || config.tts_default_node_number || 1;
         document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'ulaw';
         document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 8000;
         document.getElementById('tts_bit_rate').value = config.audio?.tts?.bit_rate || 128;

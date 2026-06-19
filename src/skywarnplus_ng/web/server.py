@@ -34,6 +34,7 @@ from ..utils.rate_limit import SlidingWindowRateLimiter
 from ..utils.url_security import validate_public_https_webhook_url
 
 from .handlers.api_alerts import AlertsApiMixin
+from .handlers.api_tts_voices import TtsVoicesApiMixin
 from .handlers.api_config import ConfigApiMixin
 from .handlers.api_database import DatabaseApiMixin
 from .handlers.api_health_logs import HealthLogsApiMixin
@@ -63,6 +64,7 @@ class WebDashboard(
     AuthHandlersMixin,
     NotificationsApiMixin,
     ConfigApiMixin,
+    TtsVoicesApiMixin,
     DatabaseApiMixin,
     UpdatesMetricsApiMixin,
     HealthLogsApiMixin,

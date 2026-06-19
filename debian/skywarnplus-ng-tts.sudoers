@@ -1,0 +1,3 @@
+# Allow the skywarnplus-ng service (asterisk user) to install Piper voices for asl-tts.
+Defaults!/var/lib/skywarnplus-ng/scripts/install-tts-voice.sh !requiretty
+asterisk ALL=(root) NOPASSWD: /var/lib/skywarnplus-ng/scripts/install-tts-voice.sh

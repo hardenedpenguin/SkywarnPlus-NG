@@ -47,6 +47,8 @@ def register_dashboard_routes(app: web.Application, dashboard: Any) -> None:
 
     app.router.add_get("/api/config", dashboard.api_config_get_handler)
     app.router.add_post("/api/config", dashboard.api_config_update_handler)
+    app.router.add_get("/api/tts/voices", dashboard.api_tts_voices_handler)
+    app.router.add_post("/api/tts/voices/install", dashboard.api_tts_voice_install_handler)
     app.router.add_post("/api/config/reset", dashboard.api_config_reset_handler)
     app.router.add_post("/api/config/backup", dashboard.api_config_backup_handler)
 

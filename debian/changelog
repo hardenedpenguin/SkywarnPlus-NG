@@ -1,3 +1,35 @@
+skywarnplus-ng (1.3.3-1) unstable; urgency=medium
+
+  * Fix Piper voice install URLs (Hugging Face path includes voice id filename).
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Mon, 18 May 2026 18:35:00 -0500
+
+skywarnplus-ng (1.3.2-1) unstable; urgency=medium
+
+  * Fix TTS voice changes not applying until service restart (reload engine on save).
+  * Piper voice catalog dropdown with region filter and on-demand install (supermon-ng style).
+  * GET /api/tts/voices and POST /api/tts/voices/install for dashboard voice management.
+  * Ship install-tts-voice.sh with sudoers for asterisk user; Depends: wget.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Mon, 18 May 2026 18:00:00 -0500
+
+skywarnplus-ng (1.3.1-1) unstable; urgency=medium
+
+  * Single-package Debian build: drop voice model and metapackage.
+  * skywarnplus-ng Depends on asl3-tts; no bundled Piper voice download at build time.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Thu, 19 Jun 2026 15:30:00 -0500
+
+skywarnplus-ng (1.3.0-1) unstable; urgency=medium
+
+  * Replace embedded piper-tts with ASL3 asl-tts CLI for local voice synthesis.
+  * Voice models from /var/lib/piper-tts; Depends on asl3-tts package.
+  * Configuration UI: voice dropdown and AllStar node number for asl-tts.
+  * Dashboard: show Valid until (ends) when NWS expires differs from event end.
+  * Remove piper-tts and onnxruntime from embedded venv (smaller package).
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Sat, 14 Jun 2026 12:00:00 -0500
+
 skywarnplus-ng (1.2.3-1) unstable; urgency=medium
 
   * fix(nhc): parse advisory CDT/EDT times as local, not UTC (NHC dashboard).
@@ -33,8 +65,6 @@ skywarnplus-ng (1.2.0-1) unstable; urgency=medium
 
 skywarnplus-ng (1.1.0-1) unstable; urgency=medium
 
-  * Initial Debian packages for amd64 and arm64 with prebuilt virtualenv.
-  * Depends on asl3-asterisk for AllStar Link 3 nodes.
-  * Metapackage skywarnplus-ng-all pulls app + default voice model.
+  * Initial Debian packaging for amd64 and arm64 ASL3 nodes.
 
- -- Jory A. Pratt <geekypenguin@gmail.com>  Wed, 11 Jun 2026 22:45:00 -0500
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Thu, 12 Jun 2026 12:00:00 -0500

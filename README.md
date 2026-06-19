@@ -20,17 +20,17 @@ Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Ma
 Prebuilt packages skip `pip install` on the node. Download from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (match your architecture):
 
 ```bash
-sudo apt install ./skywarnplus-ng-all_1.2.3_amd64.deb
+sudo apt install ./skywarnplus-ng_1.3.3_amd64.deb
 sudo systemctl enable --now skywarnplus-ng
 ```
 
-Replace `amd64` with `arm64` on ARM nodes. See **[docs/debian.md](docs/debian.md)** for component packages and upgrades.
+Replace `amd64` with `arm64` on ARM nodes. See **[docs/debian.md](docs/debian.md)** for upgrades and details.
 
 **Already running from a tarball?** Stop the service first so port 8100 is free, then install the deb — your config and data are kept:
 
 ```bash
 sudo systemctl stop skywarnplus-ng
-sudo apt install ./skywarnplus-ng-all_1.2.3_amd64.deb
+sudo apt install ./skywarnplus-ng_1.3.3_amd64.deb
 sudo systemctl enable --now skywarnplus-ng
 ```
 
@@ -41,9 +41,9 @@ No need to remove the old tarball install or edit `config.yaml` first.
 Run **`install.sh` as a normal user** (not root) — it uses `sudo` where needed. Use an [official release tarball](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (includes pre-built dashboard CSS).
 
 ```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.2.3/skywarnplus-ng-1.2.3.tar.gz
-tar -xzf skywarnplus-ng-1.2.3.tar.gz
-cd skywarnplus-ng-1.2.3
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.3.3/skywarnplus-ng-1.3.3.tar.gz
+tar -xzf skywarnplus-ng-1.3.3.tar.gz
+cd skywarnplus-ng-1.3.3
 ./install.sh
 
 sudo systemctl enable --now skywarnplus-ng
@@ -61,7 +61,7 @@ sudo systemctl status skywarnplus-ng
 1. Set a new dashboard password.
 2. Add your [NWS county codes](CountyCodes.md) under **Configuration → Counties**.
 3. Set **Asterisk node number(s)** and per-node counties if you run multiple nodes.
-4. Pick **Piper** (local, default) or **gTTS** under **Audio / TTS**.
+4. Pick **asl-tts** (local ASL3 Piper, default) or **gTTS** under **Audio / TTS**.
 5. Save — the service reloads config from the UI.
 
 The dashboard shows the **running version** so you can confirm what's live.

@@ -187,22 +187,65 @@ class AsteriskConfig(BaseModel):
 class TTSConfig(BaseModel):
     """Text-to-Speech configuration."""
 
-    engine: str = Field("piper", description="TTS engine to use: 'gtts' or 'piper'")
+    engine: str = Field(
+        "asl-tts",
+        description="TTS engine: 'asl-tts' (ASL3 Piper CLI, default) or 'gtts' (cloud)",
+    )
     language: str = Field("en", description="Language code (for gTTS)")
     tld: str = Field("com", description="Top-level domain for gTTS")
     slow: bool = Field(False, description="Slow down speech (for gTTS)")
-    # Piper-specific settings (install.sh places en_US-amy-low here by default)
+    # asl-tts settings (asl3-tts package; voices in /var/lib/piper-tts)
+    voice: Optional[str] = Field(
+        "en_US-amy-low.onnx",
+        description="Piper voice filename for asl-tts -v (e.g. en_US-amy-low.onnx)",
+    )
+    voices_dir: str = Field(
+        "/var/lib/piper-tts",
+        description="Directory containing Piper .onnx voice models (ASL3 convention)",
+    )
+    asl_tts_binary: str = Field("asl-tts", description="Path or name of the asl-tts CLI binary")
+    node_number: Optional[int] = Field(
+        None,
+        description="AllStar node number passed to asl-tts -n (defaults to first configured node or 1)",
+    )
     model_path: Optional[str] = Field(
-        "/var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx",
-        description="Path to Piper TTS model file (.onnx)",
+        None,
+        description="Legacy Piper path; migrated to voice filename when engine was piper",
     )
     speed: float = Field(
         1.0,
-        description="Speech speed/rate for Piper TTS (1.0 = normal, >1.0 = faster, <1.0 = slower)",
+        description="Deprecated (embedded Piper only); ignored for asl-tts",
     )
     output_format: str = Field("ulaw", description="Output audio format")
     sample_rate: int = Field(8000, description="Sample rate in Hz")
     bit_rate: int = Field(128, description="Bit rate in kbps")
+
+    @field_validator("engine", mode="before")
+    @classmethod
+    def normalize_engine(cls, value: Any) -> str:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower().replace("_", "-")
+        if normalized == "piper":
+            return "asl-tts"
+        if normalized == "asltts":
+            return "asl-tts"
+        return normalized
+
+    @field_validator("voice", mode="before")
+    @classmethod
+    def normalize_voice(cls, value: Any) -> Any:
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.voice and self.model_path:
+            object.__setattr__(self, "voice", Path(str(self.model_path)).name)
+        if not self.voice:
+            object.__setattr__(self, "voice", "en_US-amy-low.onnx")
+        if self.node_number is None:
+            object.__setattr__(self, "node_number", 1)
 
 
 class AudioConfig(BaseModel):

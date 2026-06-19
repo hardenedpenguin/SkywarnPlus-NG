@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from ..core.config import AudioConfig, TTSConfig
 from ..core.models import WeatherAlert
 from ..utils.cap_speech import prepare_cap_text_for_tts
-from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
+from .tts_engine import AslTTSEngine, GTTSEngine, TTSEngineError
 from .audio_utils import AudioSegment
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ class AudioManager:
             config: Audio configuration
         """
         self.config = config
-        self.tts_engine = self._create_tts_engine(config.tts)
         self._fallback_tts_engine: Optional[GTTSEngine] = None
+        self.tts_engine = self._initialize_tts_engine()
 
         # Ensure directories exist
         self.config.sounds_path.mkdir(parents=True, exist_ok=True)
@@ -50,29 +50,57 @@ class AudioManager:
         except Exception as e:
             logger.warning(f"Failed to set permissions on temp directory: {e}")
 
-        # Validate TTS engine with fallback to gTTS if Piper fails
-        if not self.tts_engine.is_available():
-            if config.tts.engine.lower() == "piper":
-                logger.warning(
-                    "Piper TTS is not available or failed to initialize. Falling back to gTTS."
-                )
-                # Create a gTTS config from the existing config
-                from ..core.config import TTSConfig
+    def _initialize_tts_engine(self):
+        """Create primary TTS engine, falling back to gTTS when asl-tts is unavailable."""
+        engine = self._create_tts_engine(self.config.tts)
+        if engine.is_available():
+            return engine
 
-                gtts_config = TTSConfig(
-                    engine="gtts",
-                    language=config.tts.language or "en",
-                    tld=config.tts.tld or "com",
-                    slow=config.tts.slow or False,
-                    output_format=config.tts.output_format,
-                    sample_rate=config.tts.sample_rate,
-                    bit_rate=config.tts.bit_rate,
-                )
-                self.tts_engine = GTTSEngine(gtts_config)
-                if not self.tts_engine.is_available():
-                    raise AudioManagerError("TTS engine is not available (tried Piper and gTTS)")
-            else:
-                raise AudioManagerError("TTS engine is not available")
+        if self.config.tts.engine.lower().replace("_", "-") in ("asl-tts", "asltts", "piper"):
+            logger.warning(
+                "asl-tts is not available or failed to initialize. Falling back to gTTS."
+            )
+            from ..core.config import TTSConfig
+
+            gtts_config = TTSConfig(
+                engine="gtts",
+                language=self.config.tts.language or "en",
+                tld=self.config.tts.tld or "com",
+                slow=self.config.tts.slow or False,
+                output_format=self.config.tts.output_format,
+                sample_rate=self.config.tts.sample_rate,
+                bit_rate=self.config.tts.bit_rate,
+            )
+            fallback = GTTSEngine(gtts_config)
+            if fallback.is_available():
+                return fallback
+            raise AudioManagerError("TTS engine is not available (tried asl-tts and gTTS)")
+
+        raise AudioManagerError("TTS engine is not available")
+
+    def reload_tts_engine(self) -> bool:
+        """
+        Recreate the TTS engine from the current audio config.
+
+        Called after dashboard config saves so voice/engine changes take effect
+        without restarting the service.
+        """
+        previous = self.tts_engine
+        try:
+            self._fallback_tts_engine = None
+            self.tts_engine = self._initialize_tts_engine()
+        except Exception as exc:
+            logger.error("Failed to reload TTS engine; keeping previous: %s", exc)
+            self.tts_engine = previous
+            return False
+
+        voice = getattr(self.config.tts, "voice", "")
+        logger.info(
+            "TTS engine reloaded (engine=%s, voice=%s)",
+            self.config.tts.engine,
+            voice or "(default)",
+        )
+        return True
 
     @staticmethod
     def _create_tts_engine(tts_config):
@@ -83,36 +111,33 @@ class AudioManager:
             tts_config: TTS configuration
 
         Returns:
-            TTS engine instance (GTTSEngine or PiperTSEngine)
+            TTS engine instance (AslTTSEngine or GTTSEngine)
 
         Raises:
             AudioManagerError: If engine type is unsupported
         """
-        engine_type = tts_config.engine.lower()
+        engine_type = tts_config.engine.lower().replace("_", "-")
 
         if engine_type == "gtts":
             return GTTSEngine(tts_config)
-        elif engine_type == "piper":
+        if engine_type in ("asl-tts", "asltts", "piper"):
             try:
-                return PiperTSEngine(tts_config)
+                return AslTTSEngine(tts_config)
             except Exception as e:
-                logger.error(f"Failed to initialize Piper TTS engine: {e}")
-                logger.error("Piper TTS initialization failed. This may be due to:")
-                logger.error("  - Missing or corrupted model file")
-                logger.error("  - Incompatible Piper library version")
-                logger.error("  - Resource constraints (memory/CPU)")
-                logger.error("  - Incorrect model path configuration")
-                # Don't raise here - let the fallback mechanism handle it
+                logger.error("Failed to initialize asl-tts engine: %s", e)
+                logger.error("asl-tts initialization failed. This may be due to:")
+                logger.error("  - asl3-tts package not installed")
+                logger.error("  - Missing voice under /var/lib/piper-tts")
+                logger.error("  - Invalid node_number or voice configuration")
                 raise
-        else:
-            raise AudioManagerError(
-                f"Unsupported TTS engine: {engine_type}. Supported engines: 'gtts', 'piper'"
-            )
+        raise AudioManagerError(
+            f"Unsupported TTS engine: {engine_type}. Supported engines: 'asl-tts', 'gtts'"
+        )
 
     def _get_fallback_tts_engine(self) -> Optional[GTTSEngine]:
         """
         Lazily create a gTTS fallback so we can still generate county audio if
-        Piper becomes unavailable mid-run.
+        asl-tts becomes unavailable mid-run.
         """
         if self._fallback_tts_engine:
             return self._fallback_tts_engine
@@ -140,15 +165,19 @@ class AudioManager:
         allow_fallback: bool = False,
     ):
         """
-        Synthesize audio, optionally retrying with gTTS if the primary Piper
+        Synthesize audio, optionally retrying with gTTS if the primary asl-tts
         engine fails. Returns a tuple of (engine_used, generated_path).
         """
         try:
             audio_path = self.tts_engine.synthesize(text, output_path)
             return self.tts_engine, audio_path
         except TTSEngineError as primary_error:
-            if allow_fallback and self.config.tts.engine.lower() == "piper":
-                logger.warning(f"Piper TTS failed ({primary_error}); attempting gTTS fallback")
+            if allow_fallback and self.config.tts.engine.lower().replace("_", "-") in (
+                "asl-tts",
+                "asltts",
+                "piper",
+            ):
+                logger.warning("asl-tts failed (%s); attempting gTTS fallback", primary_error)
                 fallback_engine = self._get_fallback_tts_engine()
                 if fallback_engine:
                     audio_path = fallback_engine.synthesize(text, output_path)

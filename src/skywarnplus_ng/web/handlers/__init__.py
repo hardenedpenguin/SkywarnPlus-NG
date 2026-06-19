@@ -2,6 +2,7 @@
 
 from .api_alerts import AlertsApiMixin
 from .api_config import ConfigApiMixin
+from .api_tts_voices import TtsVoicesApiMixin
 from .api_database import DatabaseApiMixin
 from .api_health_logs import HealthLogsApiMixin
 from .api_notifications import NotificationsApiMixin
@@ -15,6 +16,7 @@ __all__ = [
     "AlertsApiMixin",
     "AuthHandlersMixin",
     "ConfigApiMixin",
+    "TtsVoicesApiMixin",
     "DatabaseApiMixin",
     "HealthLogsApiMixin",
     "NotificationsApiMixin",

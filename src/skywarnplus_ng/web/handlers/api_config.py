@@ -5,11 +5,14 @@ Config and county restore API handlers mixin.
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from aiohttp.web import Request, Response
+
+from ...audio.tts_voices import build_voices_payload, list_voice_models
 
 from ..auth_security import incoming_sets_non_default_password
 from ..setup_status import is_dashboard_configured
@@ -68,45 +71,38 @@ def _sanitize_counties_list(raw: Any) -> list[dict[str, Any]]:
 
 
 def _list_piper_onnx_models(piper_dir: Path) -> list[str]:
-    """Return sorted absolute paths to *.onnx files directly under piper_dir."""
-    if not piper_dir.is_dir():
-        return []
-    try:
-        root = piper_dir.resolve()
-    except OSError:
-        return []
-    out: list[str] = []
-    try:
-        candidates = sorted(root.glob("*.onnx"), key=lambda x: x.name.lower())
-    except OSError:
-        return []
-    for p in candidates:
-        try:
-            if not p.is_file():
-                continue
-            resolved = p.resolve()
-            resolved.relative_to(root)
-        except (ValueError, OSError):
-            continue
-        out.append(str(resolved))
-    return out
+    """Legacy alias: return absolute paths for voice basenames in piper_dir."""
+    return [str(piper_dir / name) for name in list_voice_models(piper_dir)]
+
+
+def _tts_voices_dir(config: Any) -> Path:
+    tts = getattr(getattr(config, "audio", None), "tts", None)
+    if tts and getattr(tts, "voices_dir", None):
+        return Path(str(tts.voices_dir))
+    return Path("/var/lib/piper-tts")
 
 
 def _collect_runtime_warnings(config: Any) -> list[str]:
     """User-visible warnings for TTS/runtime dependencies."""
     warnings: list[str] = []
-    try:
-        import onnxruntime  # noqa: F401, PLC0415
-    except ImportError:
-        if getattr(config.audio, "tts", None) and config.audio.tts.engine == "piper":
-            warnings.append("onnxruntime is not installed; Piper TTS will not work.")
+    tts = getattr(getattr(config, "audio", None), "tts", None)
+    if not tts:
+        return warnings
 
-    if getattr(config.audio, "tts", None) and config.audio.tts.engine == "piper":
-        model = Path(str(config.audio.tts.model_path))
-        if not model.is_file():
+    engine = str(getattr(tts, "engine", "") or "").lower().replace("_", "-")
+    if engine in ("asl-tts", "asltts", "piper"):
+        binary = str(getattr(tts, "asl_tts_binary", "asl-tts") or "asl-tts")
+        if not Path(binary).is_file() and not shutil.which(binary):
             warnings.append(
-                f"Piper model file not found: {model}. "
-                "Download a voice from Hugging Face (rhasspy/piper-voices) or run install.sh."
+                f"asl-tts binary not found ({binary}). Install the asl3-tts package."
+            )
+        voices_dir = _tts_voices_dir(config)
+        voice = str(getattr(tts, "voice", "") or "en_US-amy-low.onnx")
+        if not (voices_dir / voice).is_file():
+            warnings.append(
+                f"Piper voice not found: {voices_dir / voice}. "
+                "Install voices via asl3-tts or add .onnx + .onnx.json under "
+                f"{voices_dir}."
             )
 
     return warnings
@@ -219,22 +215,36 @@ class ConfigApiMixin:
                     raw if isinstance(raw, list) else [raw]
                 )
 
-            # Default Piper model path for UI: install script puts en_US-amy here (low or medium)
-            data_dir = self.config.data_dir
-            if data_dir:
-                base = Path(str(data_dir)).resolve().parent / "piper"
-                for name in ("en_US-amy-low.onnx", "en_US-amy-medium.onnx"):
-                    p = base / name
-                    if p.exists():
-                        serializable_config["piper_default_model_path"] = str(p)
-                        break
-                else:
-                    serializable_config["piper_default_model_path"] = str(
-                        base / "en_US-amy-low.onnx"
-                    )
-                serializable_config["piper_available_models"] = _list_piper_onnx_models(base)
-            else:
-                serializable_config["piper_available_models"] = []
+            # asl-tts voice catalog for configuration UI
+            voices_dir = _tts_voices_dir(self.config)
+            tts = self.config.audio.tts
+            default_voice = str(getattr(tts, "voice", "en_US-amy-low.onnx"))
+            voices_payload = build_voices_payload(
+                voices_dir=voices_dir,
+                default_voice=default_voice,
+            )
+            serializable_config["tts_voices"] = voices_payload
+            serializable_config["tts_voices_dir"] = voices_payload["voices_dir"]
+            serializable_config["tts_default_voice"] = voices_payload["default"]
+            serializable_config["tts_available_voices"] = list_voice_models(voices_dir)
+            serializable_config["tts_voice_regions"] = voices_payload["regions"]
+            serializable_config["piper_available_models"] = [
+                str(voices_dir / name) for name in serializable_config["tts_available_voices"]
+            ]
+            serializable_config["piper_default_model_path"] = str(voices_dir / default_voice)
+
+            # Suggest asl-tts node from first configured Asterisk node
+            nodes = getattr(getattr(self.config, "asterisk", None), "nodes", None) or []
+            default_node = getattr(tts, "node_number", None)
+            if default_node is None and nodes:
+                first = nodes[0]
+                if isinstance(first, int):
+                    default_node = first
+                elif isinstance(first, dict):
+                    default_node = first.get("number")
+                elif hasattr(first, "number"):
+                    default_node = first.number
+            serializable_config["tts_default_node_number"] = default_node or 1
 
             serializable_config["runtime_warnings"] = _collect_runtime_warnings(self.config)
             serializable_config["auth_uses_default_password"] = (

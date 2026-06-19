@@ -38,7 +38,7 @@ jobs:
       - name: Verify packages
         run: |
           ls -lh dist/debs/
-          test "$(ls -1 dist/debs/*.deb | wc -l)" -eq 3
+          test "$(ls -1 dist/debs/*.deb | wc -l)" -eq 1
           dpkg-deb -I dist/debs/skywarnplus-ng_*_amd64.deb | grep -E 'Depends|Package' | head -5
           dpkg-deb -x dist/debs/skywarnplus-ng_*_amd64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF

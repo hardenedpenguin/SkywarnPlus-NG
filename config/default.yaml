@@ -74,15 +74,16 @@ audio:
   separator_sound: "Woodblock.wav"
   temp_dir: "/tmp/skywarnplus-ng-audio"
   tts:
-    engine: "piper"  # Options: "piper" (default, local) or "gtts" (cloud)
+    engine: "asl-tts"  # Options: "asl-tts" (ASL3 Piper CLI, default) or "gtts" (cloud)
     # gTTS settings (only used when engine is "gtts")
     language: "en"
     tld: "com"
     slow: false
-    # Piper TTS settings (only used when engine is "piper"). Use en_US-amy-medium.onnx if installed with PIPER_QUALITY=medium.
-    # More .onnx voices: https://huggingface.co/rhasspy/piper-voices/tree/main (download .onnx + .onnx.json into the piper dir)
-    model_path: "/var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx"
-    speed: 1.0  # Speech speed for Piper (1.0 = normal, >1.0 = faster, <1.0 = slower)
+    # asl-tts settings (asl3-tts package; voices in /var/lib/piper-tts)
+    voice: "en_US-amy-low.onnx"
+    voices_dir: "/var/lib/piper-tts"
+    asl_tts_binary: "asl-tts"
+    node_number: 1  # AllStar node passed to asl-tts -n; set to your node number
     # Common settings
     output_format: "ulaw"  # ulaw format for Asterisk compatibility
     sample_rate: 8000  # 8kHz required for ulaw format

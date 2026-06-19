@@ -64,6 +64,11 @@ class TailMessageManager:
         # Ensure output directory exists
         self.tail_message_path.parent.mkdir(parents=True, exist_ok=True)
 
+    def sync_audio_config(self, audio_config: AudioConfig) -> None:
+        """Apply updated audio/TTS settings without recreating the manager."""
+        self.audio_config = audio_config
+        self.tts_engine = AudioManager._create_tts_engine(audio_config.tts)
+
     def _should_include_alert(self, alert: WeatherAlert) -> bool:
         """
         Check if an alert should be included in tail message.

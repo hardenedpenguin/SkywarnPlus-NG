@@ -24,7 +24,7 @@ ensure_asterisk_user() {
 }
 
 setup_directories() {
-    mkdir -p "${INSTALL_ROOT}/data" "${INSTALL_ROOT}/descriptions" "${INSTALL_ROOT}/audio" "${INSTALL_ROOT}/piper"
+    mkdir -p "${INSTALL_ROOT}/data" "${INSTALL_ROOT}/descriptions" "${INSTALL_ROOT}/audio"
     mkdir -p "${LOG_DIR}" "${TMP_AUDIO_DIR}"
     mkdir -p "${CONFIG_DIR}"
     mkdir -p /etc/asterisk/custom/rpt
