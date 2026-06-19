@@ -9,7 +9,7 @@ from skywarnplus_ng.core.config import AudioConfig, TTSConfig
 
 def _audio_config(tmp_path: Path, voice: str) -> AudioConfig:
     voices_dir = tmp_path / "piper-tts"
-    voices_dir.mkdir()
+    voices_dir.mkdir(parents=True, exist_ok=True)
     for name in ("en_US-amy-low.onnx", "en_US-ryan-medium.onnx"):
         (voices_dir / name).write_text("fake")
         (voices_dir / f"{name}.json").write_text("{}")
