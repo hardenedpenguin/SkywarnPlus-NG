@@ -2,37 +2,89 @@
 
 Prebuilt `.deb` packages for **AllStar Link 3** nodes. Supported architectures: **amd64** and **arm64** only. Install skips `pip` on the node.
 
+New installs and upgrades should use the **hardenedpenguin APT repository** or a `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — see [Migrating from tarball](#migrating-from-tarball-installsh-to-apt).
+
 ## Prerequisites
 
 - **asl3-asterisk** and **asl3-tts** (the package declares both as dependencies)
 - User **`asterisk`** present (from ASL3)
-- Piper voice models under **`/var/lib/piper-tts`** (installed by asl3-tts or supermon-ng)
+- Piper voice models under **`/var/lib/piper-tts`** (installed by asl3-tts, supermon-ng, or the dashboard voice catalog)
 - Outbound Internet for NWS API
 
-Runtime libraries are declared in the package (`libsndfile1`, `ffmpeg`, `sox`, etc.).
+Runtime libraries are declared in the package (`libsndfile1`, `ffmpeg`, `sox`, `wget`, etc.).
 
-## Install (release assets)
+## APT repository
 
-From [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases), pick your architecture:
+Published packages are in the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`stable`, **amd64** / **arm64**). New releases are published there automatically when a `v*` tag is pushed.
+
+One-time setup:
 
 ```bash
-sudo apt install ./skywarnplus-ng_1.3.3_amd64.deb
+cd /tmp
+curl -fsSLO https://hardenedpenguin.github.io/hardenedpenguin-apt/pool/main/h/hardenedpenguin-archive-keyring/hardenedpenguin-archive-keyring_1.0_all.deb
+sudo apt install ./hardenedpenguin-archive-keyring_1.0_all.deb
+sudo apt update
+```
+
+The `hardenedpenguin-archive-keyring` package installs the GPG key and `/etc/apt/sources.list.d/hardenedpenguin.list`.
+
+Install or upgrade:
+
+```bash
+sudo apt install skywarnplus-ng
+sudo systemctl enable --now skywarnplus-ng
+```
+
+## Install from GitHub Releases
+
+Download `skywarnplus-ng_*_<arch>.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases):
+
+```bash
+sudo apt install ./skywarnplus-ng_*_amd64.deb
 sudo systemctl status skywarnplus-ng
 ```
 
 Replace `amd64` with `arm64` on ARM nodes.
 
-## Migrating from tarball (`install.sh`)
+## Migrating from tarball (`install.sh`) to apt
 
-If SkywarnPlus-NG is already running from a release tarball, **stop the service before installing the deb**. The package refuses to configure while port 8100 is in use.
+Do **not** mix re-running `install.sh` and `dpkg` upgrades on the same tree. To move from a tarball install:
 
-```bash
-sudo systemctl stop skywarnplus-ng
-sudo apt install ./skywarnplus-ng_1.3.3_amd64.deb
-sudo systemctl enable --now skywarnplus-ng
-```
+1. **Back up** config and data (optional but recommended):
 
-You do **not** need to remove the old install, delete `config.yaml`, or wipe `/var/lib/skywarnplus-ng/data/`. The deb uses the same paths; config and alert history are preserved.
+   ```bash
+   sudo tar -czf /root/skywarnplus-ng-pre-apt-backup.tar.gz \
+     /etc/skywarnplus-ng/config.yaml \
+     /var/lib/skywarnplus-ng/data
+   ```
+
+2. **Stop** the service so port 8100 is free (the package refuses to configure while it is in use):
+
+   ```bash
+   sudo systemctl stop skywarnplus-ng
+   ```
+
+3. **Add the APT repository** if not already configured (see [APT repository](#apt-repository) above), then **install** the package:
+
+   ```bash
+   sudo apt install skywarnplus-ng
+   ```
+
+   Or install a `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) with `sudo apt install ./skywarnplus-ng_*_arm64.deb`.
+
+4. **Restore** is rarely needed — paths match the tarball layout. If something went wrong:
+
+   ```bash
+   sudo tar -xzf /root/skywarnplus-ng-pre-apt-backup.tar.gz -C /
+   ```
+
+5. **Enable and start:**
+
+   ```bash
+   sudo systemctl enable --now skywarnplus-ng
+   ```
+
+You do **not** need to remove the old tarball tree under `$HOME` or wipe `/var/lib/skywarnplus-ng/data/`. Config and alert history under `/etc/skywarnplus-ng/` and `/var/lib/skywarnplus-ng/data/` are preserved.
 
 ## Configuration
 
@@ -44,8 +96,17 @@ On first install, `config.yaml` is created from the shipped example. On upgrade,
 
 ## Upgrade
 
+**APT repository:**
+
 ```bash
-sudo apt install ./skywarnplus-ng_<new>_amd64.deb
+sudo apt update
+sudo apt install skywarnplus-ng
+```
+
+**Or** a newer `.deb` from Releases:
+
+```bash
+sudo apt install ./skywarnplus-ng_<new>_<arch>.deb
 ```
 
 The virtualenv is replaced; your config and data directory are kept.
@@ -60,15 +121,16 @@ sudo apt remove skywarnplus-ng
 
 ## vs tarball + install.sh
 
-| | Tarball `install.sh` | `.deb` |
-|--|---------------------|--------|
+| | Tarball `install.sh` (deprecated) | `.deb` |
+|--|-----------------------------------|--------|
 | pip on node | Yes | No |
 | TTS | asl3-tts + `/var/lib/piper-tts` | `Depends: asl3-tts` |
+| Voice install sudoers | Not reliably updated | Shipped in package |
 | Port 8100 check | Fails install if busy | Same (postinst) |
 | Apache setup | With warnings | Same |
 | ASL3 | Manual asterisk check | `Depends: asl3-asterisk` |
 
-Tarball install remains supported for development and non-Debian systems.
+Tarball `install.sh` remains in the repo for developers and non-Debian systems only.
 
 ## Build (maintainers)
 

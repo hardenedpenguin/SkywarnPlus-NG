@@ -11,50 +11,57 @@ Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDes
 
 Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Mason Nelson (N5LSN/WRKF394). Release notes: [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases).
 
+**Current release:** [v1.3.3](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.3.3)
+
+> **Install and upgrades:** SkywarnPlus-NG is moving to the **Debian `.deb` package** for new installs and updates. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — it remains for legacy sites but is no longer supported. Tarball installs do not reliably deploy package-managed files (for example voice-install sudoers, systemd units, and Apache snippets). See **[docs/debian.md](docs/debian.md)**. Existing tarball installs should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) rather than re-run `install.sh`.
+
 ## Install
 
-**Prerequisites:** 64-bit Linux (**amd64** or **arm64**), **Python 3.11+** (tarball install only), Asterisk with user **`asterisk`**, outbound Internet.
+**Prerequisites:** 64-bit Linux (**amd64** or **arm64**), **asl3-asterisk** with user **`asterisk`**, **asl3-tts**, outbound Internet for NWS.
 
-### Debian package (recommended on Debian/Ubuntu nodes)
+### APT repository (recommended)
 
-Prebuilt packages skip `pip install` on the node. Download from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (match your architecture):
+One-time setup adds the signing key and `sources.list` entry ([hardenedpenguin-apt](https://github.com/hardenedpenguin/hardenedpenguin-apt)). Supports **amd64** and **arm64**.
 
 ```bash
-sudo apt install ./skywarnplus-ng_1.3.3_amd64.deb
+cd /tmp
+curl -fsSLO https://hardenedpenguin.github.io/hardenedpenguin-apt/pool/main/h/hardenedpenguin-archive-keyring/hardenedpenguin-archive-keyring_1.0_all.deb
+sudo apt install ./hardenedpenguin-archive-keyring_1.0_all.deb
+sudo apt update
+sudo apt install skywarnplus-ng
 sudo systemctl enable --now skywarnplus-ng
 ```
 
-Replace `amd64` with `arm64` on ARM nodes. See **[docs/debian.md](docs/debian.md)** for upgrades and details.
-
-**Already running from a tarball?** Stop the service first so port 8100 is free, then install the deb — your config and data are kept:
+**Or** download `skywarnplus-ng_*_<arch>.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) and install locally — see **[docs/debian.md](docs/debian.md)** for details.
 
 ```bash
-sudo systemctl stop skywarnplus-ng
-sudo apt install ./skywarnplus-ng_1.3.3_amd64.deb
+sudo apt install ./skywarnplus-ng_*_amd64.deb
+# or: sudo dpkg -i skywarnplus-ng_*_amd64.deb && sudo apt-get install -f
 sudo systemctl enable --now skywarnplus-ng
 ```
 
-No need to remove the old tarball install or edit `config.yaml` first.
+Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatically on Apache nodes when present.
 
-### Release tarball
+**Dashboard:** `http://<host>/skywarnplus-ng/` (default login **`admin`** / **`skywarn123`** — change under **Configuration** immediately).
 
-Run **`install.sh` as a normal user** (not root) — it uses `sudo` where needed. Use an [official release tarball](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (includes pre-built dashboard CSS).
+**Config file:** `/etc/skywarnplus-ng/config.yaml` (UI saves here; restart after manual edits).
+
+<details>
+<summary><strong>Deprecated: release tarball + install.sh</strong></summary>
+
+Not recommended for new deployments. May miss package-managed files (sudoers for voice install, systemd, Apache conf).
 
 ```bash
 wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.3.3/skywarnplus-ng-1.3.3.tar.gz
 tar -xzf skywarnplus-ng-1.3.3.tar.gz
 cd skywarnplus-ng-1.3.3
 ./install.sh
-
 sudo systemctl enable --now skywarnplus-ng
-sudo systemctl status skywarnplus-ng
 ```
 
-**Dashboard:** `http://<host>/skywarnplus-ng/` (Apache proxy is installed automatically on Apache nodes). Default login **`admin`** / **`skywarn123`** — change under **Configuration** immediately.
-
-**Config file:** `/etc/skywarnplus-ng/config.yaml` (UI saves here; restart after manual edits).
-
 > **Low disk on `/tmp`?** The installer uses **`/var/tmp`** for pip (override with **`SKYWARN_TMPDIR`** if needed).
+
+</details>
 
 ## After install
 
@@ -68,11 +75,36 @@ The dashboard shows the **running version** so you can confirm what's live.
 
 ## Upgrade
 
-Extract a newer release tarball and run **`./install.sh`** again in the new directory. Your existing **`/etc/skywarnplus-ng/config.yaml`** is kept; an updated example is written to **`config.yaml.example`**. Then:
+**APT repository (recommended):** after the [one-time repo setup](#install) above:
 
 ```bash
+sudo apt update
+sudo apt install skywarnplus-ng
+```
+
+**Or** install a newer `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases):
+
+```bash
+sudo apt install ./skywarnplus-ng_*_amd64.deb
 sudo systemctl restart skywarnplus-ng
 ```
+
+Tarball sites should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) instead of re-running `install.sh`.
+
+<details>
+<summary><strong>Deprecated: release tarball + install.sh</strong></summary>
+
+Do not use on sites that can move to the `.deb`. Re-running `install.sh` runs `pip install` on the node and may skip new privileged scripts (for example `install-tts-voice.sh` and sudoers).
+
+```bash
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.3.3/skywarnplus-ng-1.3.3.tar.gz
+tar -xzf skywarnplus-ng-1.3.3.tar.gz
+cd skywarnplus-ng-1.3.3
+./install.sh
+sudo systemctl restart skywarnplus-ng
+```
+
+</details>
 
 ## Paths & CLI
 
@@ -91,12 +123,13 @@ journalctl -u skywarnplus-ng -f
 
 ## Reverse proxy
 
-The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path. Default **`base_path`** is **`/skywarnplus-ng`**. On Apache nodes, **`install.sh`** installs **`config/apache/skywarnplus-ng-proxy.conf`** and runs **`a2enconf`**. For **nginx** or Nginx Proxy Manager, see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**. For debugging without a proxy, the app listens on port **8100** locally (`http://127.0.0.1:8100/skywarnplus-ng/`); set **`base_path: ""`** if you expose **8100** directly.
+The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path. Default **`base_path`** is **`/skywarnplus-ng`**. On Apache nodes, the **`.deb`** installs **`config/apache/skywarnplus-ng-proxy.conf`** and runs **`a2enconf`**. For **nginx** or Nginx Proxy Manager, see **[nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md)**. For debugging without a proxy, the app listens on port **8100** locally (`http://127.0.0.1:8100/skywarnplus-ng/`); set **`base_path: ""`** if you expose **8100** directly.
 
 ## Documentation
 
 | Topic | Guide |
 |-------|--------|
+| Debian / APT install, migrate from tarball | **[docs/debian.md](docs/debian.md)** |
 | Push alerts, email, Discord, subscribers | **[docs/](docs/README.md)** |
 | NWS county codes | [CountyCodes.md](CountyCodes.md) |
 | nginx / NPM reverse proxy | [nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md) |
