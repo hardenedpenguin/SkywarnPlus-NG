@@ -46,6 +46,8 @@ from ..processing.workflows import (
 from ..processing.analytics import AlertAnalytics
 from ..location.mobile_counties import MobileCountyService
 from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
+from ..usgs.earthquake_service import EarthquakeEvent, UsgsEarthquakeService
+from ..wildfire.wfigs_service import WildfireIncident, WfigsWildfireService
 from ..playback.policy import PlaybackPolicy
 from ..notifications.factory import build_notification_manager
 from ..notifications.manager import NotificationManager
@@ -96,6 +98,8 @@ class SkywarnPlusApplication:
         self.mobile_county_service: Optional[MobileCountyService] = None
         self.playback_policy: Optional[PlaybackPolicy] = None
         self.nhc_service: Optional[NhcCycloneService] = None
+        self.earthquake_service: Optional[UsgsEarthquakeService] = None
+        self.wildfire_service: Optional[WfigsWildfireService] = None
         self.notification_manager: Optional[NotificationManager] = None
         self._delivery_processor_task: Optional[asyncio.Task] = None
         self.running = False
@@ -113,10 +117,16 @@ class SkywarnPlusApplication:
         self.mobile_county_service = MobileCountyService(self.config, self.nws_client)
         self.playback_policy = PlaybackPolicy(self.config.alerts)
         self.nhc_service = NhcCycloneService(self.config, self.mobile_county_service)
+        self.earthquake_service = UsgsEarthquakeService(self.config, self.mobile_county_service)
+        self.wildfire_service = WfigsWildfireService(self.config, self.mobile_county_service)
         if self.config.gpsd.enabled:
             logger.info("gpsd mobile county monitoring enabled")
         if self.config.nhc.enabled:
             logger.info("NHC tropical cyclone monitoring enabled")
+        if self.config.earthquake.enabled:
+            logger.info("USGS earthquake monitoring enabled")
+        if self.config.wildfire.enabled:
+            logger.info("NIFC wildfire monitoring enabled")
 
         # Test NWS connection
         if not await self.nws_client.test_connection():
@@ -279,6 +289,8 @@ class SkywarnPlusApplication:
         self.health_monitor.set_components(
             nws_client=self.nws_client,
             nhc_service=self.nhc_service,
+            earthquake_service=self.earthquake_service,
+            wildfire_service=self.wildfire_service,
             mobile_county_service=self.mobile_county_service,
             audio_manager=self.audio_manager,
             asterisk_manager=self.asterisk_manager,
@@ -558,6 +570,12 @@ class SkywarnPlusApplication:
         if self.nhc_service:
             await self.nhc_service.close()
 
+        if self.earthquake_service:
+            await self.earthquake_service.close()
+
+        if self.wildfire_service:
+            await self.wildfire_service.close()
+
         # Save final state (only if we initialized far enough to load it)
         if hasattr(self, "state") and self.state is not None:
             self.state_manager.save_state(self.state)
@@ -652,6 +670,10 @@ class SkywarnPlusApplication:
 
             # NHC tropical cyclone advisories (separate cadence)
             await self._handle_nhc_advisories()
+
+            # USGS earthquakes and NIFC wildfires (separate cadence)
+            await self._handle_earthquake_events()
+            await self._handle_wildfire_incidents()
 
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
@@ -1767,38 +1789,101 @@ class SkywarnPlusApplication:
             if await self._announce_cyclone(advisory):
                 self.nhc_service.mark_announced(advisory.advisory_key, self.state)
 
-    async def _announce_cyclone(self, advisory: CycloneAdvisory) -> bool:
-        """Announce an NHC tropical cyclone advisory on all configured nodes."""
-        logger.info(
-            "Announcing NHC advisory: %s %s (%s mi)",
-            advisory.storm_type,
-            advisory.name,
-            advisory.distance_miles,
-        )
+    async def _handle_earthquake_events(self) -> None:
+        """Poll USGS and announce new earthquakes within range."""
+        if not self.earthquake_service or not hasattr(self, "state") or self.state is None:
+            return
+        if not self.earthquake_service.should_poll():
+            return
+
+        events = await self.earthquake_service.poll(self.state)
+        for event in events:
+            if self.playback_policy:
+                allowed, reason = self.playback_policy.should_announce_geo_hazard()
+                if not allowed:
+                    logger.info(
+                        "Skipping earthquake %s (M%s): %s",
+                        event.event_id,
+                        event.magnitude,
+                        reason,
+                    )
+                    continue
+            if await self._announce_earthquake(event):
+                self.earthquake_service.mark_announced(event.announcement_key, self.state)
+                await self._notify_geo_hazard_broadcast(
+                    title=f"Earthquake M{event.magnitude}",
+                    message=event.tts_text,
+                )
+
+    async def _handle_wildfire_incidents(self) -> None:
+        """Poll WFIGS and announce new wildfire incidents within range."""
+        if not self.wildfire_service or not hasattr(self, "state") or self.state is None:
+            return
+        if not self.wildfire_service.should_poll():
+            return
+
+        incidents = await self.wildfire_service.poll(self.state)
+        for incident in incidents:
+            if self.playback_policy:
+                allowed, reason = self.playback_policy.should_announce_geo_hazard()
+                if not allowed:
+                    logger.info(
+                        "Skipping wildfire %s (%s): %s",
+                        incident.incident_id,
+                        incident.name,
+                        reason,
+                    )
+                    continue
+            if await self._announce_wildfire(incident):
+                self.wildfire_service.mark_announced(incident.announcement_key, self.state)
+                await self._notify_geo_hazard_broadcast(
+                    title=f"Wildfire: {incident.name}",
+                    message=incident.tts_text,
+                )
+
+    async def _notify_geo_hazard_broadcast(self, *, title: str, message: str) -> None:
+        """Email/webhook subscribers when a position-based hazard is announced on the air."""
+        if not self.notification_manager:
+            return
+        try:
+            await self.notification_manager.send_broadcast_notification(title, message)
+        except Exception as exc:
+            logger.warning("Geo hazard notification delivery failed: %s", exc)
+
+    async def _announce_position_hazard(
+        self,
+        *,
+        tts_text: str,
+        audio_prefix: str,
+        label: str,
+    ) -> bool:
+        """Announce a position-based hazard (cyclone/earthquake/wildfire) on all nodes."""
+        logger.info("Announcing %s", label)
 
         if not self.audio_manager:
-            logger.warning("Audio manager not available - skipping cyclone announcement")
+            logger.warning("Audio manager not available - skipping %s", label)
             return False
         if not self.asterisk_manager or not self.config.asterisk.enabled:
-            logger.warning("Asterisk not available - skipping cyclone announcement")
+            logger.warning("Asterisk not available - skipping %s", label)
             return False
         if not self.config.asterisk.nodes:
-            logger.warning("No Asterisk nodes configured - skipping cyclone announcement")
+            logger.warning("No Asterisk nodes configured - skipping %s", label)
             return False
 
         try:
             audio_path = self.audio_manager.generate_spoken_audio(
-                advisory.tts_text,
-                prefix=f"nhc_{advisory.atcf}",
+                tts_text,
+                prefix=audio_prefix,
             )
             if not audio_path or not audio_path.exists() or audio_path.stat().st_size == 0:
-                logger.error("Failed to generate cyclone audio for %s", advisory.name)
+                logger.error("Failed to generate audio for %s", label)
                 return False
 
             successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)
             if successful_nodes:
                 logger.info(
-                    "Cyclone advisory audio playing on %s nodes: %s",
+                    "%s audio playing on %s nodes: %s",
+                    label,
                     len(successful_nodes),
                     successful_nodes,
                 )
@@ -1806,11 +1891,38 @@ class SkywarnPlusApplication:
                     await asyncio.sleep(self.config.asterisk.audio_delay / 1000.0)
                 return True
 
-            logger.error("Failed to play cyclone audio on any nodes: %s", advisory.name)
+            logger.error("Failed to play audio on any nodes for %s", label)
             return False
         except Exception as e:
-            logger.error("Error announcing cyclone %s: %s", advisory.name, e, exc_info=True)
+            logger.error("Error announcing %s: %s", label, e, exc_info=True)
             return False
+
+    async def _announce_earthquake(self, event: EarthquakeEvent) -> bool:
+        return await self._announce_position_hazard(
+            tts_text=event.tts_text,
+            audio_prefix=f"usgs_{event.event_id.replace('.', '_')[:40]}",
+            label=f"earthquake M{event.magnitude} ({event.distance_miles} mi)",
+        )
+
+    async def _announce_wildfire(self, incident: WildfireIncident) -> bool:
+        prefix = (
+            self.wildfire_service.audio_prefix_for(incident.incident_id)
+            if self.wildfire_service
+            else f"wildfire_{incident.incident_id[:40]}"
+        )
+        return await self._announce_position_hazard(
+            tts_text=incident.tts_text,
+            audio_prefix=prefix,
+            label=f"wildfire {incident.name} ({incident.distance_miles} mi)",
+        )
+
+    async def _announce_cyclone(self, advisory: CycloneAdvisory) -> bool:
+        """Announce an NHC tropical cyclone advisory on all configured nodes."""
+        return await self._announce_position_hazard(
+            tts_text=advisory.tts_text,
+            audio_prefix=f"nhc_{advisory.atcf}",
+            label=f"NHC advisory {advisory.storm_type} {advisory.name} ({advisory.distance_miles} mi)",
+        )
 
     async def _announce_all_clear(self) -> None:
         """Announce all-clear message using TTS and Asterisk."""
@@ -1953,6 +2065,10 @@ class SkywarnPlusApplication:
             self.playback_policy.config = config.alerts
         if self.nhc_service:
             self.nhc_service.config = config
+        if self.earthquake_service:
+            self.earthquake_service.config = config
+        if self.wildfire_service:
+            self.wildfire_service.config = config
         if self.audio_manager:
             self.audio_manager.config = config.audio
             self.audio_manager.reload_tts_engine()
@@ -1970,6 +2086,8 @@ class SkywarnPlusApplication:
             self.health_monitor.set_components(
                 nws_client=self.nws_client,
                 nhc_service=self.nhc_service,
+                earthquake_service=self.earthquake_service,
+                wildfire_service=self.wildfire_service,
                 mobile_county_service=self.mobile_county_service,
                 audio_manager=self.audio_manager,
                 asterisk_manager=self.asterisk_manager,
@@ -1981,6 +2099,10 @@ class SkywarnPlusApplication:
             logger.info("gpsd mobile county monitoring enabled (config updated)")
         if config.nhc.enabled:
             logger.info("NHC tropical cyclone monitoring enabled (config updated)")
+        if config.earthquake.enabled:
+            logger.info("USGS earthquake monitoring enabled (config updated)")
+        if config.wildfire.enabled:
+            logger.info("NIFC wildfire monitoring enabled (config updated)")
 
         self._schedule_notification_manager_reload()
 
@@ -2037,6 +2159,10 @@ class SkywarnPlusApplication:
                     "nws_last_error_message": self.state.get("nws_last_error_message"),
                     "nhc_last_error_at": self.state.get("nhc_last_error_at"),
                     "nhc_last_error_message": self.state.get("nhc_last_error_message"),
+                    "usgs_last_error_at": self.state.get("usgs_last_error_at"),
+                    "usgs_last_error_message": self.state.get("usgs_last_error_message"),
+                    "wildfire_last_error_at": self.state.get("wildfire_last_error_at"),
+                    "wildfire_last_error_message": self.state.get("wildfire_last_error_message"),
                 }
             )
         else:
@@ -2050,6 +2176,10 @@ class SkywarnPlusApplication:
                     "nws_last_error_message": None,
                     "nhc_last_error_at": None,
                     "nhc_last_error_message": None,
+                    "usgs_last_error_at": None,
+                    "usgs_last_error_message": None,
+                    "wildfire_last_error_at": None,
+                    "wildfire_last_error_message": None,
                 }
             )
 
@@ -2116,5 +2246,23 @@ class SkywarnPlusApplication:
             except Exception as e:
                 logger.error(f"Failed to get NHC status: {e}")
                 status["nhc"] = {"enabled": self.config.nhc.enabled}
+
+        if self.earthquake_service and initialized:
+            try:
+                eq_status = self.earthquake_service.get_status(self.state)
+                eq_status["enabled"] = self.config.earthquake.enabled
+                status["earthquake"] = eq_status
+            except Exception as e:
+                logger.error(f"Failed to get earthquake status: {e}")
+                status["earthquake"] = {"enabled": self.config.earthquake.enabled}
+
+        if self.wildfire_service and initialized:
+            try:
+                wf_status = self.wildfire_service.get_status(self.state)
+                wf_status["enabled"] = self.config.wildfire.enabled
+                status["wildfire"] = wf_status
+            except Exception as e:
+                logger.error(f"Failed to get wildfire status: {e}")
+                status["wildfire"] = {"enabled": self.config.wildfire.enabled}
 
         return status

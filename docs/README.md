@@ -12,6 +12,7 @@ Guides for optional features beyond the install steps in the main [README](../RE
 | [Email](email.md) | SMTP setup, Gmail app passwords, subscriber email |
 | [SMS](sms.md) | Twilio text alerts for mobile nodes and subscriber phones |
 | [Subscribers](subscribers.md) | Filters, rate limits, storage, and delivery methods |
+| [Geo hazards](geo-hazards.md) | USGS earthquakes, NIFC wildfires, NHC cyclones, position setup |
 
 ## Other guides
 

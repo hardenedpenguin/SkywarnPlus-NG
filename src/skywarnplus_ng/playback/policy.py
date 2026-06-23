@@ -129,6 +129,12 @@ class PlaybackPolicy:
 
     def should_announce_cyclone(self, now: Optional[datetime] = None) -> tuple[bool, Optional[str]]:
         """Cyclone advisories respect quiet hours but not county hold signatures."""
+        return self.should_announce_geo_hazard(now)
+
+    def should_announce_geo_hazard(
+        self, now: Optional[datetime] = None
+    ) -> tuple[bool, Optional[str]]:
+        """Position-based hazards (cyclone, earthquake, wildfire) respect quiet hours."""
         now = now or datetime.now().astimezone()
         if self.is_quiet_hours_active(now):
             return False, "quiet_hours"

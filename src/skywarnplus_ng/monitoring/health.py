@@ -68,6 +68,8 @@ class HealthMonitor:
         # Component references (set during initialization)
         self.nws_client: Optional[NWSClient] = None
         self.nhc_service = None
+        self.earthquake_service = None
+        self.wildfire_service = None
         self.mobile_county_service = None
         self.audio_manager: Optional[AudioManager] = None
         self.asterisk_manager: Optional[AsteriskManager] = None
@@ -82,6 +84,8 @@ class HealthMonitor:
         self,
         nws_client: Optional[NWSClient] = None,
         nhc_service=None,
+        earthquake_service=None,
+        wildfire_service=None,
         mobile_county_service=None,
         audio_manager: Optional[AudioManager] = None,
         asterisk_manager: Optional[AsteriskManager] = None,
@@ -91,6 +95,8 @@ class HealthMonitor:
         """Set component references for health checking."""
         self.nws_client = nws_client
         self.nhc_service = nhc_service
+        self.earthquake_service = earthquake_service
+        self.wildfire_service = wildfire_service
         self.mobile_county_service = mobile_county_service
         self.audio_manager = audio_manager
         self.asterisk_manager = asterisk_manager
@@ -414,6 +420,112 @@ class HealthMonitor:
                 last_check=start_time,
             )
 
+    async def _check_position_hazard_health(
+        self,
+        *,
+        component_name: str,
+        enabled: bool,
+        service,
+        use_gps_position: bool,
+        state: Optional[Dict[str, Any]],
+        disabled_message: str,
+    ) -> ComponentHealth:
+        start_time = datetime.now(timezone.utc)
+
+        if not enabled:
+            return ComponentHealth(
+                name=component_name,
+                status=ComponentStatus.UNKNOWN,
+                message=disabled_message,
+                last_check=start_time,
+            )
+
+        if not service:
+            return ComponentHealth(
+                name=component_name,
+                status=ComponentStatus.UNKNOWN,
+                message=f"{component_name} service not initialized",
+                last_check=start_time,
+            )
+
+        try:
+            result = await asyncio.wait_for(
+                service.check_health(state or {}),
+                timeout=20.0,
+            )
+            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            details = result.get("details") or {}
+
+            if result.get("ok"):
+                return ComponentHealth(
+                    name=component_name,
+                    status=ComponentStatus.HEALTHY,
+                    message=str(result.get("message") or f"{component_name} OK"),
+                    last_check=start_time,
+                    response_time_ms=response_time,
+                    details=details,
+                )
+
+            message = str(result.get("message") or f"{component_name} health check failed")
+            if use_gps_position and self.config.gpsd.enabled and "GPS position" in message:
+                status = ComponentStatus.DEGRADED
+            elif (
+                "No position available" in message and use_gps_position and self.config.gpsd.enabled
+            ):
+                status = ComponentStatus.DEGRADED
+            else:
+                status = ComponentStatus.UNHEALTHY
+
+            return ComponentHealth(
+                name=component_name,
+                status=status,
+                message=message,
+                last_check=start_time,
+                response_time_ms=response_time,
+                details=details,
+            )
+        except asyncio.TimeoutError:
+            return ComponentHealth(
+                name=component_name,
+                status=ComponentStatus.UNHEALTHY,
+                message=f"{component_name} health check timeout",
+                last_check=start_time,
+                response_time_ms=20000.0,
+            )
+        except Exception as e:
+            return ComponentHealth(
+                name=component_name,
+                status=ComponentStatus.UNHEALTHY,
+                message=f"{component_name} error: {e}",
+                last_check=start_time,
+            )
+
+    async def check_earthquake_health(
+        self, state: Optional[Dict[str, Any]] = None
+    ) -> ComponentHealth:
+        """Check USGS earthquake feed and position health when enabled."""
+        return await self._check_position_hazard_health(
+            component_name="usgs_api",
+            enabled=self.config.earthquake.enabled,
+            service=self.earthquake_service,
+            use_gps_position=self.config.earthquake.use_gps_position,
+            state=state,
+            disabled_message="USGS earthquake monitoring disabled",
+        )
+
+    async def check_wildfire_health(
+        self, state: Optional[Dict[str, Any]] = None
+    ) -> ComponentHealth:
+        """Check WFIGS wildfire feed and position health when enabled."""
+        return await self._check_position_hazard_health(
+            component_name="wfigs_api",
+            enabled=self.config.wildfire.enabled,
+            service=self.wildfire_service,
+            use_gps_position=self.config.wildfire.use_gps_position,
+            state=state,
+            disabled_message="Wildfire monitoring disabled",
+        )
+
     async def get_health_status(self, state: Optional[Dict[str, Any]] = None) -> HealthStatus:
         """Get comprehensive health status."""
         start_time = datetime.now(timezone.utc)
@@ -428,6 +540,10 @@ class HealthMonitor:
         ]
         if self.config.nhc.enabled:
             check_coroutines.append(self.check_nhc_health(state))
+        if self.config.earthquake.enabled:
+            check_coroutines.append(self.check_earthquake_health(state))
+        if self.config.wildfire.enabled:
+            check_coroutines.append(self.check_wildfire_health(state))
 
         health_checks = await asyncio.gather(
             *check_coroutines,
@@ -471,6 +587,8 @@ class HealthMonitor:
             "scripts_enabled": self.config.scripts.enabled,
             "audio_enabled": True,  # Always enabled if audio_manager exists
             "nhc_enabled": self.config.nhc.enabled,
+            "earthquake_enabled": self.config.earthquake.enabled,
+            "wildfire_enabled": self.config.wildfire.enabled,
             "gpsd_enabled": self.config.gpsd.enabled,
         }
 

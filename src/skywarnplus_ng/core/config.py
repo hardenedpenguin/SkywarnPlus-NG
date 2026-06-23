@@ -378,6 +378,91 @@ class NhcConfig(BaseModel):
         return _empty_str_to_none(value)
 
 
+class EarthquakeConfig(BaseModel):
+    """USGS earthquake monitoring near a monitoring position."""
+
+    enabled: bool = Field(False, description="Enable USGS earthquake voice announcements")
+    poll_interval_minutes: int = Field(
+        10,
+        ge=1,
+        le=360,
+        description="Minimum minutes between USGS earthquake fetches",
+    )
+    min_magnitude: float = Field(
+        3.5,
+        ge=0.0,
+        le=10.0,
+        description="Minimum earthquake magnitude to announce",
+    )
+    max_distance_miles: int = Field(
+        75,
+        ge=1,
+        le=2000,
+        description="Only announce earthquakes within this distance",
+    )
+    lookback_hours: int = Field(
+        24,
+        ge=1,
+        le=168,
+        description="How far back to query USGS for recent events",
+    )
+    ignore_automatic_below: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=10.0,
+        description="Skip automatic-status events below this magnitude (null=announce all)",
+    )
+    use_gps_position: bool = Field(
+        True,
+        description="Use gpsd position when available; otherwise static_lat/static_lon",
+    )
+    static_lat: Optional[float] = Field(None, description="Fallback latitude when GPS unavailable")
+    static_lon: Optional[float] = Field(None, description="Fallback longitude when GPS unavailable")
+
+    @field_validator("static_lat", "static_lon", "ignore_automatic_below", mode="before")
+    @classmethod
+    def _coerce_earthquake_optional_fields(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
+
+class WildfireConfig(BaseModel):
+    """NIFC WFIGS wildfire incident monitoring near a monitoring position."""
+
+    enabled: bool = Field(False, description="Enable wildfire incident voice announcements")
+    poll_interval_minutes: int = Field(
+        15,
+        ge=5,
+        le=360,
+        description="Minimum minutes between WFIGS wildfire fetches",
+    )
+    max_distance_miles: int = Field(
+        50,
+        ge=1,
+        le=500,
+        description="Only announce wildfires within this distance",
+    )
+    min_acres: float = Field(
+        250,
+        ge=0,
+        description="Minimum fire size in acres to announce",
+    )
+    exclude_prescribed: bool = Field(
+        True,
+        description="Skip prescribed burns",
+    )
+    use_gps_position: bool = Field(
+        True,
+        description="Use gpsd position when available; otherwise static_lat/static_lon",
+    )
+    static_lat: Optional[float] = Field(None, description="Fallback latitude when GPS unavailable")
+    static_lon: Optional[float] = Field(None, description="Fallback longitude when GPS unavailable")
+
+    @field_validator("static_lat", "static_lon", mode="before")
+    @classmethod
+    def _coerce_wildfire_static_coords(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
+
 class ScriptConfig(BaseModel):
     """Script configuration for a specific alert type."""
 
@@ -705,6 +790,8 @@ class AppConfig(BaseSettings):
     dev: DevConfig = Field(default_factory=DevConfig)
     gpsd: GpsdConfig = Field(default_factory=GpsdConfig)
     nhc: NhcConfig = Field(default_factory=NhcConfig)
+    earthquake: EarthquakeConfig = Field(default_factory=EarthquakeConfig)
+    wildfire: WildfireConfig = Field(default_factory=WildfireConfig)
 
     @classmethod
     def from_yaml(cls, config_path=None) -> "AppConfig":

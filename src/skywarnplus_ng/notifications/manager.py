@@ -284,6 +284,17 @@ class NotificationManager:
 
         return {"success": sent_count > 0, "results": results, "sent_count": sent_count}
 
+    async def send_broadcast_notification(self, title: str, message: str) -> Dict[str, Any]:
+        """Notify subscribers and global webhooks with a general message."""
+        subscriber_result = await self.send_general_notification(title, message)
+        global_result = await self._send_global_general_webhooks(title, message)
+        return {
+            "success": subscriber_result.get("success", False)
+            or global_result.get("success", False),
+            "subscribers": subscriber_result,
+            "global_webhooks": global_result,
+        }
+
     async def send_general_notification(
         self,
         title: str,

@@ -32,6 +32,24 @@ class StatusApiMixin:
             ):
                 await nhc_service.refresh_tracked_storms_if_stale(self.app.state)
 
+            earthquake_service = getattr(self.app, "earthquake_service", None)
+            if (
+                earthquake_service
+                and self.config.earthquake.enabled
+                and hasattr(self.app, "state")
+                and self.app.state is not None
+            ):
+                await earthquake_service.refresh_tracked_events_if_stale(self.app.state)
+
+            wildfire_service = getattr(self.app, "wildfire_service", None)
+            if (
+                wildfire_service
+                and self.config.wildfire.enabled
+                and hasattr(self.app, "state")
+                and self.app.state is not None
+            ):
+                await wildfire_service.refresh_tracked_incidents_if_stale(self.app.state)
+
             status = self.app.get_status()
 
             # Get active alerts for Supermon compatibility
@@ -240,7 +258,14 @@ class StatusApiMixin:
                     return str(obj)
                 return obj
 
-            for key in ("last_poll", "last_all_clear", "nws_last_error_at", "nhc_last_error_at"):
+            for key in (
+                "last_poll",
+                "last_all_clear",
+                "nws_last_error_at",
+                "nhc_last_error_at",
+                "usgs_last_error_at",
+                "wildfire_last_error_at",
+            ):
                 if key in status and status[key] is not None:
                     status[key] = _json_friendly(status[key])
 

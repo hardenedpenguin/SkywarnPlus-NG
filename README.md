@@ -131,6 +131,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 |-------|--------|
 | Debian / APT install, migrate from tarball | **[docs/debian.md](docs/debian.md)** |
 | Push alerts, email, Discord, subscribers | **[docs/](docs/README.md)** |
+| Earthquakes, wildfires, NHC by position | **[docs/geo-hazards.md](docs/geo-hazards.md)** |
 | NWS county codes | [CountyCodes.md](CountyCodes.md) |
 | nginx / NPM reverse proxy | [nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md) |
 
@@ -141,6 +142,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 - Web dashboard with live status, health, logs, and configuration
 - **PushOver** (global) and **Discord webhooks** (per-subscriber filters) on new alerts — see [docs/notifications-overview.md](docs/notifications-overview.md)
 - Optional GPS mobile counties, quiet hours, NHC tropical cyclone advisories (1.1+)
+- **USGS earthquakes** and **NIFC wildfire incidents** by position (1.4+) — see [docs/geo-hazards.md](docs/geo-hazards.md)
 
 ## DTMF
 

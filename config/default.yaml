@@ -131,6 +131,29 @@ nhc:
   static_lat: null
   static_lon: null
 
+# USGS earthquake announcements (separate from NWS alerts)
+earthquake:
+  enabled: false
+  poll_interval_minutes: 10
+  min_magnitude: 3.5
+  max_distance_miles: 75
+  lookback_hours: 24
+  ignore_automatic_below: null  # e.g. 4.5 to skip low-confidence automatic events
+  use_gps_position: true
+  static_lat: null
+  static_lon: null
+
+# NIFC wildfire incident announcements (active fire perimeters)
+wildfire:
+  enabled: false
+  poll_interval_minutes: 15
+  max_distance_miles: 50
+  min_acres: 250
+  exclude_prescribed: true
+  use_gps_position: true
+  static_lat: null
+  static_lon: null
+
 # Script execution
 scripts:
   enabled: true

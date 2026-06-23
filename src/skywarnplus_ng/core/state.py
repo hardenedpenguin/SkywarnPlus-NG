@@ -108,6 +108,12 @@ class ApplicationState:
             "id": None,  # Current identifier
             "announcement_cooldown": {},  # event|counties signature -> last announce ISO time
             "nhc_announced_advisories": [],  # NHC advisory keys already voiced
+            "usgs_last_error_at": None,
+            "usgs_last_error_message": None,
+            "usgs_announced_events": [],  # USGS earthquake IDs already voiced
+            "wildfire_last_error_at": None,
+            "wildfire_last_error_message": None,
+            "wildfire_announced_incidents": [],  # WFIGS incident IDs already voiced
             "version": "1.0.4",  # State file version
         }
 
