@@ -391,6 +391,18 @@ class ConfigApiMixin:
                             if data["nhc"][coord].strip() == "":
                                 data["nhc"][coord] = None
 
+                for section in ("earthquake", "wildfire"):
+                    if section in data and isinstance(data[section], dict):
+                        block = data[section]
+                        for coord in ("static_lat", "static_lon"):
+                            if coord in block and isinstance(block[coord], str):
+                                if block[coord].strip() == "":
+                                    block[coord] = None
+                        if section == "earthquake":
+                            below = block.get("ignore_automatic_below")
+                            if isinstance(below, str) and below.strip() == "":
+                                block["ignore_automatic_below"] = None
+
                 if "gpsd" in data and isinstance(data["gpsd"], dict):
                     acc = data["gpsd"].get("min_accuracy_meters")
                     if isinstance(acc, str) and acc.strip() == "":
@@ -411,6 +423,17 @@ class ConfigApiMixin:
                         "poll_interval_minutes": 60,
                         "max_distance_miles": 1000,
                         "max_advisory_age_hours": 4,
+                    },
+                    "earthquake": {
+                        "poll_interval_minutes": 10,
+                        "min_magnitude": 3.5,
+                        "max_distance_miles": 75,
+                        "lookback_hours": 24,
+                    },
+                    "wildfire": {
+                        "poll_interval_minutes": 15,
+                        "max_distance_miles": 50,
+                        "min_acres": 250,
                     },
                     "scripts": {"default_timeout": 30},
                     "database": {

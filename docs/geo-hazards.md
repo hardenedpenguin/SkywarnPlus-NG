@@ -16,9 +16,10 @@ Fire weather forecasts are NWS alerts. The wildfire section tracks **active fire
 
 ## Requirements
 
-1. **Position** — enable **gpsd** or set **static latitude/longitude** for each hazard type you enable.
-2. **Asterisk / asl-tts** — voice announcements use the same TTS pipeline as weather alerts.
-3. **Optional notifications** — when email, Pushover, or global webhooks are configured, subscribers receive a broadcast when an earthquake or wildfire is announced on the air (same as general notifications, not county-filtered NWS alerts).
+1. **Enable per feature** — each of NHC, earthquakes, and wildfires has its own **Enable** checkbox in Configuration (all default to off). Uncheck and save to stop polling and voice alerts for that hazard type.
+2. **Position** — enable **gpsd** or set **static latitude/longitude** for each hazard type you enable.
+3. **Asterisk / asl-tts** — voice announcements use the same TTS pipeline as weather alerts.
+4. **Optional notifications** — when email, Pushover, or global webhooks are configured, subscribers receive a broadcast when an earthquake or wildfire is announced on the air (same as general notifications, not county-filtered NWS alerts).
 
 ## USGS earthquakes
 

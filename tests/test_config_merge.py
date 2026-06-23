@@ -16,6 +16,22 @@ def test_deep_merge_preserves_skydescribe_when_absent_from_overlay() -> None:
     assert merged["alerts"]["say_all_clear"] is True
 
 
+def test_deep_merge_geo_hazard_enabled_false_overrides_base() -> None:
+    base = {
+        "earthquake": {"enabled": True, "max_distance_miles": 3000},
+        "wildfire": {"enabled": True, "min_acres": 250},
+    }
+    overlay = {
+        "earthquake": {"enabled": False},
+        "wildfire": {"enabled": False},
+    }
+    merged = deep_merge_dict(base, overlay)
+    assert merged["earthquake"]["enabled"] is False
+    assert merged["earthquake"]["max_distance_miles"] == 3000
+    assert merged["wildfire"]["enabled"] is False
+    assert merged["wildfire"]["min_acres"] == 250
+
+
 def test_redact_config_strips_secrets() -> None:
     data = {
         "monitoring": {
