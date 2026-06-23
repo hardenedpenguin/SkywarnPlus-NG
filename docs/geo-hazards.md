@@ -64,6 +64,11 @@ wildfire:
 - Each incident is announced **once**.
 - Respects quiet hours.
 
+**Tuning tips**
+
+- Rural / mountain West: try `max_distance_miles: 150–500` with higher `min_acres` to limit chatter.
+- Wide-area monitoring (dashboard + occasional distant large fires): up to **5000** miles (same cap as NHC/earthquake).
+
 ## Dashboard and health
 
 - **Dashboard** — sections appear when each feature is enabled; warnings show if the last poll failed.

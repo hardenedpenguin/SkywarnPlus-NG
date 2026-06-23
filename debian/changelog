@@ -1,3 +1,9 @@
+skywarnplus-ng (1.4.1-1) unstable; urgency=medium
+
+  * Raise earthquake and wildfire max_distance_miles validation cap to 5000 miles.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Mon, 22 Jun 2026 21:35:00 -0500
+
 skywarnplus-ng (1.4.0-1) unstable; urgency=medium
 
   * Add USGS earthquake and NIFC wildfire position-based voice alerts.

@@ -33,6 +33,22 @@ def test_app_config_accepts_empty_geo_hazard_coords():
     assert config.wildfire.static_lon is None
 
 
+def test_earthquake_config_allows_large_distance_radius():
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        earthquake={"enabled": True, "max_distance_miles": 3000},
+    )
+    assert config.earthquake.max_distance_miles == 3000
+
+
+def test_wildfire_config_allows_large_distance_radius():
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        wildfire={"enabled": True, "max_distance_miles": 750},
+    )
+    assert config.wildfire.max_distance_miles == 750
+
+
 def test_default_yaml_includes_geo_hazard_sections():
     config = AppConfig.from_yaml(Path("config/default.yaml"))
     assert config.earthquake.enabled is False

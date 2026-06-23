@@ -397,7 +397,7 @@ class EarthquakeConfig(BaseModel):
     max_distance_miles: int = Field(
         75,
         ge=1,
-        le=2000,
+        le=5000,
         description="Only announce earthquakes within this distance",
     )
     lookback_hours: int = Field(
@@ -438,7 +438,7 @@ class WildfireConfig(BaseModel):
     max_distance_miles: int = Field(
         50,
         ge=1,
-        le=500,
+        le=5000,
         description="Only announce wildfires within this distance",
     )
     min_acres: float = Field(
