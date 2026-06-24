@@ -12,11 +12,7 @@ from urllib.parse import urlparse
 
 def _is_blocked_ip(ip: ipaddress._BaseAddress) -> bool:
     return bool(
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
+        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
     )
 
 

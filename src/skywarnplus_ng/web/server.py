@@ -517,7 +517,9 @@ class WebDashboard(
 
         return wrapper
 
-    def _configure_dashboard_app(self, app: web.Application, base_path: str, mount_prefix: str) -> None:
+    def _configure_dashboard_app(
+        self, app: web.Application, base_path: str, mount_prefix: str
+    ) -> None:
         """Attach session, auth middleware, and routes to a dashboard application."""
         app["base_path"] = base_path
         app["mount_prefix"] = mount_prefix

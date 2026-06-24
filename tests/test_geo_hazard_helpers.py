@@ -90,9 +90,7 @@ async def test_poll_caps_announcements_per_cycle(monkeypatch):
     service = UsgsEarthquakeService(
         _eq_config(max_announcements_per_cycle=1, announce_history_on_enable=True)
     )
-    events = [
-        _sample_event(event_id=f"eq{i}", announcement_key=f"eq{i}") for i in range(3)
-    ]
+    events = [_sample_event(event_id=f"eq{i}", announcement_key=f"eq{i}") for i in range(3)]
 
     async def fake_fetch(_position):
         return {"features": []}

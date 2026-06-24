@@ -59,9 +59,7 @@ class ScriptManager:
 
         return await self._execute_script(script_config, alert, "alert")
 
-    def _resolve_script_args(
-        self, args: List[str], alert: Optional[WeatherAlert]
-    ) -> List[str]:
+    def _resolve_script_args(self, args: List[str], alert: Optional[WeatherAlert]) -> List[str]:
         if not args:
             return []
         if alert is None:
@@ -174,13 +172,9 @@ class ScriptManager:
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
             except asyncio.TimeoutError:
-                logger.error(
-                    f"Script timed out after {timeout}s: {script_config.command}"
-                )
+                logger.error(f"Script timed out after {timeout}s: {script_config.command}")
                 process.kill()
                 await process.wait()
                 self._record_execution(script_config, alert, script_type, False, "Timeout", "")

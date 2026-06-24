@@ -290,9 +290,7 @@ class AsteriskManager:
             )
 
             playback_cwd = (
-                audio_path.parent
-                if audio_path.parent.exists()
-                else Path("/var/lib/skywarnplus-ng")
+                audio_path.parent if audio_path.parent.exists() else Path("/var/lib/skywarnplus-ng")
             )
             return_code, stdout, stderr = await self._run_asterisk_command(
                 command,

@@ -71,12 +71,17 @@ def test_path_requires_auth_with_base_path_prefix() -> None:
     bp = "/skywarnplus-ng"
     assert not path_requires_auth(f"{bp}/login", "GET", auth_enabled=True, base_path=bp)
     assert not path_requires_auth(f"{bp}/alerts/history", "GET", auth_enabled=True, base_path=bp)
-    assert not path_requires_auth(f"{bp}/api/alerts/history", "GET", auth_enabled=True, base_path=bp)
+    assert not path_requires_auth(
+        f"{bp}/api/alerts/history", "GET", auth_enabled=True, base_path=bp
+    )
     assert path_requires_auth(f"{bp}/configuration", "GET", auth_enabled=True, base_path=bp)
 
 
 def test_external_path_for_request() -> None:
-    assert external_path_for_request("/configuration", "/skywarnplus-ng") == "/skywarnplus-ng/configuration"
+    assert (
+        external_path_for_request("/configuration", "/skywarnplus-ng")
+        == "/skywarnplus-ng/configuration"
+    )
     assert external_path_for_request("/login", "") == "/login"
 
 

@@ -72,10 +72,7 @@ class UsgsEarthquakeService:
         eq = self.config.earthquake
         lat, lon = position
         max_km = round(eq.max_distance_miles * 1.60934, 1)
-        return (
-            f"usgs:{lat:.4f}:{lon:.4f}:{eq.lookback_hours}:"
-            f"{eq.min_magnitude}:{max_km}"
-        )
+        return f"usgs:{lat:.4f}:{lon:.4f}:{eq.lookback_hours}:{eq.min_magnitude}:{max_km}"
 
     async def close(self) -> None:
         await self._client.aclose()

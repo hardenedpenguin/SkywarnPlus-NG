@@ -910,9 +910,7 @@ class SkywarnPlusApplication:
 
         self.state_manager._bound_tracking_lists(self.state)
 
-    def _apply_global_alert_filters(
-        self, alerts: List[WeatherAlert]
-    ) -> List[WeatherAlert]:
+    def _apply_global_alert_filters(self, alerts: List[WeatherAlert]) -> List[WeatherAlert]:
         """Apply configured global blocked-event patterns and max alert cap."""
         blocked = self.config.filtering.blocked_events or []
         if blocked:

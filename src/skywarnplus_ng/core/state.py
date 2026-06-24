@@ -171,7 +171,9 @@ class ApplicationState:
             current = aliases[current]
         return current
 
-    def _is_still_active_id(self, state: Dict[str, Any], alert_id: str, current_ids: Set[str]) -> bool:
+    def _is_still_active_id(
+        self, state: Dict[str, Any], alert_id: str, current_ids: Set[str]
+    ) -> bool:
         if alert_id in current_ids:
             return True
         canonical = self.resolve_alert_id(state, alert_id)
@@ -362,9 +364,7 @@ class ApplicationState:
         current_ids = {alert.id for alert in current_alerts}
         existing_ids = self.get_alert_ids(state)
         expired_ids = [
-            eid
-            for eid in existing_ids
-            if not self._is_still_active_id(state, eid, current_ids)
+            eid for eid in existing_ids if not self._is_still_active_id(state, eid, current_ids)
         ]
 
         logger.debug(f"Found {len(expired_ids)} expired alerts")
