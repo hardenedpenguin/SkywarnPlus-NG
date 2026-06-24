@@ -423,17 +423,22 @@ class ConfigApiMixin:
                         "poll_interval_minutes": 60,
                         "max_distance_miles": 1000,
                         "max_advisory_age_hours": 4,
+                        "max_announcements_per_cycle": 3,
                     },
                     "earthquake": {
                         "poll_interval_minutes": 10,
                         "min_magnitude": 3.5,
                         "max_distance_miles": 75,
                         "lookback_hours": 24,
+                        "max_event_age_hours": 6,
+                        "max_announcements_per_cycle": 3,
                     },
                     "wildfire": {
                         "poll_interval_minutes": 15,
                         "max_distance_miles": 50,
                         "min_acres": 250,
+                        "max_discovery_age_hours": 48,
+                        "max_announcements_per_cycle": 3,
                     },
                     "scripts": {"default_timeout": 30},
                     "database": {

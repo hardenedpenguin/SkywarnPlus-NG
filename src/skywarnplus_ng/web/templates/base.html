@@ -581,18 +581,21 @@
                         <span class="sidebar-label">Activity</span>
                     </a>
                 </li>
+                {% if is_authenticated|default(false) %}
                 <li>
                     <a href="{{ base_path|default('') }}/configuration" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'configuration' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'configuration' %}aria-current="page"{% endif %} title="Configuration">
                         <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path></svg>
                         <span class="sidebar-label">Configuration</span>
                     </a>
                 </li>
+                {% endif %}
                 <li>
                     <a href="{{ base_path|default('') }}/health" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'health' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'health' %}aria-current="page"{% endif %} title="System Health">
                         <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"></path></svg>
                         <span class="sidebar-label">System Health</span>
                     </a>
                 </li>
+                {% if is_authenticated|default(false) %}
                 <li>
                     <a href="{{ base_path|default('') }}/logs" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'logs' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'logs' %}aria-current="page"{% endif %} title="Logs">
                         <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
@@ -605,6 +608,7 @@
                         <span class="sidebar-label">Database</span>
                     </a>
                 </li>
+                {% endif %}
                 <li>
                     <a href="{{ base_path|default('') }}/metrics" class="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 {% if page == 'metrics' %}bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400{% endif %}" {% if page == 'metrics' %}aria-current="page"{% endif %} title="Metrics">
                         <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
@@ -620,11 +624,16 @@
                         <svg id="sidebar-moon-icon" class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
                         <span class="sidebar-label">Toggle Theme</span>
                     </button>
-                    {% if is_authenticated %}
+                    {% if is_authenticated|default(false) %}
                     <button type="button" onclick="logout()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-left" aria-label="Log out" title="Log out">
                         <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"></path></svg>
                         <span class="sidebar-label">Logout</span>
                     </button>
+                    {% else %}
+                    <a href="{{ base_path|default('') }}/login" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400" title="Sign in">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                        <span class="sidebar-label">Sign in</span>
+                    </a>
                     {% endif %}
                 </div>
             </div>
@@ -737,6 +746,16 @@
         }
 
         const NOTIFICATION_MAX = 3;
+        function escHtml(str) {
+            if (str == null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function showNotification(message, type, duration, opts) {
             if (typeof type !== 'string') type = 'info';
             if (typeof duration !== 'number') duration = 5000;
@@ -753,7 +772,7 @@
             const row = document.createElement('div');
             row.className = 'flex items-center justify-between gap-3 flex-wrap';
             const msg = document.createElement('span');
-            msg.innerHTML = esc(message);
+            msg.innerHTML = escHtml(message);
             const actions = document.createElement('span');
             actions.className = 'flex items-center gap-2';
             if (type === 'error' && typeof opts.retry === 'function') {
@@ -794,6 +813,10 @@
             // Only use the template base_path - no auto-detection to avoid false positives
             // If base_path is empty, we're running directly and don't need a prefix
             return templateBasePath;
+        }
+
+        function isUserAuthenticated() {
+            return {{ 'true' if is_authenticated|default(false) else 'false' }};
         }
 
         // API helper with user-friendly error messages

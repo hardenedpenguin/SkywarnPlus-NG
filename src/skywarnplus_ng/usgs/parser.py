@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from ..geo_hazard.tts import sanitize_for_tts
 from ..nhc.parser import haversine_miles
 
 
@@ -33,7 +34,7 @@ class ParsedEarthquake:
         tsunami_part = " Tsunami information is available for this event." if self.tsunami else ""
         return (
             f"Earthquake magnitude {mag_str}, {self.distance_miles} miles from your position, "
-            f"{self.place}{depth_part}.{tsunami_part}"
+            f"{sanitize_for_tts(self.place)}{depth_part}.{tsunami_part}"
         ).strip()
 
 

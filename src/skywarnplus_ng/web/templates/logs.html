@@ -123,7 +123,7 @@
             const colorClass = getLogLevelColor(level);
             const formattedEntry = formatLogEntry(entry);
             
-            return `<div class="${colorClass}">${formattedEntry}</div>`;
+            return `<div class="${colorClass}">${escHtml(formattedEntry)}</div>`;
         }).join('');
 
         container.innerHTML = logsHtml;

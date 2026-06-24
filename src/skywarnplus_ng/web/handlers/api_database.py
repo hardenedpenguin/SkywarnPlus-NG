@@ -83,6 +83,15 @@ class DatabaseApiMixin:
             except Exception:
                 data = {}
             days = data.get("days", 30)
+            try:
+                days = int(days)
+            except (TypeError, ValueError):
+                return web.json_response({"error": "days must be an integer"}, status=400)
+            if days < 1 or days > 3650:
+                return web.json_response(
+                    {"error": "days must be between 1 and 3650"},
+                    status=400,
+                )
 
             cleanup_stats = await self.app.database_manager.cleanup_old_data(days)
             return web.json_response(

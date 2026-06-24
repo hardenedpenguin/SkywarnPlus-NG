@@ -10,6 +10,13 @@ from urllib.parse import urlencode
 
 import httpx
 
+from ..geo_hazard.fetch_cache import GeoFetchCache
+from ..geo_hazard.position_health import (
+    append_gps_health_details,
+    missing_position_message,
+    position_source_label,
+)
+from ..geo_hazard.tts import sanitize_for_tts
 from ..location.position import get_monitoring_position
 from .parser import ParsedEarthquake, parse_earthquake_collection
 
@@ -56,6 +63,19 @@ class UsgsEarthquakeService:
         self._last_fetch_ok_at: Optional[datetime] = None
         self._last_error_message: Optional[str] = None
         self._last_display_refresh_at: Optional[datetime] = None
+        self._fetch_cache = GeoFetchCache.shared()
+
+    def sync_http_client_user_agent(self) -> None:
+        self._client.headers["User-Agent"] = self.config.nws.user_agent
+
+    def _cache_key(self, position: Tuple[float, float]) -> str:
+        eq = self.config.earthquake
+        lat, lon = position
+        max_km = round(eq.max_distance_miles * 1.60934, 1)
+        return (
+            f"usgs:{lat:.4f}:{lon:.4f}:{eq.lookback_hours}:"
+            f"{eq.min_magnitude}:{max_km}"
+        )
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -97,6 +117,16 @@ class UsgsEarthquakeService:
         return f"{USGS_EVENT_API}?{urlencode(params)}"
 
     async def fetch_events_geojson(self, position: Tuple[float, float]) -> Optional[dict[str, Any]]:
+        cache_key = self._cache_key(position)
+
+        async def _fetch() -> Optional[dict[str, Any]]:
+            return await self._fetch_events_geojson_uncached(position)
+
+        return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
+
+    async def _fetch_events_geojson_uncached(
+        self, position: Tuple[float, float]
+    ) -> Optional[dict[str, Any]]:
         url = self._build_query_url(position)
         try:
             response = await self._client.get(url)
@@ -128,11 +158,18 @@ class UsgsEarthquakeService:
         state["usgs_last_error_at"] = None
         state["usgs_last_error_message"] = None
 
+    def _event_within_age(self, event: ParsedEarthquake, now: Optional[datetime] = None) -> bool:
+        now = now or datetime.now(timezone.utc)
+        max_age = timedelta(hours=self.config.earthquake.max_event_age_hours)
+        return (now - event.time_utc) <= max_age
+
     def _passes_filters(self, event: ParsedEarthquake) -> bool:
         eq = self.config.earthquake
         if event.magnitude < eq.min_magnitude:
             return False
         if event.distance_miles > eq.max_distance_miles:
+            return False
+        if not self._event_within_age(event):
             return False
         threshold = eq.ignore_automatic_below
         if threshold is not None and event.status == "automatic" and event.magnitude < threshold:
@@ -152,6 +189,28 @@ class UsgsEarthquakeService:
         if announcement_key not in announced:
             announced.append(announcement_key)
         state["usgs_announced_events"] = announced[-500:]
+
+    def _maybe_seed_announced_history(
+        self,
+        events: List[ParsedEarthquake],
+        state: Dict[str, Any],
+    ) -> None:
+        if state.get("usgs_history_seeded"):
+            return
+        eq = self.config.earthquake
+        seeded = 0
+        if not eq.announce_history_on_enable:
+            for event in events:
+                if self._passes_filters(event):
+                    self.mark_announced(event.announcement_key, state)
+                    seeded += 1
+            if seeded:
+                logger.info(
+                    "USGS: seeded %s existing earthquake(s) as announced "
+                    "(announce_history_on_enable=false)",
+                    seeded,
+                )
+        state["usgs_history_seeded"] = True
 
     def select_new_events(
         self,
@@ -182,7 +241,7 @@ class UsgsEarthquakeService:
                 EarthquakeEvent(
                     event_id=event.event_id,
                     magnitude=event.magnitude,
-                    place=event.place,
+                    place=sanitize_for_tts(event.place),
                     distance_miles=event.distance_miles,
                     announcement_key=event.announcement_key,
                     tts_text=event.tts_text,
@@ -198,17 +257,46 @@ class UsgsEarthquakeService:
         details: Dict[str, Any] = {
             "min_magnitude": self.config.earthquake.min_magnitude,
             "max_distance_miles": self.config.earthquake.max_distance_miles,
+            "max_event_age_hours": self.config.earthquake.max_event_age_hours,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "tracked_events": len(self._tracked_events),
         }
 
+        eq = self.config.earthquake
         position = self.get_position()
         if position:
             details["position"] = {"lat": position[0], "lon": position[1]}
+            details["position_source"] = position_source_label(
+                use_gps_position=eq.use_gps_position,
+                static_lat=eq.static_lat,
+                static_lon=eq.static_lon,
+                mobile_service=self.mobile_service,
+                gpsd_enabled=self.config.gpsd.enabled,
+            )
+            append_gps_health_details(
+                details,
+                use_gps_position=eq.use_gps_position,
+                gpsd_enabled=self.config.gpsd.enabled,
+                mobile_service=self.mobile_service,
+                position=position,
+            )
         else:
+            details["position"] = None
+            details["position_source"] = "none"
+            append_gps_health_details(
+                details,
+                use_gps_position=eq.use_gps_position,
+                gpsd_enabled=self.config.gpsd.enabled,
+                mobile_service=self.mobile_service,
+                position=None,
+            )
             return {
                 "ok": False,
-                "message": "No position available (enable gpsd or set static lat/lon)",
+                "message": missing_position_message(
+                    use_gps_position=eq.use_gps_position,
+                    gpsd_enabled=self.config.gpsd.enabled,
+                    mobile_service=self.mobile_service,
+                ),
                 "details": details,
             }
 
@@ -243,7 +331,7 @@ class UsgsEarthquakeService:
             return
 
         data = await self.fetch_events_geojson(position)
-        self._last_display_refresh_at = now
+        self._last_display_refresh_at = datetime.now(timezone.utc)
         if not data:
             return
 
@@ -251,7 +339,6 @@ class UsgsEarthquakeService:
         self.select_new_events(events, state)
 
     async def poll(self, state: Dict[str, Any]) -> List[EarthquakeEvent]:
-        self._last_poll_at = datetime.now(timezone.utc)
         if not self.config.earthquake.enabled:
             self._tracked_events = []
             return []
@@ -272,9 +359,19 @@ class UsgsEarthquakeService:
             return []
 
         events = parse_earthquake_collection(data, origin_lat=position[0], origin_lon=position[1])
+        self._maybe_seed_announced_history(events, state)
         selected = self.select_new_events(events, state)
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
+        cap = self.config.earthquake.max_announcements_per_cycle
+        if len(selected) > cap:
+            logger.info(
+                "USGS: deferring %s earthquake(s) to later poll cycles (cap=%s)",
+                len(selected) - cap,
+                cap,
+            )
+            selected = selected[:cap]
         if selected:
             logger.info(
                 "USGS: %s new earthquake(s) within %s miles (M>=%s)",
@@ -293,6 +390,10 @@ class UsgsEarthquakeService:
             "min_magnitude": eq.min_magnitude,
             "max_distance_miles": eq.max_distance_miles,
             "lookback_hours": eq.lookback_hours,
+            "max_event_age_hours": eq.max_event_age_hours,
+            "max_announcements_per_cycle": eq.max_announcements_per_cycle,
+            "announce_history_on_enable": eq.announce_history_on_enable,
+            "history_seeded": bool(state.get("usgs_history_seeded")),
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "position": ({"lat": position[0], "lon": position[1]} if position else None),
             "tracked_events": self._tracked_events,

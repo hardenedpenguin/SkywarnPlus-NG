@@ -186,7 +186,14 @@ class TimeFilter(AlertFilter):
     def _apply_filter(self, alert: WeatherAlert) -> FilterResult:
         """Apply time-based filtering."""
         now = datetime.now(timezone.utc)
-        alert_time = alert.effective.replace(tzinfo=timezone.utc) if alert.effective else now
+        if alert.effective:
+            alert_time = alert.effective
+            if alert_time.tzinfo is None:
+                alert_time = alert_time.replace(tzinfo=timezone.utc)
+            else:
+                alert_time = alert_time.astimezone(timezone.utc)
+        else:
+            alert_time = now
 
         metadata = {"alert_time": alert_time.isoformat()}
 

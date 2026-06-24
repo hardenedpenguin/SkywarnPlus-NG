@@ -5,9 +5,121 @@ Dashboard authentication helpers (password policy, backup path validation).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, FrozenSet, Optional, Tuple
 
 DEFAULT_DASHBOARD_PASSWORD = "skywarn123"
+
+# Dashboard pages anyone may view (read-only operational status).
+_PUBLIC_PAGES: FrozenSet[str] = frozenset(
+    {
+        "/",
+        "/dashboard",
+        "/alerts",
+        "/alerts/history",
+        "/health",
+        "/metrics",
+        "/activity",
+    }
+)
+
+# GET /api/* routes needed by public dashboard pages (no credentials or PII).
+_PUBLIC_GET_API_EXACT: FrozenSet[str] = frozenset(
+    {
+        "/api/status",
+        "/api/alerts",
+        "/api/alerts/history",
+        "/api/health",
+        "/api/health/history",
+        "/api/metrics",
+        "/api/activity",
+        "/api/update-status",
+    }
+)
+
+# Page prefixes that always require a session (even for GET).
+_SENSITIVE_PAGE_PREFIXES: Tuple[str, ...] = ("/configuration", "/logs", "/database")
+
+# API prefixes that always require a session (read or write).
+_SENSITIVE_API_PREFIXES: Tuple[str, ...] = (
+    "/api/config",
+    "/api/logs",
+    "/api/database",
+    "/api/notifications",
+    "/api/tts",
+    "/api/counties",
+)
+
+
+def strip_base_path(path: str, base_path: str = "") -> str:
+    """Remove a configured reverse-proxy prefix so routes and auth rules match."""
+    prefix = (base_path or "").rstrip("/")
+    if not prefix:
+        return path or ""
+    current = path or ""
+    if current == prefix:
+        return "/"
+    if current.startswith(prefix + "/"):
+        return current[len(prefix) :] or "/"
+    return current
+
+
+def external_path_for_request(path: str, url_prefix: str = "") -> str:
+    """Browser-facing path for redirects (adds mount prefix when the request used it)."""
+    prefix = (url_prefix or "").rstrip("/")
+    current = path or "/"
+    if prefix and not current.startswith(prefix):
+        return f"{prefix}{current if current.startswith('/') else '/' + current}"
+    return current
+
+
+def path_requires_auth(
+    path: str,
+    method: str,
+    *,
+    auth_enabled: bool,
+    public_status_api: bool = True,
+    base_path: str = "",
+) -> bool:
+    """
+    Return True when unauthenticated requests must be rejected.
+
+    With auth enabled, public users may view operational dashboard pages and their
+    read-only APIs (active and past alerts, health, metrics). Configuration, logs,
+    database, subscriber data, and all mutating requests require a session.
+    GET /api/status stays public for supermon-ng when ``public_status_api`` is True.
+    """
+    if not auth_enabled:
+        return False
+
+    path = strip_base_path(path or "", base_path) if base_path else (path or "")
+    method = method.upper()
+
+    if path.startswith("/static"):
+        return False
+    if path == "/login" or path.startswith("/api/auth/"):
+        return False
+    if path == "/ws":
+        return False
+
+    if path.startswith(_SENSITIVE_PAGE_PREFIXES):
+        return True
+    if path.startswith(_SENSITIVE_API_PREFIXES):
+        return True
+
+    if method in ("POST", "PUT", "DELETE", "PATCH"):
+        return True
+
+    if method == "GET":
+        if path in _PUBLIC_PAGES:
+            return False
+        if path in _PUBLIC_GET_API_EXACT:
+            if path == "/api/status" and not public_status_api:
+                return True
+            return False
+        if path.startswith("/api/alerts/") and path.endswith("/audio"):
+            return False
+
+    return True
 
 
 def request_is_https(request) -> bool:

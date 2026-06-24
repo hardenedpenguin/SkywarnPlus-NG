@@ -245,6 +245,7 @@ class AlertProcessingPipeline:
             # Calculate processing time
             end_time = datetime.now(timezone.utc)
             result.processing_time_ms = (end_time - start_time).total_seconds() * 1000
+            result.metadata = context.metadata.copy()
 
             self.logger.info(
                 f"Alert {alert.id} processing completed in {result.processing_time_ms:.2f}ms "

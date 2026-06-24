@@ -127,6 +127,7 @@ nhc:
   max_distance_miles: 1000
   max_advisory_age_hours: 4
   hurricanes_only: false
+  max_announcements_per_cycle: 3
   use_gps_position: true
   static_lat: null
   static_lon: null
@@ -138,6 +139,9 @@ earthquake:
   min_magnitude: 3.5
   max_distance_miles: 75
   lookback_hours: 24
+  max_event_age_hours: 6
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 3
   ignore_automatic_below: null  # e.g. 4.5 to skip low-confidence automatic events
   use_gps_position: true
   static_lat: null
@@ -150,6 +154,9 @@ wildfire:
   max_distance_miles: 50
   min_acres: 250
   exclude_prescribed: true
+  max_discovery_age_hours: 48
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 3
   use_gps_position: true
   static_lat: null
   static_lon: null
@@ -214,6 +221,7 @@ monitoring:
       session_timeout_hours: 24
       secure_cookies: false  # Set true when the dashboard is only served over HTTPS
       cookie_secure_auto: true  # Add Secure on cookies when X-Forwarded-Proto is https
+      public_status_api: true  # supermon-ng GET /api/status; dashboard pages stay public when auth is on
   metrics:
     enabled: true
     retention_days: 7

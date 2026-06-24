@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 from ..core.config import AsteriskConfig
 
@@ -46,12 +46,20 @@ class AsteriskManager:
 
         logger.info(f"Asterisk found at {self.asterisk_path}")
 
-    async def _run_asterisk_command(self, command: str) -> Tuple[int, str, str]:
+    async def _run_asterisk_command(
+        self,
+        command: str,
+        *,
+        cwd: Optional[Path] = None,
+        wait: bool = True,
+    ) -> Tuple[int, str, str]:
         """
         Run an Asterisk CLI command.
 
         Args:
             command: Asterisk CLI command to run
+            cwd: Working directory for the subprocess
+            wait: When false, start the command and return without blocking
 
         Returns:
             Tuple of (return_code, stdout, stderr)
@@ -59,23 +67,20 @@ class AsteriskManager:
         try:
             logger.debug(f"Running Asterisk command: {command}")
 
-            # Determine if we are already running as the asterisk user
+            work_dir = str(cwd) if cwd else "/var/lib/skywarnplus-ng"
+
             try:
                 import pwd
 
                 asterisk_uid = pwd.getpwnam("asterisk").pw_uid
                 is_asterisk_user = os.geteuid() == asterisk_uid
             except (ImportError, KeyError):
-                # Fallback: check username
                 is_asterisk_user = os.getenv("USER") == "asterisk"
 
-            # Execute command - skip sudo if already running as asterisk user
             if is_asterisk_user:
-                # Run directly as asterisk user (no sudo needed)
                 command_args = [str(self.asterisk_path), "-rx", command]
                 logger.debug(f"Running command directly as asterisk user: {command_args}")
             else:
-                # Run via sudo as the asterisk user (for manual testing or different user context)
                 command_args = [
                     "sudo",
                     "-n",
@@ -87,12 +92,20 @@ class AsteriskManager:
                 ]
                 logger.debug(f"Running command via sudo: {command_args}")
 
-            # Note: command is passed as a single string to asterisk -rx
+            if not wait:
+                await asyncio.create_subprocess_exec(
+                    *command_args,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                    cwd=work_dir,
+                )
+                return 0, "", ""
+
             process = await asyncio.create_subprocess_exec(
                 *command_args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd="/tmp",  # Run from /tmp to avoid permission issues
+                cwd=work_dir,
             )
 
             stdout, stderr = await process.communicate()
@@ -194,7 +207,7 @@ class AsteriskManager:
             logger.warning("No nodes configured")
             return []
 
-        tasks = [self.get_node_status(node) for node in self.config.nodes]
+        tasks = [self.get_node_status(node) for node in self.config.get_nodes_list()]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         node_statuses = []
@@ -257,30 +270,35 @@ class AsteriskManager:
             else:
                 command = f"rpt localplay {node_number} {playback_path}"
 
-            # Verify the actual file (with extension) is accessible (as asterisk user)
-            # Try to stat the file to ensure asterisk user can read it
+            # Verify readability from the service user when already running as asterisk
             try:
-                import subprocess
-
                 actual_file_path = str(audio_path.resolve())
-                check_result = subprocess.run(
-                    ["sudo", "-n", "-u", "asterisk", "test", "-r", actual_file_path],
-                    capture_output=True,
-                    timeout=5,
-                )
-                if check_result.returncode != 0:
-                    logger.warning(
-                        f"Asterisk user may not be able to read file: {actual_file_path}"
-                    )
+                if os.geteuid() == 0 or os.getenv("USER") == "asterisk":
+                    if not os.access(actual_file_path, os.R_OK):
+                        logger.warning(
+                            "Asterisk user may not be able to read file: %s",
+                            actual_file_path,
+                        )
             except Exception as e:
                 logger.debug(f"Could not verify file accessibility: {e}")
 
-            # Log command for debugging
             logger.debug(
-                f"Playing audio on node {node_number} (mode: {playback_mode}): {playback_path}"
+                "Playing audio on node %s (mode: %s): %s",
+                node_number,
+                playback_mode,
+                playback_path,
             )
 
-            return_code, stdout, stderr = await self._run_asterisk_command(command)
+            playback_cwd = (
+                audio_path.parent
+                if audio_path.parent.exists()
+                else Path("/var/lib/skywarnplus-ng")
+            )
+            return_code, stdout, stderr = await self._run_asterisk_command(
+                command,
+                cwd=playback_cwd,
+                wait=False,
+            )
 
             if return_code == 0:
                 logger.info(f"Started audio playback on node {node_number}: {playback_path}")
@@ -374,23 +392,23 @@ class AsteriskManager:
         Returns:
             List of node numbers where stop command was sent successfully
         """
-        if not self.config.nodes:
+        if not self.config.get_nodes_list():
             return []
 
-        logger.info(f"Stopping audio on {len(self.config.nodes)} nodes")
+        node_numbers = self.config.get_nodes_list()
+        logger.info(f"Stopping audio on {len(node_numbers)} nodes")
 
-        # Stop audio on all nodes concurrently
-        tasks = [self.stop_audio_on_node(node) for node in self.config.nodes]
+        tasks = [self.stop_audio_on_node(node) for node in node_numbers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         successful_nodes = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.error(f"Error stopping audio on node {self.config.nodes[i]}: {result}")
+                logger.error(f"Error stopping audio on node {node_numbers[i]}: {result}")
             elif result:
-                successful_nodes.append(self.config.nodes[i])
+                successful_nodes.append(node_numbers[i])
 
-        logger.info(f"Audio stopped on {len(successful_nodes)}/{len(self.config.nodes)} nodes")
+        logger.info(f"Audio stopped on {len(successful_nodes)}/{len(node_numbers)} nodes")
         return successful_nodes
 
     async def key_node(self, node_number: int) -> bool:

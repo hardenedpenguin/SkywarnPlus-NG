@@ -311,7 +311,22 @@ class NWSClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            if e.response.status_code >= 500 and retry_count < self.max_retries:
+            status = e.response.status_code
+            if status == 429 and retry_count < self.max_retries:
+                retry_after = e.response.headers.get("Retry-After")
+                try:
+                    delay = float(retry_after) if retry_after else float(2**retry_count)
+                except (TypeError, ValueError):
+                    delay = float(2**retry_count)
+                logger.warning(
+                    "NWS rate limited (429), retrying in %ss (%s/%s)",
+                    delay,
+                    retry_count + 1,
+                    self.max_retries,
+                )
+                await asyncio.sleep(delay)
+                return await self._fetch_with_retry(url, retry_count + 1)
+            if status >= 500 and retry_count < self.max_retries:
                 logger.warning(
                     f"Server error {e.response.status_code}, retrying... ({retry_count + 1}/{self.max_retries})"
                 )
@@ -393,11 +408,19 @@ class NWSClient:
 
         # Collect all alerts
         all_alerts = []
-        for result in results:
+        failed_zones: List[str] = []
+        for zone_code, result in zip(zone_codes, results):
             if isinstance(result, Exception):
-                logger.error(f"Error fetching alerts: {result}")
+                logger.error("Error fetching alerts for zone %s: %s", zone_code, result)
+                failed_zones.append(zone_code)
                 continue
             all_alerts.extend(result)
+
+        if failed_zones:
+            raise NWSClientError(
+                f"Failed to fetch alerts for {len(failed_zones)} zone(s): "
+                + ", ".join(failed_zones)
+            )
 
         # Deduplicate by alert ID if requested
         if deduplicate:

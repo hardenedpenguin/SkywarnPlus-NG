@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional, Tuple
 
+from ..geo_hazard.tts import sanitize_for_tts
 from ..nhc.parser import haversine_miles
 
 PRESCRIBED_TYPE_KINDS = frozenset({"rx", "prescribed"})
@@ -32,7 +33,7 @@ class ParsedWildfire:
         if self.percent_contained is not None:
             contained_part = f", {self.percent_contained} percent contained"
         return (
-            f"Wildfire alert: {self.name}, {acres_str} acres, "
+            f"Wildfire alert: {sanitize_for_tts(self.name)}, {acres_str} acres, "
             f"{self.distance_miles} miles from your position{contained_part}."
         )
 

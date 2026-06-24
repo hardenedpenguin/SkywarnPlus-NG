@@ -4,6 +4,7 @@ Coordinates all notification delivery methods and subscriber management.
 """
 
 import asyncio
+import html
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Set
@@ -338,7 +339,7 @@ class NotificationManager:
         notification_content = {
             "subject": title,
             "body": message,
-            "html_body": message,  # Simple HTML for now
+            "html_body": html.escape(message).replace("\n", "<br>\n"),
         }
 
         # Send notifications
@@ -459,7 +460,7 @@ This alert was sent by SkywarnPlus-NG.
         return {
             "subject": subject,
             "body": body,
-            "html_body": body,  # Simple HTML for now
+            "html_body": f"<pre>{html.escape(body)}</pre>",
         }
 
     async def _send_subscriber_notifications(

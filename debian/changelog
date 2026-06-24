@@ -1,3 +1,26 @@
+skywarnplus-ng (1.5.0-1) unstable; urgency=medium
+
+  * Application-wide hardening: NWS zone fetch integrity, dedup alias state,
+    pipeline filter wiring, atomic state saves, XSS fixes, SSRF DNS checks,
+    Asterisk non-blocking playback, and config filter enforcement.
+  * Geo-hazard hardening: age filters, history seeding, per-poll caps, fetch
+    cache, and richer GPS health checks.
+  * Tiered dashboard auth: public read-only alerts, history, health, and
+    metrics; configuration, logs, and database require login; GET /api/status
+    stays open for supermon-ng.
+  * Fix base_path routing when the reverse proxy preserves the URL prefix.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Tue, 24 Jun 2026 01:00:00 -0500
+
+skywarnplus-ng (1.4.2-1) unstable; urgency=medium
+
+  * Geo-hazard hardening: age filters, first-enable history seeding, per-poll
+    announcement caps, shared fetch cache, and richer GPS health checks.
+  * Persist announced state after each hazard poll/announce; NHC broadcast
+    notifications; HTML-escape general notification bodies.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Mon, 18 May 2026 22:00:00 -0500
+
 skywarnplus-ng (1.4.1-1) unstable; urgency=medium
 
   * Raise earthquake and wildfire max_distance_miles validation cap to 5000 miles.

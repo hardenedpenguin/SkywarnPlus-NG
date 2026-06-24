@@ -431,8 +431,9 @@ class SubscriberManager:
                 "last_updated": datetime.now(timezone.utc).isoformat(),
             }
 
-            with open(self.data_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+            from ..utils.atomic_json import atomic_write_json
+
+            atomic_write_json(self.data_file, data)
 
             self.logger.debug(f"Saved {len(self.subscribers)} subscribers")
 

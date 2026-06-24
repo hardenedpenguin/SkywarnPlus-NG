@@ -5,12 +5,19 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import httpx
 
+from ..geo_hazard.fetch_cache import GeoFetchCache
+from ..geo_hazard.position_health import (
+    append_gps_health_details,
+    missing_position_message,
+    position_source_label,
+)
+from ..geo_hazard.tts import sanitize_for_tts
 from ..location.position import get_monitoring_position
 from .parser import (
     ParsedWildfire,
@@ -63,6 +70,16 @@ class WfigsWildfireService:
         self._last_fetch_ok_at: Optional[datetime] = None
         self._last_error_message: Optional[str] = None
         self._last_display_refresh_at: Optional[datetime] = None
+        self._fetch_cache = GeoFetchCache.shared()
+
+    def sync_http_client_user_agent(self) -> None:
+        self._client.headers["User-Agent"] = self.config.nws.user_agent
+
+    def _cache_key(self, position: Tuple[float, float]) -> str:
+        wf = self.config.wildfire
+        lat, lon = position
+        max_km = round(wf.max_distance_miles * 1.60934, 1)
+        return f"wfigs:{lat:.4f}:{lon:.4f}:{max_km}:{wf.min_acres}"
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -111,6 +128,16 @@ class WfigsWildfireService:
     async def fetch_incidents_geojson(
         self, position: Tuple[float, float]
     ) -> Optional[dict[str, Any]]:
+        cache_key = self._cache_key(position)
+
+        async def _fetch() -> Optional[dict[str, Any]]:
+            return await self._fetch_incidents_geojson_uncached(position)
+
+        return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
+
+    async def _fetch_incidents_geojson_uncached(
+        self, position: Tuple[float, float]
+    ) -> Optional[dict[str, Any]]:
         url = self._build_query_url(position)
         try:
             response = await self._client.get(url)
@@ -142,11 +169,24 @@ class WfigsWildfireService:
         state["wildfire_last_error_at"] = None
         state["wildfire_last_error_message"] = None
 
+    def _incident_within_discovery_age(
+        self,
+        incident: ParsedWildfire,
+        now: Optional[datetime] = None,
+    ) -> bool:
+        if incident.discovery_utc is None:
+            return True
+        now = now or datetime.now(timezone.utc)
+        max_age = timedelta(hours=self.config.wildfire.max_discovery_age_hours)
+        return (now - incident.discovery_utc) <= max_age
+
     def _passes_filters(self, incident: ParsedWildfire) -> bool:
         wf = self.config.wildfire
         if incident.acres < wf.min_acres:
             return False
         if incident.distance_miles > wf.max_distance_miles:
+            return False
+        if not self._incident_within_discovery_age(incident):
             return False
         if wf.exclude_prescribed and is_prescribed_fire(
             incident_type_kind=incident.incident_type_kind,
@@ -168,6 +208,28 @@ class WfigsWildfireService:
         if announcement_key not in announced:
             announced.append(announcement_key)
         state["wildfire_announced_incidents"] = announced[-500:]
+
+    def _maybe_seed_announced_history(
+        self,
+        incidents: List[ParsedWildfire],
+        state: Dict[str, Any],
+    ) -> None:
+        if state.get("wildfire_history_seeded"):
+            return
+        wf = self.config.wildfire
+        seeded = 0
+        if not wf.announce_history_on_enable:
+            for incident in incidents:
+                if self._passes_filters(incident):
+                    self.mark_announced(incident.announcement_key, state)
+                    seeded += 1
+            if seeded:
+                logger.info(
+                    "WFIGS: seeded %s existing wildfire incident(s) as announced "
+                    "(announce_history_on_enable=false)",
+                    seeded,
+                )
+        state["wildfire_history_seeded"] = True
 
     @staticmethod
     def _safe_audio_prefix(incident_id: str) -> str:
@@ -201,7 +263,7 @@ class WfigsWildfireService:
             selected.append(
                 WildfireIncident(
                     incident_id=incident.incident_id,
-                    name=incident.name,
+                    name=sanitize_for_tts(incident.name),
                     acres=incident.acres,
                     distance_miles=incident.distance_miles,
                     announcement_key=incident.announcement_key,
@@ -217,17 +279,46 @@ class WfigsWildfireService:
         details: Dict[str, Any] = {
             "min_acres": self.config.wildfire.min_acres,
             "max_distance_miles": self.config.wildfire.max_distance_miles,
+            "max_discovery_age_hours": self.config.wildfire.max_discovery_age_hours,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "tracked_incidents": len(self._tracked_incidents),
         }
 
+        wf = self.config.wildfire
         position = self.get_position()
         if position:
             details["position"] = {"lat": position[0], "lon": position[1]}
+            details["position_source"] = position_source_label(
+                use_gps_position=wf.use_gps_position,
+                static_lat=wf.static_lat,
+                static_lon=wf.static_lon,
+                mobile_service=self.mobile_service,
+                gpsd_enabled=self.config.gpsd.enabled,
+            )
+            append_gps_health_details(
+                details,
+                use_gps_position=wf.use_gps_position,
+                gpsd_enabled=self.config.gpsd.enabled,
+                mobile_service=self.mobile_service,
+                position=position,
+            )
         else:
+            details["position"] = None
+            details["position_source"] = "none"
+            append_gps_health_details(
+                details,
+                use_gps_position=wf.use_gps_position,
+                gpsd_enabled=self.config.gpsd.enabled,
+                mobile_service=self.mobile_service,
+                position=None,
+            )
             return {
                 "ok": False,
-                "message": "No position available (enable gpsd or set static lat/lon)",
+                "message": missing_position_message(
+                    use_gps_position=wf.use_gps_position,
+                    gpsd_enabled=self.config.gpsd.enabled,
+                    mobile_service=self.mobile_service,
+                ),
                 "details": details,
             }
 
@@ -262,7 +353,7 @@ class WfigsWildfireService:
             return
 
         data = await self.fetch_incidents_geojson(position)
-        self._last_display_refresh_at = now
+        self._last_display_refresh_at = datetime.now(timezone.utc)
         if not data:
             return
 
@@ -270,7 +361,6 @@ class WfigsWildfireService:
         self.select_new_incidents(incidents, state)
 
     async def poll(self, state: Dict[str, Any]) -> List[WildfireIncident]:
-        self._last_poll_at = datetime.now(timezone.utc)
         if not self.config.wildfire.enabled:
             self._tracked_incidents = []
             return []
@@ -291,9 +381,19 @@ class WfigsWildfireService:
             return []
 
         incidents = parse_wildfire_collection(data, origin_lat=position[0], origin_lon=position[1])
+        self._maybe_seed_announced_history(incidents, state)
         selected = self.select_new_incidents(incidents, state)
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
+        cap = self.config.wildfire.max_announcements_per_cycle
+        if len(selected) > cap:
+            logger.info(
+                "WFIGS: deferring %s wildfire incident(s) to later poll cycles (cap=%s)",
+                len(selected) - cap,
+                cap,
+            )
+            selected = selected[:cap]
         if selected:
             logger.info(
                 "WFIGS: %s new wildfire incident(s) within %s miles (>=%s acres)",
@@ -312,6 +412,10 @@ class WfigsWildfireService:
             "min_acres": wf.min_acres,
             "max_distance_miles": wf.max_distance_miles,
             "exclude_prescribed": wf.exclude_prescribed,
+            "max_discovery_age_hours": wf.max_discovery_age_hours,
+            "max_announcements_per_cycle": wf.max_announcements_per_cycle,
+            "announce_history_on_enable": wf.announce_history_on_enable,
+            "history_seeded": bool(state.get("wildfire_history_seeded")),
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "position": ({"lat": position[0], "lon": position[1]} if position else None),
             "tracked_incidents": self._tracked_incidents,

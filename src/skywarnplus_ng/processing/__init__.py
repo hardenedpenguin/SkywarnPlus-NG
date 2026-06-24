@@ -8,6 +8,7 @@ from .deduplication import (
     AlertDeduplicator,
     DuplicateDetectionStrategy,
     collapse_superseded_nws_alerts,
+    deduplicate_nws_active_alerts,
     merge_same_issuance_zone_splits,
 )
 from .prioritization import AlertPrioritizer, PriorityScore, RiskAssessment
@@ -26,6 +27,7 @@ __all__ = [
     "AlertDeduplicator",
     "DuplicateDetectionStrategy",
     "collapse_superseded_nws_alerts",
+    "deduplicate_nws_active_alerts",
     "merge_same_issuance_zone_splits",
     "AlertPrioritizer",
     "PriorityScore",

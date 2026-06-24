@@ -136,7 +136,7 @@ class DatabaseManager:
                     existing.script_executed = script_executed
                     existing.announcement_nodes = announcement_nodes or []
                     existing.processed_at = datetime.now(timezone.utc)
-                    existing.metadata = {"original_alert": alert.model_dump(mode="json")}
+                    existing.additional_data = {"original_alert": alert.model_dump(mode="json")}
                 else:
                     # Create new record
                     alert_record = AlertRecord(
@@ -163,7 +163,7 @@ class DatabaseManager:
                         announced=announced,
                         script_executed=script_executed,
                         announcement_nodes=announcement_nodes or [],
-                        metadata={"original_alert": alert.model_dump()},
+                        additional_data={"original_alert": alert.model_dump(mode="json")},
                     )
                     session.add(alert_record)
 

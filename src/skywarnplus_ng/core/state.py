@@ -4,6 +4,8 @@ State management for SkywarnPlus-NG.
 
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Set, Any
@@ -12,6 +14,8 @@ from collections import OrderedDict
 from .models import WeatherAlert
 
 logger = logging.getLogger(__name__)
+
+TRACKING_LIST_MAX = 2000
 
 
 class ApplicationState:
@@ -64,30 +68,41 @@ class ApplicationState:
 
     def save_state(self, state: Dict[str, Any]) -> None:
         """
-        Save state to file.
+        Save state to file atomically.
 
         Args:
             state: State dictionary to save
         """
         try:
-            # Create a copy for serialization
             state_copy = state.copy()
 
-            # Convert OrderedDict to list for JSON serialization
             if "last_alerts" in state_copy and isinstance(state_copy["last_alerts"], OrderedDict):
                 state_copy["last_alerts"] = list(state_copy["last_alerts"].items())
 
-            # Convert sets to lists for JSON serialization
             for key, value in state_copy.items():
                 if isinstance(value, set):
                     state_copy[key] = list(value)
 
-            with open(self.state_file, "w", encoding="utf-8") as f:
-                json.dump(state_copy, f, indent=2, ensure_ascii=False, default=str)
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(
+                dir=self.state_file.parent,
+                prefix=".state-",
+                suffix=".json",
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(state_copy, f, indent=2, ensure_ascii=False, default=str)
+                os.replace(tmp_path, self.state_file)
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
 
             logger.debug(f"Saved state to {self.state_file}")
 
-        except (IOError, TypeError) as e:
+        except (IOError, TypeError, OSError) as e:
             logger.error(f"Failed to save state to {self.state_file}: {e}")
 
     def _get_default_state(self) -> Dict[str, Any]:
@@ -108,14 +123,86 @@ class ApplicationState:
             "id": None,  # Current identifier
             "announcement_cooldown": {},  # event|counties signature -> last announce ISO time
             "nhc_announced_advisories": [],  # NHC advisory keys already voiced
+            "usgs_history_seeded": False,
+            "wildfire_history_seeded": False,
             "usgs_last_error_at": None,
             "usgs_last_error_message": None,
             "usgs_announced_events": [],  # USGS earthquake IDs already voiced
             "wildfire_last_error_at": None,
             "wildfire_last_error_message": None,
             "wildfire_announced_incidents": [],  # WFIGS incident IDs already voiced
+            "alert_id_aliases": {},  # collapsed NWS alert id -> canonical active id
             "version": "1.0.4",  # State file version
         }
+
+    def update_alert_id_aliases(self, state: Dict[str, Any], aliases: Dict[str, str]) -> None:
+        """Merge NWS deduplication alias map (secondary alert id -> canonical id)."""
+        if not aliases:
+            return
+        stored = state.get("alert_id_aliases")
+        if not isinstance(stored, dict):
+            stored = {}
+        for old_id, new_id in aliases.items():
+            stored[old_id] = new_id
+            self._migrate_alert_id_references(state, old_id, new_id)
+        state["alert_id_aliases"] = stored
+
+    @staticmethod
+    def _migrate_alert_id_references(state: Dict[str, Any], old_id: str, new_id: str) -> None:
+        last = state.get("last_alerts")
+        if isinstance(last, dict) and old_id in last and new_id not in last:
+            last[new_id] = last.pop(old_id)
+        for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts", "active_alerts"):
+            items = state.get(key)
+            if not isinstance(items, list):
+                continue
+            if old_id in items and new_id not in items:
+                state[key] = [new_id if item == old_id else item for item in items]
+            elif old_id in items:
+                state[key] = [item for item in items if item != old_id]
+
+    @staticmethod
+    def resolve_alert_id(state: Dict[str, Any], alert_id: str) -> str:
+        aliases = state.get("alert_id_aliases") or {}
+        seen: set[str] = set()
+        current = alert_id
+        while isinstance(aliases, dict) and current in aliases and current not in seen:
+            seen.add(current)
+            current = aliases[current]
+        return current
+
+    def _is_still_active_id(self, state: Dict[str, Any], alert_id: str, current_ids: Set[str]) -> bool:
+        if alert_id in current_ids:
+            return True
+        canonical = self.resolve_alert_id(state, alert_id)
+        return canonical in current_ids
+
+    def prune_alert_tracking(self, state: Dict[str, Any], alert_id: str) -> None:
+        """Remove per-alert tracking entries when an alert expires."""
+        for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts"):
+            items = state.get(key)
+            if isinstance(items, list) and alert_id in items:
+                state[key] = [item for item in items if item != alert_id]
+        aliases = state.get("alert_id_aliases")
+        if isinstance(aliases, dict):
+            aliases.pop(alert_id, None)
+            state["alert_id_aliases"] = {
+                src: dst for src, dst in aliases.items() if src != alert_id and dst != alert_id
+            }
+
+    @staticmethod
+    def _trim_tracking_list(state: Dict[str, Any], key: str) -> None:
+        items = state.get(key)
+        if isinstance(items, list) and len(items) > TRACKING_LIST_MAX:
+            state[key] = items[-TRACKING_LIST_MAX:]
+
+    def _bound_tracking_lists(self, state: Dict[str, Any]) -> None:
+        for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts"):
+            self._trim_tracking_list(state, key)
+        cooldown = state.get("announcement_cooldown")
+        if isinstance(cooldown, dict) and len(cooldown) > TRACKING_LIST_MAX:
+            keys = list(cooldown.keys())[-TRACKING_LIST_MAX:]
+            state["announcement_cooldown"] = {k: cooldown[k] for k in keys}
 
     def get_alert_ids(self, state: Dict[str, Any]) -> Set[str]:
         """
@@ -227,6 +314,7 @@ class ApplicationState:
         if alert_id in state.get("last_alerts", {}):
             del state["last_alerts"][alert_id]
             logger.debug(f"Removed alert {alert_id} from state")
+        self.prune_alert_tracking(state, alert_id)
 
     def update_active_alerts(self, state: Dict[str, Any], active_alert_ids: List[str]) -> None:
         """
@@ -273,7 +361,11 @@ class ApplicationState:
         """
         current_ids = {alert.id for alert in current_alerts}
         existing_ids = self.get_alert_ids(state)
-        expired_ids = list(existing_ids - current_ids)
+        expired_ids = [
+            eid
+            for eid in existing_ids
+            if not self._is_still_active_id(state, eid, current_ids)
+        ]
 
         logger.debug(f"Found {len(expired_ids)} expired alerts")
         return expired_ids
@@ -349,7 +441,8 @@ class ApplicationState:
             alert_id: ID of alert to mark as announced
         """
         if alert_id not in state.get("last_sayalert", []):
-            state["last_sayalert"].append(alert_id)
+            state.setdefault("last_sayalert", []).append(alert_id)
+            self._trim_tracking_list(state, "last_sayalert")
             logger.debug(f"Marked alert {alert_id} as announced")
 
     def mark_alert_script_triggered(self, state: Dict[str, Any], alert_id: str) -> None:
@@ -361,7 +454,8 @@ class ApplicationState:
             alert_id: ID of alert to mark as script-triggered
         """
         if alert_id not in state.get("alertscript_alerts", []):
-            state["alertscript_alerts"].append(alert_id)
+            state.setdefault("alertscript_alerts", []).append(alert_id)
+            self._trim_tracking_list(state, "alertscript_alerts")
             logger.debug(f"Marked alert {alert_id} as script-triggered")
 
     def has_alert_webhook_sent(self, state: Dict[str, Any], alert_id: str) -> bool:
@@ -386,7 +480,8 @@ class ApplicationState:
             alert_id: ID of alert to mark as webhook-sent
         """
         if alert_id not in state.get("webhook_sent_alerts", []):
-            state["webhook_sent_alerts"].append(alert_id)
+            state.setdefault("webhook_sent_alerts", []).append(alert_id)
+            self._trim_tracking_list(state, "webhook_sent_alerts")
             logger.debug(f"Marked alert {alert_id} as webhook-sent")
 
     def update_poll_time(self, state: Dict[str, Any]) -> None:

@@ -110,7 +110,7 @@ class HealthLogsApiMixin:
         """Handle API health history endpoint."""
         try:
             # Get query parameters
-            limit = int(request.query.get("limit", 10))
+            limit = min(max(int(request.query.get("limit", 10)), 1), 500)
 
             if not self.app.health_monitor:
                 return web.json_response([])
@@ -192,7 +192,7 @@ class HealthLogsApiMixin:
 
         try:
             level_param = (request.query.get("level") or "").strip()
-            limit = int(request.query.get("limit", 100))
+            limit = min(max(int(request.query.get("limit", 100)), 1), 5000)
             search_q = (request.query.get("q") or "").strip().lower()
 
             log_file = self.config.logging.file

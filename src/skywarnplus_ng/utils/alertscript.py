@@ -231,7 +231,13 @@ class AlertScriptManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+            except asyncio.TimeoutError:
+                logger.warning("AlertScript BASH command timed out after 30s: %s", command)
+                process.kill()
+                await process.wait()
+                return False
 
             if process.returncode == 0:
                 logger.debug(f"BASH command succeeded: {command}")

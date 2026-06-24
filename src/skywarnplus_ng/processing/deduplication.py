@@ -6,7 +6,7 @@ import hashlib
 import logging
 import re
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 import difflib
@@ -43,7 +43,9 @@ def _issuance_minute(alert: WeatherAlert) -> str:
     return _alert_issue_time(alert).strftime("%Y-%m-%dT%H:%M")
 
 
-def merge_same_issuance_zone_splits(alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+def merge_same_issuance_zone_splits(
+    alerts: List[WeatherAlert],
+) -> Tuple[List[WeatherAlert], Dict[str, str]]:
     """
     Merge NWS CAP messages split across zones for the same event and issuance minute.
 
@@ -52,7 +54,7 @@ def merge_same_issuance_zone_splits(alerts: List[WeatherAlert]) -> List[WeatherA
     and Supermon show one alert per event instead of one per zone fragment.
     """
     if len(alerts) < 2:
-        return alerts
+        return alerts, {}
 
     by_key: Dict[tuple, List[WeatherAlert]] = {}
     for alert in alerts:
@@ -65,6 +67,7 @@ def merge_same_issuance_zone_splits(alerts: List[WeatherAlert]) -> List[WeatherA
 
     merged_out: List[WeatherAlert] = []
     removed = 0
+    aliases: Dict[str, str] = {}
 
     for group in by_key.values():
         if len(group) < 2:
@@ -100,6 +103,8 @@ def merge_same_issuance_zone_splits(alerts: List[WeatherAlert]) -> List[WeatherA
                         area_parts.append(cleaned)
 
         removed += len(group) - 1
+        for secondary in group_sorted[1:]:
+            aliases[secondary.id] = primary.id
         merged_out.append(
             primary.model_copy(
                 update={
@@ -118,10 +123,12 @@ def merge_same_issuance_zone_splits(alerts: List[WeatherAlert]) -> List[WeatherA
             len(merged_out),
         )
 
-    return merged_out
+    return merged_out, aliases
 
 
-def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+def collapse_superseded_nws_alerts(
+    alerts: List[WeatherAlert],
+) -> Tuple[List[WeatherAlert], Dict[str, str]]:
     """
     Collapse multiple active NWS CAP messages for the same event type.
 
@@ -131,7 +138,7 @@ def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAl
     (so one monitored county does not show several flood advisories at once).
     """
     if len(alerts) < 2:
-        return alerts
+        return alerts, {}
 
     by_event: Dict[str, List[WeatherAlert]] = {}
     for alert in alerts:
@@ -139,6 +146,7 @@ def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAl
 
     keep_ids: set[str] = set()
     removed = 0
+    aliases: Dict[str, str] = {}
 
     for event_alerts in by_event.values():
         if len(event_alerts) < 2:
@@ -153,15 +161,20 @@ def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAl
             codes = _county_codes_set(alert)
             if not codes:
                 # No geocode counties: treat as overlapping with any kept same-event alert.
-                if any(
-                    _alerts_share_county(alert, other) or not _county_codes_set(other)
+                overlapping = [
+                    other
                     for other in kept
-                ):
+                    if _alerts_share_county(alert, other) or not _county_codes_set(other)
+                ]
+                if overlapping:
+                    aliases[alert.id] = overlapping[0].id
                     continue
                 kept.append(alert)
                 continue
 
-            if any(_alerts_share_county(alert, other) for other in kept):
+            overlapping = [other for other in kept if _alerts_share_county(alert, other)]
+            if overlapping:
+                aliases[alert.id] = overlapping[0].id
                 continue
             kept.append(alert)
 
@@ -178,7 +191,17 @@ def collapse_superseded_nws_alerts(alerts: List[WeatherAlert]) -> List[WeatherAl
             len(keep_ids),
         )
 
-    return [alert for alert in alerts if alert.id in keep_ids]
+    return [alert for alert in alerts if alert.id in keep_ids], aliases
+
+
+def deduplicate_nws_active_alerts(
+    alerts: List[WeatherAlert],
+) -> Tuple[List[WeatherAlert], Dict[str, str]]:
+    """Collapse superseded products and merge zone splits; return alias map (old_id -> canonical_id)."""
+    collapsed, collapse_aliases = collapse_superseded_nws_alerts(alerts)
+    merged, merge_aliases = merge_same_issuance_zone_splits(collapsed)
+    aliases = {**collapse_aliases, **merge_aliases}
+    return merged, aliases
 
 
 class DuplicateDetectionStrategy(Enum):

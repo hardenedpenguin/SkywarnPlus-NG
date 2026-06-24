@@ -43,7 +43,11 @@ from .handlers.api_status import StatusApiMixin
 from .handlers.api_updates_metrics import UpdatesMetricsApiMixin
 from .handlers.auth_handlers import AuthHandlersMixin
 from .handlers.page_handlers import PageHandlersMixin
-from .auth_security import request_is_https
+from .auth_security import (
+    external_path_for_request,
+    path_requires_auth,
+    request_is_https,
+)
 from .handlers.websocket_handlers import WebsocketHandlersMixin
 from .routes import register_dashboard_routes
 
@@ -485,9 +489,7 @@ class WebDashboard(
         if not await self._is_authenticated(request):
             # For API requests, return JSON error
             if request.path.startswith("/api/"):
-                return web.json_response(
-                    {"error": "Authentication required to access configuration"}, status=401
-                )
+                return web.json_response({"error": "Authentication required"}, status=401)
             # For configuration page requests, redirect to login with ?next= for post-login redirect
             else:
                 base_path = (
@@ -497,8 +499,10 @@ class WebDashboard(
                 )
                 if base_path and not base_path.startswith("/"):
                     base_path = "/" + base_path
-                next_path = request.path or "/"
-                loc = f"{base_path}/login?next={quote(next_path, safe='')}&reason=required"
+                mount_prefix = request.app.get("mount_prefix", "")
+                url_prefix = mount_prefix or base_path
+                next_path = external_path_for_request(request.path or "/", url_prefix)
+                loc = f"{url_prefix}/login?next={quote(next_path, safe='')}&reason=required"
                 return web.Response(status=302, headers={"Location": loc})
         return None
 
@@ -513,6 +517,18 @@ class WebDashboard(
 
         return wrapper
 
+    def _configure_dashboard_app(self, app: web.Application, base_path: str, mount_prefix: str) -> None:
+        """Attach session, auth middleware, and routes to a dashboard application."""
+        app["base_path"] = base_path
+        app["mount_prefix"] = mount_prefix
+
+        secret_key = bytes.fromhex(self.config.monitoring.http_server.auth.secret_key)
+        setup(app, EncryptedCookieStorage(secret_key))
+
+        app.middlewares.append(self._auth_middleware)
+        app.middlewares.append(self._secure_cookie_middleware)
+        register_dashboard_routes(app, self)
+
     def create_app(self) -> web.Application:
         """Create the web application."""
         base_path = self.config.monitoring.http_server.base_path or ""
@@ -525,17 +541,9 @@ class WebDashboard(
             if base_path.endswith("/"):
                 base_path = base_path.rstrip("/")
 
-        # Create main app
         main_app = web.Application()
-
-        # Store base_path in app for use in handlers (for URL generation)
         main_app["base_path"] = base_path
 
-        # When reverse proxy strips base_path before forwarding, we mount at root
-        # The base_path is only used for generating URLs in templates/redirects
-        app = main_app
-
-        # Setup CORS (registers on main_app)
         # credentials cannot be used with allow_origin="*"; same-origin dashboard uses cookies without CORS.
         cors_setup(
             main_app,
@@ -549,20 +557,17 @@ class WebDashboard(
             },
         )
 
-        # Setup sessions FIRST (required for auth middleware)
-        secret_key = bytes.fromhex(self.config.monitoring.http_server.auth.secret_key)
-        setup(app, EncryptedCookieStorage(secret_key))
-
-        # Add authentication middleware AFTER session setup
-        app.middlewares.append(self._auth_middleware)
-        app.middlewares.append(self._secure_cookie_middleware)
-
-        # Add routes to the main app
-        register_dashboard_routes(app, self)
+        # Routes at / for reverse proxies that strip base_path before forwarding.
+        self._configure_dashboard_app(main_app, base_path, mount_prefix="")
 
         if base_path:
+            # Routes at /skywarnplus-ng/... for proxies that keep the prefix (e.g. NPM).
+            prefixed_app = web.Application()
+            self._configure_dashboard_app(prefixed_app, base_path, mount_prefix=base_path)
+            main_app.add_subapp(base_path, prefixed_app)
             logger.info(
-                f"Application configured with base_path: {base_path} (reverse proxy should strip prefix)"
+                f"Application configured with base_path: {base_path} "
+                "(mounted at root and under prefix)"
             )
         else:
             logger.info("Application configured without base_path")
@@ -570,28 +575,15 @@ class WebDashboard(
         return main_app
 
     def _path_requires_auth(self, request: Request) -> bool:
-        """Return True when the request must be authenticated (settings / mutating APIs only)."""
-        if not self.config.monitoring.http_server.auth.enabled:
-            return False
-
-        path = request.path or ""
-        method = request.method.upper()
-
-        if path.startswith("/static"):
-            return False
-        if path == "/login" or path.startswith("/api/auth/"):
-            return False
-
-        if path.startswith("/configuration"):
-            return True
-
-        if path.startswith("/api/config"):
-            return True
-
-        if path.startswith("/api/") and method in ("POST", "PUT", "DELETE", "PATCH"):
-            return True
-
-        return False
+        """Return True when the request must be authenticated."""
+        auth = self.config.monitoring.http_server.auth
+        return path_requires_auth(
+            request.path or "",
+            request.method,
+            auth_enabled=auth.enabled,
+            public_status_api=auth.public_status_api,
+            base_path=self.config.monitoring.http_server.base_path or "",
+        )
 
     @web.middleware
     async def _secure_cookie_middleware(self, request: Request, handler):

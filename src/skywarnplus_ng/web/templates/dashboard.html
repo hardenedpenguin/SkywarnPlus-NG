@@ -9,13 +9,16 @@
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Version <span class="font-mono font-semibold text-gray-700 dark:text-gray-300">{{ app_version }}</span>
         </p>
+        {% if is_authenticated|default(false) %}
         <a id="dashboard-config-link" href="{{ base_path|default('') }}/configuration" class="inline-flex items-center mt-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path></svg>
             Configure counties and alerts
         </a>
+        {% endif %}
     </div>
 
     <!-- First-run checklist (dismiss stored in localStorage) -->
+    {% if is_authenticated|default(false) %}
     <div id="dashboard-first-run" class="hidden mb-6 p-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
         <div class="flex flex-wrap items-start justify-between gap-2">
             <div>
@@ -29,6 +32,7 @@
             <button type="button" onclick="dismissFirstRunChecklist()" class="btn-secondary text-xs shrink-0">Dismiss</button>
         </div>
     </div>
+    {% endif %}
 
     <div id="nws-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
         <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">NWS feed warning</p>
@@ -343,6 +347,9 @@
         var metaParts = [];
         if (earthquake.min_magnitude != null) metaParts.push('M≥' + escHtml(earthquake.min_magnitude));
         if (earthquake.max_distance_miles) metaParts.push('Voice within ' + escHtml(earthquake.max_distance_miles) + ' mi');
+        if (earthquake.max_event_age_hours != null) metaParts.push('Age ≤' + escHtml(earthquake.max_event_age_hours) + 'h');
+        if (earthquake.max_announcements_per_cycle != null) metaParts.push('Cap ' + escHtml(earthquake.max_announcements_per_cycle) + '/poll');
+        if (earthquake.history_seeded === false && earthquake.enabled && !earthquake.announce_history_on_enable) metaParts.push('First poll will seed history without voice');
         if (earthquake.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(earthquake.last_poll_at)));
         if (meta) meta.innerHTML = metaParts.join(' · ');
 
@@ -407,6 +414,10 @@
         var metaParts = [];
         if (wildfire.min_acres != null) metaParts.push('≥' + escHtml(wildfire.min_acres) + ' acres');
         if (wildfire.max_distance_miles) metaParts.push('Voice within ' + escHtml(wildfire.max_distance_miles) + ' mi');
+        if (wildfire.max_discovery_age_hours != null) metaParts.push('Discovery ≤' + escHtml(wildfire.max_discovery_age_hours) + 'h');
+        if (wildfire.max_announcements_per_cycle != null) metaParts.push('Cap ' + escHtml(wildfire.max_announcements_per_cycle) + '/poll');
+        if (wildfire.exclude_prescribed) metaParts.push('Prescribed burns excluded');
+        if (wildfire.history_seeded === false && wildfire.enabled && !wildfire.announce_history_on_enable) metaParts.push('First poll will seed history without voice');
         if (wildfire.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(wildfire.last_poll_at)));
         if (meta) meta.innerHTML = metaParts.join(' · ');
 
@@ -500,6 +511,12 @@
         
         if (alerts.length === 0) {
             const basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
+            const configLink = (typeof isUserAuthenticated === 'function' && isUserAuthenticated())
+                ? `<a href="${basePath}/configuration" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                        Add counties in Configuration
+                    </a>
+                    <span class="text-gray-400 dark:text-gray-500 mx-2">·</span>`
+                : '';
             container.innerHTML = `
                 <div class="text-center py-10">
                     <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
@@ -509,10 +526,7 @@
                     </div>
                     <p class="text-lg font-medium text-gray-900 dark:text-white mb-1">No active weather alerts</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">There are no active alerts for your configured counties.</p>
-                    <a href="${basePath}/configuration" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                        Add counties in Configuration
-                    </a>
-                    <span class="text-gray-400 dark:text-gray-500 mx-2">·</span>
+                    ${configLink}
                     <a href="${basePath}/alerts/history" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
                         View alert history
                     </a>

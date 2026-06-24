@@ -3,6 +3,7 @@ Core application logic for SkywarnPlus-NG.
 """
 
 import asyncio
+import fnmatch
 import logging
 import re
 import signal
@@ -31,8 +32,7 @@ from ..processing.filters import FilterChain, GeographicFilter, TimeFilter, Seve
 from ..processing.deduplication import (
     AlertDeduplicator,
     DuplicateDetectionStrategy,
-    collapse_superseded_nws_alerts,
-    merge_same_issuance_zone_splits,
+    deduplicate_nws_active_alerts,
 )
 from ..processing.prioritization import AlertPrioritizer
 from ..processing.validation import AlertValidator
@@ -83,6 +83,7 @@ class SkywarnPlusApplication:
         self.script_manager: Optional[ScriptManager] = None
         self.alertscript_manager: Optional[AlertScriptManager] = None
         self._previous_alert_events: Set[str] = set()  # Track previous alert events for transitions
+        self._pushover_notifier = None
         self.health_monitor: Optional[HealthMonitor] = None
         self.database_manager: Optional[DatabaseManager] = None
         self.performance_logger: Optional[PerformanceLogger] = None
@@ -363,7 +364,7 @@ class SkywarnPlusApplication:
         # Add time filter
         time_filter = TimeFilter(
             name="TimeFilter",
-            enabled=True,
+            enabled=False,
             business_hours_only=False,
             weekdays_only=False,
             time_window_hours=24,
@@ -627,6 +628,7 @@ class SkywarnPlusApplication:
     async def _poll_cycle(self) -> None:
         """Execute one polling cycle."""
         logger.debug("Starting poll cycle")
+        poll_state_dirty = False
 
         try:
             # Refresh GPS state and resolve counties for this poll cycle
@@ -667,6 +669,7 @@ class SkywarnPlusApplication:
 
             # Process alerts
             await self._process_alerts(current_alerts)
+            poll_state_dirty = True
 
             # NHC tropical cyclone advisories (separate cadence)
             await self._handle_nhc_advisories()
@@ -715,6 +718,7 @@ class SkywarnPlusApplication:
 
             # Save state
             self.state_manager.save_state(self.state)
+            poll_state_dirty = False
 
             # Broadcast status and alert list (cards use last_alerts; must match each poll)
             if self.web_dashboard:
@@ -726,6 +730,12 @@ class SkywarnPlusApplication:
 
         except Exception as e:
             logger.error(f"Error in poll cycle: {e}", exc_info=True)
+        finally:
+            if poll_state_dirty and hasattr(self, "state") and self.state is not None:
+                try:
+                    self.state_manager.save_state(self.state)
+                except Exception as save_exc:
+                    logger.error("Failed to save state after poll cycle error: %s", save_exc)
 
     async def _fetch_alerts(self, county_codes: List[str]) -> Optional[List[WeatherAlert]]:
         """
@@ -771,18 +781,13 @@ class SkywarnPlusApplication:
                 alerts, time_type=self.config.alerts.time_type
             )
             before_collapse = len(active_alerts)
-            active_alerts = collapse_superseded_nws_alerts(active_alerts)
-            before_merge = len(active_alerts)
-            active_alerts = merge_same_issuance_zone_splits(active_alerts)
+            active_alerts, alias_map = deduplicate_nws_active_alerts(active_alerts)
+            if hasattr(self, "state") and self.state is not None and alias_map:
+                self.state_manager.update_alert_id_aliases(self.state, alias_map)
             if len(active_alerts) < before_collapse:
                 logger.info(
-                    "Collapsed %s superseded NWS alert(s); %s active after deduplication",
+                    "Collapsed %s superseded/merged NWS alert(s); %s active after deduplication",
                     before_collapse - len(active_alerts),
-                    len(active_alerts),
-                )
-            elif len(active_alerts) < before_merge:
-                logger.info(
-                    "Merged zone-split NWS alert(s); %s active after combining counties",
                     len(active_alerts),
                 )
 
@@ -830,6 +835,8 @@ class SkywarnPlusApplication:
                 processed_alerts = current_alerts
         else:
             processed_alerts = current_alerts
+
+        processed_alerts = self._apply_global_alert_filters(processed_alerts)
 
         # Filter alert county codes to only include monitored counties
         # This ensures alerts only show counties that are actually being monitored
@@ -901,6 +908,37 @@ class SkywarnPlusApplication:
         if not processed_alerts and had_active_alerts:
             await self._handle_all_clear()
 
+        self.state_manager._bound_tracking_lists(self.state)
+
+    def _apply_global_alert_filters(
+        self, alerts: List[WeatherAlert]
+    ) -> List[WeatherAlert]:
+        """Apply configured global blocked-event patterns and max alert cap."""
+        blocked = self.config.filtering.blocked_events or []
+        if blocked:
+            filtered: List[WeatherAlert] = []
+            for alert in alerts:
+                event = (alert.event or "").strip()
+                if any(fnmatch.fnmatchcase(event, pattern) for pattern in blocked):
+                    logger.debug("Globally blocked alert event %r (pattern match)", event)
+                    continue
+                filtered.append(alert)
+            alerts = filtered
+
+        max_alerts = self.config.filtering.max_alerts
+        if max_alerts and len(alerts) > max_alerts:
+            if self.prioritizer:
+                scores = self.prioritizer.prioritize_alerts(alerts)
+                scores.sort(key=lambda item: item.total_score, reverse=True)
+                alerts = [score.alert for score in scores[:max_alerts]]
+            else:
+                alerts = alerts[:max_alerts]
+            logger.info(
+                "Capped alert processing to %s alert(s) (filtering.max_alerts)",
+                len(alerts),
+            )
+        return alerts
+
     async def _handle_new_alerts(
         self,
         new_alerts: List[WeatherAlert],
@@ -924,6 +962,7 @@ class SkywarnPlusApplication:
             )
             alert_start_time = datetime.now(timezone.utc)
             alert_processing_ok = False
+            script_success = False
             try:
                 # Log alert received
                 self.alert_logger.log_alert_received(
@@ -965,19 +1004,8 @@ class SkywarnPlusApplication:
                     and self.config.pushover.user_key
                 ):
                     try:
-                        from ..notifications.pushover import PushOverNotifier, PushOverConfig
-
-                        pushover_config = PushOverConfig(
-                            api_token=self.config.pushover.api_token,
-                            user_key=self.config.pushover.user_key,
-                            enabled=True,
-                            priority=self.config.pushover.priority,
-                            sound=self.config.pushover.sound,
-                            timeout_seconds=self.config.pushover.timeout_seconds,
-                            retry_count=self.config.pushover.retry_count,
-                            retry_delay_seconds=self.config.pushover.retry_delay_seconds,
-                        )
-                        async with PushOverNotifier(pushover_config) as pushover:
+                        pushover = await self._get_pushover_notifier()
+                        if pushover:
                             result = await pushover.send_alert_push(alert)
                             if result.get("success", False):
                                 logger.info(f"PushOver notification sent for alert: {alert.event}")
@@ -1010,7 +1038,7 @@ class SkywarnPlusApplication:
                     try:
                         await self.database_manager.store_alert(
                             alert=alert,
-                            announced=self._should_announce_alert(alert),
+                            announced=bool(announcement_nodes),
                             script_executed=script_success if self.script_manager else False,
                             announcement_nodes=announcement_nodes,
                         )
@@ -1032,9 +1060,10 @@ class SkywarnPlusApplication:
                 self.alert_logger.log_alert_processed(
                     alert.id, alert.event, False, processing_time, error=str(e)
                 ) if self.alert_logger else logger.error(
-                    f"Error processing alert {alert.event}: {e}"
+                    f"Error processing alert {alert.event}: {e}",
+                    exc_info=True,
                 )
-                raise
+                continue
             finally:
                 # End performance timer (reflect actual outcome, not always success)
                 if timer_id and self.performance_logger:
@@ -1064,12 +1093,8 @@ class SkywarnPlusApplication:
             # Clean up description files for this alert
             # Note: SkyDescribeManager may not always be initialized, so we clean up files directly
             try:
-                descriptions_dir = self.config.descriptions_dir
+                descriptions_dir = self.config.skydescribe.descriptions_dir
                 if descriptions_dir.exists():
-                    # Use the cleanup method if we have access to SkyDescribeManager
-                    # Otherwise, we'll clean up files directly via glob pattern matching
-                    import fnmatch
-
                     cleaned_desc_count = 0
                     for file_path in descriptions_dir.iterdir():
                         if file_path.is_file():
@@ -1116,19 +1141,8 @@ class SkywarnPlusApplication:
             and self.config.pushover.user_key
         ):
             try:
-                from ..notifications.pushover import PushOverNotifier, PushOverConfig
-
-                pushover_config = PushOverConfig(
-                    api_token=self.config.pushover.api_token,
-                    user_key=self.config.pushover.user_key,
-                    enabled=True,
-                    priority=self.config.pushover.priority,
-                    sound=self.config.pushover.sound,
-                    timeout_seconds=self.config.pushover.timeout_seconds,
-                    retry_count=self.config.pushover.retry_count,
-                    retry_delay_seconds=self.config.pushover.retry_delay_seconds,
-                )
-                async with PushOverNotifier(pushover_config) as pushover:
+                pushover = await self._get_pushover_notifier()
+                if pushover:
                     county_names = [county.name for county in self.config.counties]
                     result = await pushover.send_all_clear(county_names)
                     if result.get("success", False):
@@ -1775,11 +1789,13 @@ class SkywarnPlusApplication:
             return
 
         advisories = await self.nhc_service.poll(self.state)
+        self._persist_announced_state()
         for advisory in advisories:
             if self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_cyclone()
                 if not allowed:
-                    logger.info(
+                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
+                    log_fn(
                         "Skipping NHC advisory %s (%s): %s",
                         advisory.advisory_key,
                         advisory.name,
@@ -1788,6 +1804,11 @@ class SkywarnPlusApplication:
                     continue
             if await self._announce_cyclone(advisory):
                 self.nhc_service.mark_announced(advisory.advisory_key, self.state)
+                self._persist_announced_state()
+                await self._notify_geo_hazard_broadcast(
+                    title=f"Tropical Cyclone: {advisory.name}",
+                    message=advisory.tts_text,
+                )
 
     async def _handle_earthquake_events(self) -> None:
         """Poll USGS and announce new earthquakes within range."""
@@ -1797,11 +1818,13 @@ class SkywarnPlusApplication:
             return
 
         events = await self.earthquake_service.poll(self.state)
+        self._persist_announced_state()
         for event in events:
             if self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_geo_hazard()
                 if not allowed:
-                    logger.info(
+                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
+                    log_fn(
                         "Skipping earthquake %s (M%s): %s",
                         event.event_id,
                         event.magnitude,
@@ -1810,6 +1833,7 @@ class SkywarnPlusApplication:
                     continue
             if await self._announce_earthquake(event):
                 self.earthquake_service.mark_announced(event.announcement_key, self.state)
+                self._persist_announced_state()
                 await self._notify_geo_hazard_broadcast(
                     title=f"Earthquake M{event.magnitude}",
                     message=event.tts_text,
@@ -1823,11 +1847,13 @@ class SkywarnPlusApplication:
             return
 
         incidents = await self.wildfire_service.poll(self.state)
+        self._persist_announced_state()
         for incident in incidents:
             if self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_geo_hazard()
                 if not allowed:
-                    logger.info(
+                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
+                    log_fn(
                         "Skipping wildfire %s (%s): %s",
                         incident.incident_id,
                         incident.name,
@@ -1836,10 +1862,50 @@ class SkywarnPlusApplication:
                     continue
             if await self._announce_wildfire(incident):
                 self.wildfire_service.mark_announced(incident.announcement_key, self.state)
+                self._persist_announced_state()
                 await self._notify_geo_hazard_broadcast(
                     title=f"Wildfire: {incident.name}",
                     message=incident.tts_text,
                 )
+
+    def _persist_announced_state(self) -> None:
+        """Save geo-hazard announcement state after each successful voice alert."""
+        if hasattr(self, "state") and self.state is not None:
+            self.state_manager.save_state(self.state)
+
+    async def _get_pushover_notifier(self):
+        """Return a cached PushOver notifier when configured."""
+        if not (
+            self.config.pushover.enabled
+            and self.config.pushover.api_token
+            and self.config.pushover.user_key
+        ):
+            return None
+        if getattr(self, "_pushover_notifier", None) is None:
+            from ..notifications.pushover import PushOverConfig, PushOverNotifier
+
+            pushover_config = PushOverConfig(
+                api_token=self.config.pushover.api_token,
+                user_key=self.config.pushover.user_key,
+                enabled=True,
+                priority=self.config.pushover.priority,
+                sound=self.config.pushover.sound,
+                timeout_seconds=self.config.pushover.timeout_seconds,
+                retry_count=self.config.pushover.retry_count,
+                retry_delay_seconds=self.config.pushover.retry_delay_seconds,
+            )
+            self._pushover_notifier = PushOverNotifier(pushover_config)
+            await self._pushover_notifier.__aenter__()
+        return self._pushover_notifier
+
+    async def _close_pushover_notifier(self) -> None:
+        notifier = getattr(self, "_pushover_notifier", None)
+        self._pushover_notifier = None
+        if notifier is not None:
+            try:
+                await notifier.__aexit__(None, None, None)
+            except Exception as exc:
+                logger.debug("PushOver notifier close failed: %s", exc)
 
     async def _notify_geo_hazard_broadcast(self, *, title: str, message: str) -> None:
         """Email/webhook subscribers when a position-based hazard is announced on the air."""
@@ -2052,6 +2118,7 @@ class SkywarnPlusApplication:
 
     def apply_runtime_config(self, config: AppConfig) -> None:
         """Push a new AppConfig to services that cache config references at init."""
+        previous = self.config
         self.config = config
 
         for warning in config.validate_node_county_mapping():
@@ -2065,10 +2132,13 @@ class SkywarnPlusApplication:
             self.playback_policy.config = config.alerts
         if self.nhc_service:
             self.nhc_service.config = config
+            self.nhc_service.sync_http_client_user_agent()
         if self.earthquake_service:
             self.earthquake_service.config = config
+            self.earthquake_service.sync_http_client_user_agent()
         if self.wildfire_service:
             self.wildfire_service.config = config
+            self.wildfire_service.sync_http_client_user_agent()
         if self.audio_manager:
             self.audio_manager.config = config.audio
             self.audio_manager.reload_tts_engine()
@@ -2104,7 +2174,23 @@ class SkywarnPlusApplication:
         if config.wildfire.enabled:
             logger.info("NIFC wildfire monitoring enabled (config updated)")
 
+        if hasattr(self, "state") and self.state is not None:
+            if not config.earthquake.enabled or (
+                not previous.earthquake.enabled and config.earthquake.enabled
+            ):
+                self.state.pop("usgs_history_seeded", None)
+            if not config.wildfire.enabled or (
+                not previous.wildfire.enabled and config.wildfire.enabled
+            ):
+                self.state.pop("wildfire_history_seeded", None)
+
         self._schedule_notification_manager_reload()
+        if getattr(self, "_pushover_notifier", None) is not None:
+            try:
+                asyncio.get_running_loop().create_task(self._close_pushover_notifier())
+            except RuntimeError:
+                pass
+        self._pushover_notifier = None
 
     def _update_geographic_filter(self, allowed_counties: List[str]) -> None:
         """Keep the geographic pipeline filter aligned with the current poll counties."""

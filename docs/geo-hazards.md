@@ -30,6 +30,9 @@ earthquake:
   min_magnitude: 3.5
   max_distance_miles: 75
   lookback_hours: 24
+  max_event_age_hours: 6
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 3
   ignore_automatic_below: 4.5   # optional; skip low-confidence automatic events
   use_gps_position: true
   static_lat: 29.95
@@ -37,6 +40,9 @@ earthquake:
 ```
 
 - Polls [USGS GeoJSON](https://earthquake.usgs.gov/fdsnws/event/1/) within `max_distance_miles` of your position.
+- Only announces events newer than `max_event_age_hours` (default 6), even though the feed lookback may be longer.
+- On first enable, existing in-range events are **seeded** as already announced (no voice) unless `announce_history_on_enable: true`.
+- At most `max_announcements_per_cycle` earthquakes are voiced per poll (default 3); additional matches wait for later polls.
 - Each event is announced **once** (tracked in application state).
 - Respects **quiet hours** (same as NHC cyclone advisories).
 - Dashboard shows tracked events, distance, and announce status.
@@ -55,15 +61,21 @@ wildfire:
   max_distance_miles: 50
   min_acres: 250
   exclude_prescribed: true
+  max_discovery_age_hours: 48
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 3
   use_gps_position: true
   static_lat: 34.05
   static_lon: -118.25
 ```
 
 - Polls NIFC **WFIGS Interagency Perimeters (Current)** near your position.
-- Filters by acreage, distance, and optionally excludes prescribed burns.
+- Filters by acreage, distance, discovery age, and optionally excludes prescribed burns.
+- On first enable, existing in-range incidents are seeded without voice unless `announce_history_on_enable: true`.
+- At most `max_announcements_per_cycle` incidents are voiced per poll (default 3).
 - Each incident is announced **once**.
 - Respects quiet hours.
+- NHC cyclone advisories also send broadcast notifications when configured (same as earthquakes/wildfires).
 
 **Tuning tips**
 

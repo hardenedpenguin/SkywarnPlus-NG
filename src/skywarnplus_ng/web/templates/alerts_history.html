@@ -157,11 +157,11 @@
                                 alert.severity === 'Moderate' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
                                 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                             }">
-                                ${alert.severity}
+                                ${escHtml(alert.severity)}
                             </span>
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${alert.event}</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${escHtml(alert.event)}</h3>
                         </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${alert.area_desc}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escHtml(alert.area_desc)}</p>
                         <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                             <span>Processed: ${formatTimestamp(alert.processed_at)}</span>
                             <span>Effective: ${formatTimestamp(alert.effective_time)}</span>

@@ -56,7 +56,7 @@ def test_three_overlapping_flood_advisories_collapse_to_newest() -> None:
         ),
     ]
 
-    out = collapse_superseded_nws_alerts(alerts)
+    out = collapse_superseded_nws_alerts(alerts)[0]
     flood_ids = {a.id for a in out if a.id.startswith("flood-")}
     assert flood_ids == {"flood-724"}
 
@@ -77,14 +77,14 @@ def test_different_events_both_kept() -> None:
         sender="test",
         sender_name="NWS",
     )
-    out = collapse_superseded_nws_alerts([flood, rip])
+    out = collapse_superseded_nws_alerts([flood, rip])[0]
     assert len(out) == 2
 
 
 def test_disjoint_counties_same_event_both_kept() -> None:
     a = _flood("fa", "2026-05-20T08:00:00-05:00", ["TXC039"])
     b = _flood("fb", "2026-05-20T08:05:00-05:00", ["TXC201"])
-    out = collapse_superseded_nws_alerts([a, b])
+    out = collapse_superseded_nws_alerts([a, b])[0]
     assert {x.id for x in out} == {"fa", "fb"}
 
 
@@ -96,7 +96,7 @@ def test_four_floods_all_touching_txc039_collapse_to_one() -> None:
         _flood("f3", "2026-05-20T07:24:00-05:00", ["TXC039", "TXC201", "TXC201"]),
         _flood("f4", "2026-05-20T08:00:00-05:00", ["TXC039"]),
     ]
-    out = collapse_superseded_nws_alerts(alerts)
+    out = collapse_superseded_nws_alerts(alerts)[0]
     assert len([a for a in out if a.event == "Flood Advisory"]) == 1
     assert out[0].id == "f4"
 
@@ -133,7 +133,7 @@ def test_same_issuance_disjoint_counties_merge_for_supermon() -> None:
         sender_name="NWS Houston/Galveston TX",
     )
 
-    out = merge_same_issuance_zone_splits([brazoria, galveston])
+    out = merge_same_issuance_zone_splits([brazoria, galveston])[0]
     assert len(out) == 1
     assert set(out[0].county_codes) == {"TXC039", "TXC167"}
     assert "Brazoria Islands" in out[0].area_desc
@@ -143,5 +143,5 @@ def test_same_issuance_disjoint_counties_merge_for_supermon() -> None:
 def test_different_issuance_minutes_same_event_not_merged() -> None:
     a = _flood("fa", "2026-05-20T08:00:00-05:00", ["TXC039"])
     b = _flood("fb", "2026-05-20T08:05:00-05:00", ["TXC201"])
-    out = merge_same_issuance_zone_splits([a, b])
+    out = merge_same_issuance_zone_splits([a, b])[0]
     assert {x.id for x in out} == {"fa", "fb"}

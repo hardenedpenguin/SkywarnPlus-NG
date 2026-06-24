@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import httpx
 
+from ..geo_hazard.fetch_cache import GeoFetchCache
+from ..geo_hazard.position_health import position_source_label
+from ..location.position import get_monitoring_position
 from .parser import (
     ParsedCyclone,
     build_cyclone_tts_text,
@@ -67,6 +70,13 @@ class NhcCycloneService:
         self._last_fetch_ok_at: Optional[datetime] = None
         self._last_error_message: Optional[str] = None
         self._last_display_refresh_at: Optional[datetime] = None
+        self._fetch_cache = GeoFetchCache.shared()
+
+    def sync_http_client_user_agent(self) -> None:
+        self._client.headers["User-Agent"] = self.config.nws.user_agent
+
+    def _feed_cache_key(self) -> str:
+        return f"nhc:{self.config.nhc.feed_path.lstrip('/')}"
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -82,15 +92,22 @@ class NhcCycloneService:
 
     def get_position(self) -> Optional[Tuple[float, float]]:
         nhc = self.config.nhc
-        if nhc.use_gps_position and self.mobile_service:
-            pos = self.mobile_service.get_position()
-            if pos:
-                return pos
-        if nhc.static_lat is not None and nhc.static_lon is not None:
-            return float(nhc.static_lat), float(nhc.static_lon)
-        return None
+        return get_monitoring_position(
+            use_gps_position=nhc.use_gps_position,
+            static_lat=nhc.static_lat,
+            static_lon=nhc.static_lon,
+            mobile_service=self.mobile_service,
+        )
 
     async def fetch_feed_xml(self) -> Optional[str]:
+        cache_key = self._feed_cache_key()
+
+        async def _fetch() -> Optional[str]:
+            return await self._fetch_feed_xml_uncached()
+
+        return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
+
+    async def _fetch_feed_xml_uncached(self) -> Optional[str]:
         path = self.config.nhc.feed_path.lstrip("/")
         url = f"{NHC_BASE_URL}/{path}"
         try:
@@ -105,13 +122,13 @@ class NhcCycloneService:
 
     def _position_source(self) -> str:
         nhc = self.config.nhc
-        if nhc.use_gps_position and self.mobile_service and self.mobile_service.get_position():
-            if self.config.gpsd.enabled:
-                return "gpsd"
-            return "gpsd_fix"
-        if nhc.static_lat is not None and nhc.static_lon is not None:
-            return "static"
-        return "none"
+        return position_source_label(
+            use_gps_position=nhc.use_gps_position,
+            static_lat=nhc.static_lat,
+            static_lon=nhc.static_lon,
+            mobile_service=self.mobile_service,
+            gpsd_enabled=self.config.gpsd.enabled,
+        )
 
     def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
         now = datetime.now(timezone.utc)
@@ -278,7 +295,7 @@ class NhcCycloneService:
             return
 
         xml_text = await self.fetch_feed_xml()
-        self._last_display_refresh_at = now
+        self._last_display_refresh_at = datetime.now(timezone.utc)
         if not xml_text:
             return
 
@@ -290,7 +307,6 @@ class NhcCycloneService:
         self.select_new_advisories(cyclones, state, position)
 
     async def poll(self, state: Dict[str, Any]) -> List[CycloneAdvisory]:
-        self._last_poll_at = datetime.now(timezone.utc)
         if not self.config.nhc.enabled:
             self._tracked_storms = []
             return []
@@ -312,14 +328,24 @@ class NhcCycloneService:
 
         if "no tropical cyclones" in xml_text.lower():
             self._tracked_storms = []
+            self._last_poll_at = datetime.now(timezone.utc)
             self._record_poll_success(state)
             logger.debug("NHC feed reports no active tropical cyclones")
             return []
 
         cyclones = parse_nhc_cyclone_xml(xml_text)
         advisories = self.select_new_advisories(cyclones, state, position)
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
+        cap = self.config.nhc.max_announcements_per_cycle
+        if len(advisories) > cap:
+            logger.info(
+                "NHC: deferring %s advisory(ies) to later poll cycles (cap=%s)",
+                len(advisories) - cap,
+                cap,
+            )
+            advisories = advisories[:cap]
         if advisories:
             logger.info(
                 "NHC: %s new advisory(ies) within %s miles",
@@ -336,6 +362,7 @@ class NhcCycloneService:
             "feed_path": nhc.feed_path,
             "poll_interval_minutes": nhc.poll_interval_minutes,
             "max_distance_miles": nhc.max_distance_miles,
+            "max_announcements_per_cycle": nhc.max_announcements_per_cycle,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "position": ({"lat": position[0], "lon": position[1]} if position else None),
             "tracked_storms": self._tracked_storms,

@@ -242,7 +242,10 @@
         if (total === 0) {
             var basePath = (typeof getBasePath === 'function') ? getBasePath() : ('{{ base_path|default("") }}' || '');
             var filterMsg = alerts.length > 0 ? 'No alerts match your search or filter.' : 'There are no active alerts for your configured counties.';
-            container.innerHTML = '<div class="text-center py-12"><div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center"><svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg></div><h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">' + (alerts.length > 0 ? 'No matching alerts' : 'No active weather alerts') + '</h3><p class="text-gray-500 dark:text-gray-400 mb-4">' + filterMsg + '</p><a href="' + basePath + '/configuration" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Add counties in Configuration</a><span class="text-gray-400 mx-2">·</span><a href="' + basePath + '/alerts/history" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">View alert history</a></div>';
+            var configLink = (typeof isUserAuthenticated === 'function' && isUserAuthenticated())
+                ? '<a href="' + basePath + '/configuration" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Add counties in Configuration</a><span class="text-gray-400 mx-2">·</span>'
+                : '';
+            container.innerHTML = '<div class="text-center py-12"><div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center"><svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg></div><h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">' + (alerts.length > 0 ? 'No matching alerts' : 'No active weather alerts') + '</h3><p class="text-gray-500 dark:text-gray-400 mb-4">' + filterMsg + '</p>' + configLink + '<a href="' + basePath + '/alerts/history" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">View alert history</a></div>';
             var lm = document.getElementById('alerts-load-more');
             if (lm) lm.classList.add('hidden');
             return;
@@ -254,27 +257,27 @@
                     <div class="flex-1">
                         <div class="flex items-center space-x-3 mb-3">
                             <span class="px-3 py-1 text-sm font-medium rounded-full border ${getSeverityClasses(alert.severity)}">
-                                ${alert.severity}
+                                ${escHtml(alert.severity)}
                             </span>
                             <span class="px-3 py-1 text-sm font-medium rounded-full ${getUrgencyClasses(alert.urgency)}">
-                                ${alert.urgency}
+                                ${escHtml(alert.urgency)}
                             </span>
                             <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
-                                ${alert.certainty}
+                                ${escHtml(alert.certainty)}
                             </span>
                         </div>
                         
-                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">${alert.event}</h3>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">${escHtml(alert.event)}</h3>
                         
                         ${alert.headline ? `
-                            <p class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">${alert.headline}</p>
+                            <p class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">${escHtml(alert.headline)}</p>
                         ` : ''}
                         
                         ${alert.description ? `
-                            <p class="text-gray-600 dark:text-gray-400 mb-4">${alert.description}</p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Area: ${alert.area_desc}</p>
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">${escHtml(alert.description)}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Area: ${escHtml(alert.area_desc)}</p>
                         ` : `
-                            <p class="text-gray-600 dark:text-gray-400 mb-4">${alert.area_desc}</p>
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">${escHtml(alert.area_desc)}</p>
                         `}
                         
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-500 dark:text-gray-400">

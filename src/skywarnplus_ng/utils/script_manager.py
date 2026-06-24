@@ -59,6 +59,28 @@ class ScriptManager:
 
         return await self._execute_script(script_config, alert, "alert")
 
+    def _resolve_script_args(
+        self, args: List[str], alert: Optional[WeatherAlert]
+    ) -> List[str]:
+        if not args:
+            return []
+        if alert is None:
+            return [str(arg) for arg in args]
+        replacements = {
+            "{alert_area}": alert.area_desc,
+            "{alert_event}": alert.event,
+            "{alert_id}": alert.id,
+            "{alert_counties}": ",".join(alert.county_codes or []),
+            "{alert_severity}": alert.severity.value,
+        }
+        resolved: List[str] = []
+        for arg in args:
+            text = str(arg)
+            for placeholder, value in replacements.items():
+                text = text.replace(placeholder, value or "")
+            resolved.append(text)
+        return resolved
+
     async def execute_all_clear_script(self) -> bool:
         """
         Execute all-clear script.
@@ -138,11 +160,13 @@ class ScriptManager:
 
             # Prepare working directory
             working_dir = script_config.working_dir or Path.cwd()
+            timeout = script_config.timeout or self.config.default_timeout
+            resolved_args = self._resolve_script_args(script_config.args, alert)
 
             # Execute the script
             process = await asyncio.create_subprocess_exec(
                 script_config.command,
-                *script_config.args,
+                *resolved_args,
                 env=env,
                 cwd=working_dir,
                 stdout=asyncio.subprocess.PIPE,
@@ -151,11 +175,11 @@ class ScriptManager:
 
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=script_config.timeout
+                    process.communicate(), timeout=timeout
                 )
             except asyncio.TimeoutError:
                 logger.error(
-                    f"Script timed out after {script_config.timeout}s: {script_config.command}"
+                    f"Script timed out after {timeout}s: {script_config.command}"
                 )
                 process.kill()
                 await process.wait()

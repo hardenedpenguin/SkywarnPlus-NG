@@ -244,8 +244,6 @@ class TTSConfig(BaseModel):
             object.__setattr__(self, "voice", Path(str(self.model_path)).name)
         if not self.voice:
             object.__setattr__(self, "voice", "en_US-amy-low.onnx")
-        if self.node_number is None:
-            object.__setattr__(self, "node_number", 1)
 
 
 class AudioConfig(BaseModel):
@@ -365,6 +363,12 @@ class NhcConfig(BaseModel):
         False,
         description="Only announce hurricanes (skip tropical storms/depressions)",
     )
+    max_announcements_per_cycle: int = Field(
+        3,
+        ge=1,
+        le=20,
+        description="Maximum cyclone voice announcements per poll cycle",
+    )
     use_gps_position: bool = Field(
         True,
         description="Use gpsd position when available; otherwise static_lat/static_lon",
@@ -405,6 +409,22 @@ class EarthquakeConfig(BaseModel):
         ge=1,
         le=168,
         description="How far back to query USGS for recent events",
+    )
+    max_event_age_hours: int = Field(
+        6,
+        ge=1,
+        le=168,
+        description="Only announce earthquakes newer than this many hours",
+    )
+    announce_history_on_enable: bool = Field(
+        False,
+        description="When false, mark existing feed events as announced without voice on first enable",
+    )
+    max_announcements_per_cycle: int = Field(
+        3,
+        ge=1,
+        le=20,
+        description="Maximum earthquake voice announcements per poll cycle",
     )
     ignore_automatic_below: Optional[float] = Field(
         None,
@@ -449,6 +469,22 @@ class WildfireConfig(BaseModel):
     exclude_prescribed: bool = Field(
         True,
         description="Skip prescribed burns",
+    )
+    max_discovery_age_hours: int = Field(
+        48,
+        ge=1,
+        le=720,
+        description="Only announce fires discovered within this many hours",
+    )
+    announce_history_on_enable: bool = Field(
+        False,
+        description="When false, mark existing feed incidents as announced without voice on first enable",
+    )
+    max_announcements_per_cycle: int = Field(
+        3,
+        ge=1,
+        le=20,
+        description="Maximum wildfire voice announcements per poll cycle",
     )
     use_gps_position: bool = Field(
         True,
@@ -540,6 +576,10 @@ class AuthConfig(BaseModel):
     cookie_secure_auto: bool = Field(
         True,
         description="When secure_cookies is false, add Secure if X-Forwarded-Proto is https",
+    )
+    public_status_api: bool = Field(
+        True,
+        description="Allow unauthenticated GET /api/status (supermon-ng); other public dashboard reads are always open",
     )
 
 
@@ -1040,3 +1080,26 @@ class AppConfig(BaseSettings):
                 self.audio.temp_dir = resolved_temp
         except Exception as exc:
             logger.warning(f"Failed to resolve temp_dir '{self.audio.temp_dir}': {exc}")
+
+        try:
+            ct_dir = getattr(self.asterisk.courtesy_tones, "tone_dir", None)
+            if ct_dir:
+                resolved_ct = _resolve(Path(ct_dir))
+                self.asterisk.courtesy_tones.tone_dir = str(resolved_ct)
+        except Exception as exc:
+            logger.debug("Could not resolve courtesy tone directory: %s", exc)
+
+        try:
+            id_dir = getattr(self.asterisk.id_change, "id_dir", None)
+            if id_dir:
+                resolved_id = _resolve(Path(id_dir))
+                self.asterisk.id_change.id_dir = str(resolved_id)
+        except Exception as exc:
+            logger.debug("Could not resolve ID change directory: %s", exc)
+
+        try:
+            nodes = self.get_nodes_list()
+            if self.audio.tts.node_number is None:
+                self.audio.tts.node_number = nodes[0] if nodes else 1
+        except Exception as exc:
+            logger.debug("Could not resolve default TTS node number: %s", exc)
