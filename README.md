@@ -11,7 +11,7 @@ Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDes
 
 Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Mason Nelson (N5LSN/WRKF394). Release notes: [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases).
 
-**Current release:** [v1.3.3](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.3.3)
+**Current release:** [v1.5.0](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.5.0)
 
 > **Install and upgrades:** SkywarnPlus-NG is moving to the **Debian `.deb` package** for new installs and updates. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — it remains for legacy sites but is no longer supported. Tarball installs do not reliably deploy package-managed files (for example voice-install sudoers, systemd units, and Apache snippets). See **[docs/debian.md](docs/debian.md)**. Existing tarball installs should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) rather than re-run `install.sh`.
 
@@ -71,7 +71,34 @@ sudo systemctl enable --now skywarnplus-ng
 4. Pick **asl-tts** (local ASL3 Piper, default) or **gTTS** under **Audio / TTS**.
 5. Save — the service reloads config from the UI.
 
+Optional **geo hazards** (position-based voice alerts, separate from NWS county codes) are under **Configuration** — see [Geo hazards](#geo-hazards-dashboard) below. All three default to **off** until you enable them.
+
 The dashboard shows the **running version** so you can confirm what's live.
+
+## Geo hazards (dashboard)
+
+NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / Red Flag Warning, etc.) are configured under **Configuration → Counties**. They do not use the sections below.
+
+**Geo hazards** are optional, **position-based** announcements for events near your node. Each type has its own **Enable** checkbox, poll settings, distance/range filters, and **gpsd** or **static latitude/longitude** in **Configuration**:
+
+| Dashboard section | What it monitors | Data source |
+|-------------------|------------------|-------------|
+| **NHC Tropical Cyclones** | Tropical cyclone advisories within range | NOAA NHC GIS RSS (`/gis-at.xml` Atlantic or `/gis-ep.xml` East Pacific) |
+| **USGS Earthquakes** | Earthquakes above a magnitude threshold within range | USGS FDSN event API |
+| **Wildfire Incidents** | Active wildfire **perimeters** (not Red Flag Warnings) | NIFC WFIGS interagency perimeter feed |
+
+**Per-section settings (UI)** include, where applicable:
+
+- **Enable** — master on/off for that hazard type (stops polling and voice when unchecked)
+- **Poll interval**, **max distance** (miles), **max announcements per poll cycle**
+- **Position** — use **gpsd** or fixed coordinates for that feature
+- **NHC:** feed (Atlantic/East Pacific), max advisory age, hurricanes-only filter
+- **Earthquakes:** minimum magnitude, lookback/age limits, optional ignore-below for automatic events, announce history on first enable
+- **Wildfires:** minimum acres, discovery age, exclude prescribed burns, announce history on first enable
+
+When enabled, tracked events appear on the **Dashboard** and in **Health** (`nhc`, `usgs_api`, `wfigs_api` checks). Voice announcements respect **quiet hours** (same as NWS). Optional **Pushover / email / webhooks** can broadcast when a geo hazard is announced on the air.
+
+Full YAML reference and tuning notes: **[docs/geo-hazards.md](docs/geo-hazards.md)**.
 
 ## Upgrade
 
@@ -139,10 +166,10 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 
 - NWS alert polling, voice announcements, tail messages, courtesy tones, ID changes
 - Per-node counties, SkyDescribe DTMF (**841–849** by alert index), AlertScript
-- Web dashboard with live status, health, logs, and configuration
+- Web dashboard with live status, health, logs, and configuration (public read-only views; sign in for **Configuration**, **Logs**, **Database**)
 - **PushOver** (global) and **Discord webhooks** (per-subscriber filters) on new alerts — see [docs/notifications-overview.md](docs/notifications-overview.md)
-- Optional GPS mobile counties, quiet hours, NHC tropical cyclone advisories (1.1+)
-- **USGS earthquakes** and **NIFC wildfire incidents** by position (1.4+) — see [docs/geo-hazards.md](docs/geo-hazards.md)
+- Optional GPS mobile counties and quiet hours
+- **Geo hazards** (all off by default; enable per type under **Configuration**): [NHC tropical cyclones](#geo-hazards-dashboard), [USGS earthquakes](#geo-hazards-dashboard), [NIFC wildfire perimeters](#geo-hazards-dashboard) — see [docs/geo-hazards.md](docs/geo-hazards.md)
 
 ## DTMF
 
