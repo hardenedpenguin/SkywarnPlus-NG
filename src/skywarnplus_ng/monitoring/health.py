@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
-from importlib.metadata import version, PackageNotFoundError
 
+from .. import __version__ as APP_VERSION
 from ..core.config import AppConfig
 from ..api.nws_client import NWSClient
 from ..audio.manager import AudioManager
@@ -592,17 +592,11 @@ class HealthMonitor:
             "gpsd_enabled": self.config.gpsd.enabled,
         }
 
-        # Get version from package metadata
-        try:
-            app_version = version("skywarnplus-ng")
-        except PackageNotFoundError:
-            app_version = "unknown"
-
         health_status = HealthStatus(
             overall_status=overall_status,
             timestamp=start_time,
             uptime_seconds=uptime,
-            version=app_version,
+            version=APP_VERSION,
             components=components,
             metrics=metrics,
         )

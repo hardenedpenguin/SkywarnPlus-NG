@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from skywarnplus_ng import __version__ as APP_VERSION
 from skywarnplus_ng.core.config import AppConfig, GpsdConfig, NWSApiConfig, NhcConfig
 from skywarnplus_ng.monitoring.health import ComponentStatus, HealthMonitor
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
@@ -87,6 +88,23 @@ async def test_get_health_status_includes_nhc_when_enabled(nhc_config):
     status = await monitor.get_health_status({})
     names = [c.name for c in status.components]
     assert "nhc_api" in names
+    assert status.version == APP_VERSION
+
+
+@pytest.mark.asyncio
+async def test_get_health_status_version_matches_package():
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        nhc=NhcConfig(enabled=False),
+    )
+    monitor = HealthMonitor(config, MagicMock())
+    monitor.nws_client = MagicMock()
+    monitor.nws_client.check_health = AsyncMock(
+        return_value={"ok": True, "message": "ok", "details": {}}
+    )
+
+    status = await monitor.get_health_status({})
+    assert status.version == APP_VERSION
 
 
 @pytest.mark.asyncio
