@@ -19,6 +19,7 @@ Package: skywarnplus-ng
 Architecture: amd64 arm64
 Depends: asl3-asterisk,
          asl3-tts,
+         libpython3.13 (>= 3.13.0~),
          ${misc:Depends},
          libsndfile1,
          ffmpeg,

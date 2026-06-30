@@ -46,6 +46,8 @@ jobs:
           dpkg-deb -x dist/debs/skywarnplus-ng_*_amd64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          ! grep -q '/home/runner/' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng
+          head -1 /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng | grep -q '/var/lib/skywarnplus-ng/venv/bin/python'
           grep -q '^version = 3.13' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
           /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
 
@@ -83,6 +85,8 @@ jobs:
           dpkg-deb -x dist/debs/skywarnplus-ng_*_arm64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          ! grep -q '/home/runner/' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng
+          head -1 /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng | grep -q '/var/lib/skywarnplus-ng/venv/bin/python'
           grep -q '^version = 3.13' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
           /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
 

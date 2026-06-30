@@ -11,7 +11,7 @@ New installs and upgrades should use the **hardenedpenguin APT repository** or a
 - Piper voice models under **`/var/lib/piper-tts`** (installed by asl3-tts, supermon-ng, or the dashboard voice catalog)
 - Outbound Internet for NWS API
 
-Runtime libraries are declared in the package (`libsndfile1`, `ffmpeg`, `sox`, `wget`, etc.).
+Runtime libraries are declared in the package (`libpython3.13`, `libsndfile1`, `ffmpeg`, `sox`, `wget`, etc.). The bundled venv uses a copied Python 3.13 binary that requires the system **`libpython3.13`** shared library (normally pulled in with ASL3 / `python3.13`).
 
 ## APT repository
 
@@ -118,6 +118,13 @@ sudo apt remove skywarnplus-ng
 ```
 
 `apt purge` removes packaged files. **`config.yaml` and data under `/var/lib/skywarnplus-ng/data/` are kept** unless you remove them manually.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `libpython3.13.so.1.0: cannot open shared object file` | Install the runtime library: `sudo apt install libpython3.13`, then `sudo systemctl restart skywarnplus-ng`. Newer packages declare this dependency automatically. |
+| `skywarnplus-ng: bad interpreter` (CI path in shebang) | Upgrade to a package built with `fix-venv-paths.sh`, or use `venv/bin/python -m skywarnplus_ng.cli` (same as systemd). |
 
 ## vs tarball + install.sh
 

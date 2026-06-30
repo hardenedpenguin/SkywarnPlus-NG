@@ -11,6 +11,7 @@ mkdir -p "${PKG_DIR}"
 
 install -d -m 755 "${PKG_DIR}/var/lib/skywarnplus-ng"
 cp -a "${VENV_SRC}" "${PKG_DIR}/var/lib/skywarnplus-ng/venv"
+"${PROJECT_ROOT}/scripts/debian/fix-venv-paths.sh" "${PKG_DIR}/var/lib/skywarnplus-ng/venv"
 
 if [[ -d "${PROJECT_ROOT}/SOUNDS" ]]; then
   cp -a "${PROJECT_ROOT}/SOUNDS" "${PKG_DIR}/var/lib/skywarnplus-ng/"

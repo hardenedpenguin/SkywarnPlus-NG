@@ -41,4 +41,6 @@ if [[ -L "${VENV_DIR}/bin/python3" ]]; then
   exit 1
 fi
 
+"${PROJECT_ROOT}/scripts/debian/fix-venv-paths.sh" "${VENV_DIR}"
+
 echo "Virtualenv ready: $("${VENV_DIR}/bin/python" -c 'import skywarnplus_ng; print(skywarnplus_ng.__version__)')"
