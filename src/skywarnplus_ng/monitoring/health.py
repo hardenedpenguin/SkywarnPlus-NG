@@ -388,7 +388,7 @@ class HealthMonitor:
             message = str(result.get("message") or "NHC health check failed")
             # Missing GPS position with gpsd enabled is degraded, not fully unhealthy
             if (
-                self.config.nhc.use_gps_position
+                self.config.geo_hazard_position.use_gps_position
                 and self.config.gpsd.enabled
                 and "GPS position" in message
             ):
@@ -508,7 +508,7 @@ class HealthMonitor:
             component_name="usgs_api",
             enabled=self.config.earthquake.enabled,
             service=self.earthquake_service,
-            use_gps_position=self.config.earthquake.use_gps_position,
+            use_gps_position=self.config.geo_hazard_position.use_gps_position,
             state=state,
             disabled_message="USGS earthquake monitoring disabled",
         )
@@ -521,7 +521,7 @@ class HealthMonitor:
             component_name="wfigs_api",
             enabled=self.config.wildfire.enabled,
             service=self.wildfire_service,
-            use_gps_position=self.config.wildfire.use_gps_position,
+            use_gps_position=self.config.geo_hazard_position.use_gps_position,
             state=state,
             disabled_message="Wildfire monitoring disabled",
         )

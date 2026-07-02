@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from skywarnplus_ng import __version__ as APP_VERSION
-from skywarnplus_ng.core.config import AppConfig, GpsdConfig, NWSApiConfig, NhcConfig
+from skywarnplus_ng.core.config import AppConfig, GeoHazardPositionConfig, GpsdConfig, NWSApiConfig, NhcConfig
 from skywarnplus_ng.monitoring.health import ComponentStatus, HealthMonitor
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
 
@@ -17,6 +17,8 @@ def nhc_config():
         gpsd=GpsdConfig(enabled=True),
         nhc=NhcConfig(
             enabled=True,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
             use_gps_position=True,
             static_lat=29.95,
             static_lon=-90.07,
@@ -42,8 +44,8 @@ async def test_check_nhc_health_ok(nhc_config):
 
 @pytest.mark.asyncio
 async def test_check_nhc_health_missing_gps_position(nhc_config):
-    nhc_config.nhc.static_lat = None
-    nhc_config.nhc.static_lon = None
+    nhc_config.geo_hazard_position.static_lat = None
+    nhc_config.geo_hazard_position.static_lon = None
     mobile = MagicMock()
     mobile.get_position.return_value = None
     mobile.get_status.return_value = {

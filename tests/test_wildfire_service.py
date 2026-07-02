@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, NWSApiConfig, WildfireConfig
+from skywarnplus_ng.core.config import AppConfig, GeoHazardPositionConfig, NWSApiConfig, WildfireConfig
 from skywarnplus_ng.wildfire.parser import ParsedWildfire
 from skywarnplus_ng.wildfire.wfigs_service import WfigsWildfireService
 
@@ -18,6 +18,8 @@ def wildfire_config():
             min_acres=250,
             max_distance_miles=50,
             exclude_prescribed=True,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
             static_lat=34.0,
             static_lon=-118.0,
             use_gps_position=False,
@@ -73,7 +75,7 @@ def test_select_new_incidents_announces_eligible(wildfire_config):
 
 
 def test_get_position_uses_mobile_when_enabled(wildfire_config):
-    wildfire_config.wildfire.use_gps_position = True
+    wildfire_config.geo_hazard_position.use_gps_position = True
     mobile = MagicMock()
     mobile.get_position.return_value = (34.05, -118.25)
     service = WfigsWildfireService(wildfire_config, mobile)

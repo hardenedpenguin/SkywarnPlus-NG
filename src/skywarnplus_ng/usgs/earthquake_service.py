@@ -87,11 +87,11 @@ class UsgsEarthquakeService:
         return elapsed >= self.config.earthquake.poll_interval_minutes
 
     def get_position(self) -> Optional[Tuple[float, float]]:
-        eq = self.config.earthquake
+        pos = self.config.geo_hazard_position
         return get_monitoring_position(
-            use_gps_position=eq.use_gps_position,
-            static_lat=eq.static_lat,
-            static_lon=eq.static_lon,
+            use_gps_position=pos.use_gps_position,
+            static_lat=pos.static_lat,
+            static_lon=pos.static_lon,
             mobile_service=self.mobile_service,
         )
 
@@ -259,20 +259,20 @@ class UsgsEarthquakeService:
             "tracked_events": len(self._tracked_events),
         }
 
-        eq = self.config.earthquake
+        pos = self.config.geo_hazard_position
         position = self.get_position()
         if position:
             details["position"] = {"lat": position[0], "lon": position[1]}
             details["position_source"] = position_source_label(
-                use_gps_position=eq.use_gps_position,
-                static_lat=eq.static_lat,
-                static_lon=eq.static_lon,
+                use_gps_position=pos.use_gps_position,
+                static_lat=pos.static_lat,
+                static_lon=pos.static_lon,
                 mobile_service=self.mobile_service,
                 gpsd_enabled=self.config.gpsd.enabled,
             )
             append_gps_health_details(
                 details,
-                use_gps_position=eq.use_gps_position,
+                use_gps_position=pos.use_gps_position,
                 gpsd_enabled=self.config.gpsd.enabled,
                 mobile_service=self.mobile_service,
                 position=position,
@@ -282,7 +282,7 @@ class UsgsEarthquakeService:
             details["position_source"] = "none"
             append_gps_health_details(
                 details,
-                use_gps_position=eq.use_gps_position,
+                use_gps_position=pos.use_gps_position,
                 gpsd_enabled=self.config.gpsd.enabled,
                 mobile_service=self.mobile_service,
                 position=None,
@@ -290,7 +290,7 @@ class UsgsEarthquakeService:
             return {
                 "ok": False,
                 "message": missing_position_message(
-                    use_gps_position=eq.use_gps_position,
+                    use_gps_position=pos.use_gps_position,
                     gpsd_enabled=self.config.gpsd.enabled,
                     mobile_service=self.mobile_service,
                 ),

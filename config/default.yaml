@@ -119,6 +119,12 @@ alerts:
     allow_severe: true  # Still voice Severe/Extreme alerts during quiet hours
   announcement_hold_minutes: 0  # Suppress re-announcing same event+counties (0=off)
 
+# Shared position for NHC, USGS earthquake, and wildfire monitoring
+geo_hazard_position:
+  use_gps_position: true
+  static_lat: null
+  static_lon: null
+
 # National Hurricane Center tropical cyclone advisories
 nhc:
   enabled: false
@@ -128,9 +134,6 @@ nhc:
   max_advisory_age_hours: 4
   hurricanes_only: false
   max_announcements_per_cycle: 3
-  use_gps_position: true
-  static_lat: null
-  static_lon: null
 
 # USGS earthquake announcements (separate from NWS alerts)
 earthquake:
@@ -143,9 +146,6 @@ earthquake:
   announce_history_on_enable: false
   max_announcements_per_cycle: 3
   ignore_automatic_below: null  # e.g. 4.5 to skip low-confidence automatic events
-  use_gps_position: true
-  static_lat: null
-  static_lon: null
 
 # NIFC wildfire incident announcements (active fire perimeters)
 wildfire:
@@ -157,9 +157,6 @@ wildfire:
   max_discovery_age_hours: 48
   announce_history_on_enable: false
   max_announcements_per_cycle: 3
-  use_gps_position: true
-  static_lat: null
-  static_lon: null
 
 # Script execution
 scripts:

@@ -52,4 +52,4 @@ def missing_position_message(
         gps = mobile_service.get_status()
         reason = gps.get("reason") or "no fix"
         return f"No GPS position ({reason})"
-    return "No position available (enable gpsd or set static lat/lon)"
+    return "No position available (enable gpsd or set static lat/lon in Geo Hazard Position)"

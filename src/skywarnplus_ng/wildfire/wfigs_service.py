@@ -94,11 +94,11 @@ class WfigsWildfireService:
         return elapsed >= self.config.wildfire.poll_interval_minutes
 
     def get_position(self) -> Optional[Tuple[float, float]]:
-        wf = self.config.wildfire
+        pos = self.config.geo_hazard_position
         return get_monitoring_position(
-            use_gps_position=wf.use_gps_position,
-            static_lat=wf.static_lat,
-            static_lon=wf.static_lon,
+            use_gps_position=pos.use_gps_position,
+            static_lat=pos.static_lat,
+            static_lon=pos.static_lon,
             mobile_service=self.mobile_service,
         )
 
@@ -284,20 +284,20 @@ class WfigsWildfireService:
             "tracked_incidents": len(self._tracked_incidents),
         }
 
-        wf = self.config.wildfire
+        pos = self.config.geo_hazard_position
         position = self.get_position()
         if position:
             details["position"] = {"lat": position[0], "lon": position[1]}
             details["position_source"] = position_source_label(
-                use_gps_position=wf.use_gps_position,
-                static_lat=wf.static_lat,
-                static_lon=wf.static_lon,
+                use_gps_position=pos.use_gps_position,
+                static_lat=pos.static_lat,
+                static_lon=pos.static_lon,
                 mobile_service=self.mobile_service,
                 gpsd_enabled=self.config.gpsd.enabled,
             )
             append_gps_health_details(
                 details,
-                use_gps_position=wf.use_gps_position,
+                use_gps_position=pos.use_gps_position,
                 gpsd_enabled=self.config.gpsd.enabled,
                 mobile_service=self.mobile_service,
                 position=position,
@@ -307,7 +307,7 @@ class WfigsWildfireService:
             details["position_source"] = "none"
             append_gps_health_details(
                 details,
-                use_gps_position=wf.use_gps_position,
+                use_gps_position=pos.use_gps_position,
                 gpsd_enabled=self.config.gpsd.enabled,
                 mobile_service=self.mobile_service,
                 position=None,
@@ -315,7 +315,7 @@ class WfigsWildfireService:
             return {
                 "ok": False,
                 "message": missing_position_message(
-                    use_gps_position=wf.use_gps_position,
+                    use_gps_position=pos.use_gps_position,
                     gpsd_enabled=self.config.gpsd.enabled,
                     mobile_service=self.mobile_service,
                 ),

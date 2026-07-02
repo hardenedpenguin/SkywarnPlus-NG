@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from skywarnplus_ng.core.config import AppConfig, NhcConfig, NWSApiConfig
+from skywarnplus_ng.core.config import AppConfig, GeoHazardPositionConfig, NhcConfig, NWSApiConfig
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
 from skywarnplus_ng.nhc.parser import (
     build_cyclone_tts_text,
@@ -100,6 +100,8 @@ def test_select_new_advisories_cdt_advisory_within_four_hour_window():
             max_distance_miles=1000,
             max_advisory_age_hours=4,
             hurricanes_only=False,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
             use_gps_position=False,
             static_lat=29.42,
             static_lon=-95.26,
@@ -129,6 +131,8 @@ def test_select_new_advisories_within_range():
             max_distance_miles=500,
             max_advisory_age_hours=48,
             hurricanes_only=False,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
             use_gps_position=False,
             static_lat=29.95,
             static_lon=-90.07,

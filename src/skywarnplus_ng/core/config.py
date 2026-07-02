@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
@@ -333,6 +333,53 @@ class AlertConfig(BaseModel):
     )
 
 
+def _migrate_legacy_geo_hazard_position(yaml_data: dict) -> None:
+    """Move per-hazard position settings into geo_hazard_position (backward compat)."""
+    ghp = yaml_data.get("geo_hazard_position")
+    if ghp is None:
+        ghp = {}
+        yaml_data["geo_hazard_position"] = ghp
+    elif not isinstance(ghp, dict):
+        return
+
+    def _is_empty(val: Any) -> bool:
+        return val is None or (isinstance(val, str) and val.strip() == "")
+
+    for section_key in ("nhc", "earthquake", "wildfire"):
+        section = yaml_data.get(section_key)
+        if not isinstance(section, dict):
+            continue
+        for field in ("use_gps_position", "static_lat", "static_lon"):
+            legacy = section.pop(field, None)
+            if _is_empty(legacy):
+                continue
+            if field == "use_gps_position":
+                if "use_gps_position" not in ghp:
+                    ghp["use_gps_position"] = legacy
+            elif _is_empty(ghp.get(field)):
+                ghp[field] = legacy
+
+
+class GeoHazardPositionConfig(BaseModel):
+    """Shared monitoring position for geo hazards (NHC, USGS, wildfire)."""
+
+    use_gps_position: bool = Field(
+        True,
+        description="Use gpsd position when available; otherwise static_lat/static_lon",
+    )
+    static_lat: Optional[float] = Field(
+        None, description="Fallback latitude when GPS is slow or unavailable"
+    )
+    static_lon: Optional[float] = Field(
+        None, description="Fallback longitude when GPS is slow or unavailable"
+    )
+
+    @field_validator("static_lat", "static_lon", mode="before")
+    @classmethod
+    def _coerce_static_coords(cls, value: Any) -> Any:
+        return _empty_str_to_none(value)
+
+
 class NhcConfig(BaseModel):
     """National Hurricane Center tropical cyclone monitoring."""
 
@@ -369,17 +416,6 @@ class NhcConfig(BaseModel):
         le=20,
         description="Maximum cyclone voice announcements per poll cycle",
     )
-    use_gps_position: bool = Field(
-        True,
-        description="Use gpsd position when available; otherwise static_lat/static_lon",
-    )
-    static_lat: Optional[float] = Field(None, description="Fallback latitude when GPS unavailable")
-    static_lon: Optional[float] = Field(None, description="Fallback longitude when GPS unavailable")
-
-    @field_validator("static_lat", "static_lon", mode="before")
-    @classmethod
-    def _coerce_static_coords(cls, value: Any) -> Any:
-        return _empty_str_to_none(value)
 
 
 class EarthquakeConfig(BaseModel):
@@ -432,14 +468,8 @@ class EarthquakeConfig(BaseModel):
         le=10.0,
         description="Skip automatic-status events below this magnitude (null=announce all)",
     )
-    use_gps_position: bool = Field(
-        True,
-        description="Use gpsd position when available; otherwise static_lat/static_lon",
-    )
-    static_lat: Optional[float] = Field(None, description="Fallback latitude when GPS unavailable")
-    static_lon: Optional[float] = Field(None, description="Fallback longitude when GPS unavailable")
 
-    @field_validator("static_lat", "static_lon", "ignore_automatic_below", mode="before")
+    @field_validator("ignore_automatic_below", mode="before")
     @classmethod
     def _coerce_earthquake_optional_fields(cls, value: Any) -> Any:
         return _empty_str_to_none(value)
@@ -486,17 +516,6 @@ class WildfireConfig(BaseModel):
         le=20,
         description="Maximum wildfire voice announcements per poll cycle",
     )
-    use_gps_position: bool = Field(
-        True,
-        description="Use gpsd position when available; otherwise static_lat/static_lon",
-    )
-    static_lat: Optional[float] = Field(None, description="Fallback latitude when GPS unavailable")
-    static_lon: Optional[float] = Field(None, description="Fallback longitude when GPS unavailable")
-
-    @field_validator("static_lat", "static_lon", mode="before")
-    @classmethod
-    def _coerce_wildfire_static_coords(cls, value: Any) -> Any:
-        return _empty_str_to_none(value)
 
 
 class ScriptConfig(BaseModel):
@@ -829,9 +848,20 @@ class AppConfig(BaseSettings):
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     dev: DevConfig = Field(default_factory=DevConfig)
     gpsd: GpsdConfig = Field(default_factory=GpsdConfig)
+    geo_hazard_position: GeoHazardPositionConfig = Field(
+        default_factory=GeoHazardPositionConfig,
+        description="Shared gpsd/static position for NHC, USGS, and wildfire monitoring",
+    )
     nhc: NhcConfig = Field(default_factory=NhcConfig)
     earthquake: EarthquakeConfig = Field(default_factory=EarthquakeConfig)
     wildfire: WildfireConfig = Field(default_factory=WildfireConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_legacy_geo_position(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            _migrate_legacy_geo_hazard_position(data)
+        return data
 
     @classmethod
     def from_yaml(cls, config_path=None) -> "AppConfig":

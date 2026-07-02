@@ -91,11 +91,11 @@ class NhcCycloneService:
         return elapsed >= self.config.nhc.poll_interval_minutes
 
     def get_position(self) -> Optional[Tuple[float, float]]:
-        nhc = self.config.nhc
+        pos = self.config.geo_hazard_position
         return get_monitoring_position(
-            use_gps_position=nhc.use_gps_position,
-            static_lat=nhc.static_lat,
-            static_lon=nhc.static_lon,
+            use_gps_position=pos.use_gps_position,
+            static_lat=pos.static_lat,
+            static_lon=pos.static_lon,
             mobile_service=self.mobile_service,
         )
 
@@ -121,11 +121,11 @@ class NhcCycloneService:
             return None
 
     def _position_source(self) -> str:
-        nhc = self.config.nhc
+        pos = self.config.geo_hazard_position
         return position_source_label(
-            use_gps_position=nhc.use_gps_position,
-            static_lat=nhc.static_lat,
-            static_lon=nhc.static_lon,
+            use_gps_position=pos.use_gps_position,
+            static_lat=pos.static_lat,
+            static_lon=pos.static_lon,
             mobile_service=self.mobile_service,
             gpsd_enabled=self.config.gpsd.enabled,
         )
@@ -150,7 +150,7 @@ class NhcCycloneService:
         state = state or {}
         details: Dict[str, Any] = {
             "feed_path": self.config.nhc.feed_path,
-            "use_gps_position": self.config.nhc.use_gps_position,
+            "use_gps_position": self.config.geo_hazard_position.use_gps_position,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "last_fetch_ok_at": (
                 self._last_fetch_ok_at.isoformat() if self._last_fetch_ok_at else None
@@ -166,7 +166,11 @@ class NhcCycloneService:
             details["position"] = None
             details["position_source"] = "none"
 
-        if self.config.nhc.use_gps_position and self.config.gpsd.enabled and self.mobile_service:
+        if (
+            self.config.geo_hazard_position.use_gps_position
+            and self.config.gpsd.enabled
+            and self.mobile_service
+        ):
             gps = self.mobile_service.get_status()
             details["gps_active"] = gps.get("active")
             details["gps_reason"] = gps.get("reason")

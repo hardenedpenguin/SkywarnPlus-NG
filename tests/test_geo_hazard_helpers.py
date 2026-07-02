@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, NWSApiConfig, WildfireConfig
+from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, GeoHazardPositionConfig, NWSApiConfig, WildfireConfig
 from skywarnplus_ng.geo_hazard.fetch_cache import GeoFetchCache
 from skywarnplus_ng.geo_hazard.tts import sanitize_for_tts
 from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService
@@ -41,14 +41,18 @@ def _eq_config(**kwargs) -> AppConfig:
         max_distance_miles=100,
         max_event_age_hours=6,
         max_announcements_per_cycle=2,
-        static_lat=34.0,
-        static_lon=-118.0,
-        use_gps_position=False,
     )
     eq_kwargs.update(kwargs)
+    pos_kwargs = {}
+    for key in ("static_lat", "static_lon", "use_gps_position"):
+        if key in eq_kwargs:
+            pos_kwargs[key] = eq_kwargs.pop(key)
+    if not pos_kwargs:
+        pos_kwargs = dict(static_lat=34.0, static_lon=-118.0, use_gps_position=False)
     return AppConfig(
         nws=NWSApiConfig(user_agent="test"),
         earthquake=EarthquakeConfig(**eq_kwargs),
+        geo_hazard_position=GeoHazardPositionConfig(**pos_kwargs),
     )
 
 
@@ -117,6 +121,8 @@ def test_wildfire_discovery_age_filter():
             min_acres=250,
             max_distance_miles=50,
             max_discovery_age_hours=48,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
             static_lat=34.0,
             static_lon=-118.0,
             use_gps_position=False,

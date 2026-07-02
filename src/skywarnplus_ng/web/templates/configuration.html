@@ -324,10 +324,37 @@
             </div>
 
             <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Geo Hazard Position</h3>
+                <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Shared position:</strong> Used by NHC tropical cyclones, USGS earthquakes, and wildfire monitoring. When gpsd is slow or unavailable, static latitude/longitude are used as a fallback for all enabled geo hazards.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="geo_hazard_use_gps_position" name="geo_hazard_position.use_gps_position" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="geo_hazard_use_gps_position" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Use gpsd position when available
+                        </label>
+                    </div>
+                    <div>
+                        <label for="geo_hazard_static_lat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Latitude</label>
+                        <input type="number" id="geo_hazard_static_lat" name="geo_hazard_position.static_lat" step="any"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="geo_hazard_static_lon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Longitude</label>
+                        <input type="number" id="geo_hazard_static_lon" name="geo_hazard_position.static_lon" step="any"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">NHC Tropical Cyclones</h3>
                 <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Hurricane advisories:</strong> Polls NOAA NHC GIS feeds and announces new tropical cyclone advisories within range of your position (gpsd or static coordinates).
+                        <strong>Hurricane advisories:</strong> Polls NOAA NHC GIS feeds and announces new tropical cyclone advisories within range of your position (see Geo Hazard Position above).
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -377,22 +404,6 @@
                             Hurricanes only (skip tropical storms)
                         </label>
                     </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="nhc_use_gps_position" name="nhc.use_gps_position" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="nhc_use_gps_position" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Use gpsd position when available
-                        </label>
-                    </div>
-                    <div>
-                        <label for="nhc_static_lat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Latitude</label>
-                        <input type="number" id="nhc_static_lat" name="nhc.static_lat" step="any"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                    </div>
-                    <div>
-                        <label for="nhc_static_lon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Longitude</label>
-                        <input type="number" id="nhc_static_lon" name="nhc.static_lon" step="any"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                    </div>
                 </div>
             </div>
 
@@ -400,7 +411,7 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">USGS Earthquakes</h3>
                 <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Earthquake alerts:</strong> Polls the USGS earthquake catalog and announces new events within range of your position (gpsd or static coordinates). On first enable, existing feed events are marked as announced without voice unless you enable “Announce history on enable” below.
+                        <strong>Earthquake alerts:</strong> Polls the USGS earthquake catalog and announces new events within range of your position (see Geo Hazard Position above). On first enable, existing feed events are marked as announced without voice unless you enable “Announce history on enable” below.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -451,22 +462,6 @@
                         <input type="number" id="earthquake_ignore_automatic_below" name="earthquake.ignore_automatic_below" min="0" max="10" step="0.1"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
                                placeholder="e.g. 4.5">
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="earthquake_use_gps_position" name="earthquake.use_gps_position" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="earthquake_use_gps_position" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Use gpsd position when available
-                        </label>
-                    </div>
-                    <div>
-                        <label for="earthquake_static_lat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Latitude</label>
-                        <input type="number" id="earthquake_static_lat" name="earthquake.static_lat" step="any"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                    </div>
-                    <div>
-                        <label for="earthquake_static_lon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Longitude</label>
-                        <input type="number" id="earthquake_static_lon" name="earthquake.static_lon" step="any"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
                 </div>
             </div>
@@ -521,22 +516,6 @@
                         <label for="wildfire_announce_history_on_enable" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                             Announce history on enable (voice all incidents in radius on first poll)
                         </label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="wildfire_use_gps_position" name="wildfire.use_gps_position" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                        <label for="wildfire_use_gps_position" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Use gpsd position when available
-                        </label>
-                    </div>
-                    <div>
-                        <label for="wildfire_static_lat" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Latitude</label>
-                        <input type="number" id="wildfire_static_lat" name="wildfire.static_lat" step="any"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                    </div>
-                    <div>
-                        <label for="wildfire_static_lon" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Static Longitude</label>
-                        <input type="number" id="wildfire_static_lon" name="wildfire.static_lon" step="any"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
                 </div>
             </div>
@@ -2779,9 +2758,11 @@
         document.getElementById('nhc_max_advisory_age_hours').value = config.nhc?.max_advisory_age_hours ?? 4;
         document.getElementById('nhc_max_announcements_per_cycle').value = config.nhc?.max_announcements_per_cycle ?? 3;
         document.getElementById('nhc_hurricanes_only').checked = config.nhc?.hurricanes_only || false;
-        document.getElementById('nhc_use_gps_position').checked = config.nhc?.use_gps_position !== false;
-        document.getElementById('nhc_static_lat').value = config.nhc?.static_lat ?? '';
-        document.getElementById('nhc_static_lon').value = config.nhc?.static_lon ?? '';
+
+        const geoPos = config.geo_hazard_position || {};
+        document.getElementById('geo_hazard_use_gps_position').checked = geoPos.use_gps_position !== false;
+        document.getElementById('geo_hazard_static_lat').value = geoPos.static_lat ?? '';
+        document.getElementById('geo_hazard_static_lon').value = geoPos.static_lon ?? '';
 
         document.getElementById('earthquake_enabled').checked = config.earthquake?.enabled || false;
         document.getElementById('earthquake_poll_interval_minutes').value = config.earthquake?.poll_interval_minutes ?? 10;
@@ -2792,9 +2773,6 @@
         document.getElementById('earthquake_max_announcements_per_cycle').value = config.earthquake?.max_announcements_per_cycle ?? 3;
         document.getElementById('earthquake_announce_history_on_enable').checked = config.earthquake?.announce_history_on_enable || false;
         document.getElementById('earthquake_ignore_automatic_below').value = config.earthquake?.ignore_automatic_below ?? '';
-        document.getElementById('earthquake_use_gps_position').checked = config.earthquake?.use_gps_position !== false;
-        document.getElementById('earthquake_static_lat').value = config.earthquake?.static_lat ?? '';
-        document.getElementById('earthquake_static_lon').value = config.earthquake?.static_lon ?? '';
 
         document.getElementById('wildfire_enabled').checked = config.wildfire?.enabled || false;
         document.getElementById('wildfire_poll_interval_minutes').value = config.wildfire?.poll_interval_minutes ?? 15;
@@ -2804,9 +2782,6 @@
         document.getElementById('wildfire_max_announcements_per_cycle').value = config.wildfire?.max_announcements_per_cycle ?? 3;
         document.getElementById('wildfire_announce_history_on_enable').checked = config.wildfire?.announce_history_on_enable || false;
         document.getElementById('wildfire_exclude_prescribed').checked = config.wildfire?.exclude_prescribed !== false;
-        document.getElementById('wildfire_use_gps_position').checked = config.wildfire?.use_gps_position !== false;
-        document.getElementById('wildfire_static_lat').value = config.wildfire?.static_lat ?? '';
-        document.getElementById('wildfire_static_lon').value = config.wildfire?.static_lon ?? '';
 
         // Filtering
         document.getElementById('filtering_max_alerts').value = config.filtering?.max_alerts || 99;
@@ -3641,16 +3616,14 @@
         { id: 'dev_inject_enabled', path: ['dev', 'inject_enabled'] },
         { id: 'dev_cleanslate', path: ['dev', 'cleanslate'] },
         { id: 'gpsd_enabled', path: ['gpsd', 'enabled'] },
+        { id: 'geo_hazard_use_gps_position', path: ['geo_hazard_position', 'use_gps_position'] },
         { id: 'nhc_enabled', path: ['nhc', 'enabled'] },
         { id: 'nhc_hurricanes_only', path: ['nhc', 'hurricanes_only'] },
-        { id: 'nhc_use_gps_position', path: ['nhc', 'use_gps_position'] },
         { id: 'earthquake_enabled', path: ['earthquake', 'enabled'] },
         { id: 'earthquake_announce_history_on_enable', path: ['earthquake', 'announce_history_on_enable'] },
-        { id: 'earthquake_use_gps_position', path: ['earthquake', 'use_gps_position'] },
         { id: 'wildfire_enabled', path: ['wildfire', 'enabled'] },
         { id: 'wildfire_announce_history_on_enable', path: ['wildfire', 'announce_history_on_enable'] },
-        { id: 'wildfire_exclude_prescribed', path: ['wildfire', 'exclude_prescribed'] },
-        { id: 'wildfire_use_gps_position', path: ['wildfire', 'use_gps_position'] }
+        { id: 'wildfire_exclude_prescribed', path: ['wildfire', 'exclude_prescribed'] }
     ];
 
     function applyConfigCheckboxes(config) {
@@ -3809,20 +3782,18 @@
 
             applyConfigCheckboxes(config);
             normalizeCountiesForSave(config);
-            if (config.nhc) {
-                if (config.nhc.static_lat === '') config.nhc.static_lat = null;
-                if (config.nhc.static_lon === '') config.nhc.static_lon = null;
+            if (config.geo_hazard_position) {
+                if (config.geo_hazard_position.static_lat === '') {
+                    config.geo_hazard_position.static_lat = null;
+                }
+                if (config.geo_hazard_position.static_lon === '') {
+                    config.geo_hazard_position.static_lon = null;
+                }
             }
             if (config.earthquake) {
-                if (config.earthquake.static_lat === '') config.earthquake.static_lat = null;
-                if (config.earthquake.static_lon === '') config.earthquake.static_lon = null;
                 if (config.earthquake.ignore_automatic_below === '') {
                     config.earthquake.ignore_automatic_below = null;
                 }
-            }
-            if (config.wildfire) {
-                if (config.wildfire.static_lat === '') config.wildfire.static_lat = null;
-                if (config.wildfire.static_lon === '') config.wildfire.static_lon = null;
             }
             if (config.gpsd && config.gpsd.min_accuracy_meters === '') {
                 config.gpsd.min_accuracy_meters = null;

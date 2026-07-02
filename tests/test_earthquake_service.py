@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, NWSApiConfig
+from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, GeoHazardPositionConfig, NWSApiConfig
 from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService
 from skywarnplus_ng.usgs.parser import ParsedEarthquake
 from datetime import datetime, timezone
@@ -18,6 +18,8 @@ def earthquake_config():
             enabled=True,
             min_magnitude=3.5,
             max_distance_miles=100,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
             static_lat=34.0,
             static_lon=-118.0,
             use_gps_position=False,
@@ -74,7 +76,7 @@ def test_select_new_events_announces_eligible(earthquake_config):
 
 
 def test_get_position_uses_mobile_when_enabled(earthquake_config):
-    earthquake_config.earthquake.use_gps_position = True
+    earthquake_config.geo_hazard_position.use_gps_position = True
     mobile = MagicMock()
     mobile.get_position.return_value = (29.9, -90.1)
     service = UsgsEarthquakeService(earthquake_config, mobile)

@@ -8,18 +8,29 @@ SkywarnPlus-NG can announce **position-based hazards** on your repeater nodes in
 |-------------|--------|------------------------|
 | Tornado, severe thunderstorm, flood, etc. | NWS API | Counties + alert behavior |
 | Fire **weather** (Red Flag Warning, Fire Weather Watch) | NWS API | Counties — no extra setup |
-| Tropical cyclone advisories | NHC GIS RSS | **NHC Tropical Cyclones** |
-| **Earthquakes** | USGS FDSN event API | **USGS Earthquakes** |
-| **Active wildfire perimeters** | NIFC WFIGS | **Wildfire Incidents** |
+| Tropical cyclone advisories | NHC GIS RSS | **NHC Tropical Cyclones** (+ **Geo Hazard Position**) |
+| **Earthquakes** | USGS FDSN event API | **USGS Earthquakes** (+ **Geo Hazard Position**) |
+| **Active wildfire perimeters** | NIFC WFIGS | **Wildfire Incidents** (+ **Geo Hazard Position**) |
 
 Fire weather forecasts are NWS alerts. The wildfire section tracks **active fire boundaries** from interagency perimeter data, not Red Flag Warnings.
 
 ## Requirements
 
 1. **Enable per feature** — each of NHC, earthquakes, and wildfires has its own **Enable** checkbox in Configuration (all default to off). Uncheck and save to stop polling and voice alerts for that hazard type.
-2. **Position** — enable **gpsd** or set **static latitude/longitude** for each hazard type you enable.
+2. **Position** — enable **gpsd** and/or set **static latitude/longitude** once under **Geo Hazard Position** (shared by NHC, earthquakes, and wildfires). Static coordinates are used when GPS is slow or unavailable.
 3. **Asterisk / asl-tts** — voice announcements use the same TTS pipeline as weather alerts.
 4. **Optional notifications** — when email, Pushover, or global webhooks are configured, subscribers receive a broadcast when an earthquake or wildfire is announced on the air (same as general notifications, not county-filtered NWS alerts).
+
+## Shared geo hazard position
+
+```yaml
+geo_hazard_position:
+  use_gps_position: true
+  static_lat: 29.95
+  static_lon: -90.07
+```
+
+When `use_gps_position` is true, gpsd is preferred; static lat/lon are the fallback for all enabled geo hazards.
 
 ## USGS earthquakes
 
@@ -34,9 +45,6 @@ earthquake:
   announce_history_on_enable: false
   max_announcements_per_cycle: 3
   ignore_automatic_below: 4.5   # optional; skip low-confidence automatic events
-  use_gps_position: true
-  static_lat: 29.95
-  static_lon: -90.07
 ```
 
 - Polls [USGS GeoJSON](https://earthquake.usgs.gov/fdsnws/event/1/) within `max_distance_miles` of your position.
@@ -64,9 +72,6 @@ wildfire:
   max_discovery_age_hours: 48
   announce_history_on_enable: false
   max_announcements_per_cycle: 3
-  use_gps_position: true
-  static_lat: 34.05
-  static_lon: -118.25
 ```
 
 - Polls NIFC **WFIGS Interagency Perimeters (Current)** near your position.

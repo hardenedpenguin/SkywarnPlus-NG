@@ -386,18 +386,21 @@ class ConfigApiMixin:
                             data["alerts"]["quiet_hours"]["timezone"] = None
 
                 if "nhc" in data and isinstance(data["nhc"], dict):
+                    for legacy in ("static_lat", "static_lon", "use_gps_position"):
+                        data["nhc"].pop(legacy, None)
+
+                if "geo_hazard_position" in data and isinstance(data["geo_hazard_position"], dict):
+                    ghp = data["geo_hazard_position"]
                     for coord in ("static_lat", "static_lon"):
-                        if coord in data["nhc"] and isinstance(data["nhc"][coord], str):
-                            if data["nhc"][coord].strip() == "":
-                                data["nhc"][coord] = None
+                        if coord in ghp and isinstance(ghp[coord], str):
+                            if ghp[coord].strip() == "":
+                                ghp[coord] = None
 
                 for section in ("earthquake", "wildfire"):
                     if section in data and isinstance(data[section], dict):
                         block = data[section]
-                        for coord in ("static_lat", "static_lon"):
-                            if coord in block and isinstance(block[coord], str):
-                                if block[coord].strip() == "":
-                                    block[coord] = None
+                        for legacy in ("static_lat", "static_lon", "use_gps_position"):
+                            block.pop(legacy, None)
                         if section == "earthquake":
                             below = block.get("ignore_automatic_below")
                             if isinstance(below, str) and below.strip() == "":
