@@ -4,7 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, GeoHazardPositionConfig, NWSApiConfig, WildfireConfig
+from skywarnplus_ng.core.config import (
+    AppConfig,
+    GeoHazardPositionConfig,
+    NWSApiConfig,
+    WildfireConfig,
+)
 from skywarnplus_ng.wildfire.parser import ParsedWildfire
 from skywarnplus_ng.wildfire.wfigs_service import WfigsWildfireService
 

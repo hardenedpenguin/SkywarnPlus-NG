@@ -4,7 +4,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, GeoHazardPositionConfig, NWSApiConfig, WildfireConfig
+from skywarnplus_ng.core.config import (
+    AppConfig,
+    EarthquakeConfig,
+    GeoHazardPositionConfig,
+    NWSApiConfig,
+    WildfireConfig,
+)
 from skywarnplus_ng.monitoring.health import ComponentStatus, HealthMonitor
 from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService
 from skywarnplus_ng.wildfire.wfigs_service import WfigsWildfireService

@@ -7,7 +7,6 @@ from skywarnplus_ng.core.config import (
     EarthquakeConfig,
     GeoHazardPositionConfig,
     NWSApiConfig,
-    WildfireConfig,
 )
 
 

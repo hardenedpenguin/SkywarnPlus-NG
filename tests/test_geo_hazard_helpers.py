@@ -4,7 +4,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, GeoHazardPositionConfig, NWSApiConfig, WildfireConfig
+from skywarnplus_ng.core.config import (
+    AppConfig,
+    EarthquakeConfig,
+    GeoHazardPositionConfig,
+    NWSApiConfig,
+    WildfireConfig,
+)
 from skywarnplus_ng.geo_hazard.fetch_cache import GeoFetchCache
 from skywarnplus_ng.geo_hazard.tts import sanitize_for_tts
 from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService

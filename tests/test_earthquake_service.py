@@ -4,7 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from skywarnplus_ng.core.config import AppConfig, EarthquakeConfig, GeoHazardPositionConfig, NWSApiConfig
+from skywarnplus_ng.core.config import (
+    AppConfig,
+    EarthquakeConfig,
+    GeoHazardPositionConfig,
+    NWSApiConfig,
+)
 from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService
 from skywarnplus_ng.usgs.parser import ParsedEarthquake
 from datetime import datetime, timezone
