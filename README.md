@@ -83,7 +83,7 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 
 | Dashboard section | What it monitors | Data source |
 |-------------------|------------------|-------------|
-| **NHC Tropical Cyclones** | Tropical cyclone advisories within range | NOAA NHC GIS RSS (`/gis-at.xml` Atlantic or `/gis-ep.xml` East Pacific) |
+| **NHC Tropical Cyclones** | Tropical cyclone advisories within range | NOAA NHC GIS RSS (`/gis-at.xml` Atlantic, `/gis-ep.xml` East Pacific, or `/gis-cp.xml` Central Pacific) |
 | **USGS Earthquakes** | Earthquakes above a magnitude threshold within range | USGS FDSN event API |
 | **Wildfire Incidents** | Active wildfire **perimeters** (not Red Flag Warnings) | NIFC WFIGS interagency perimeter feed |
 

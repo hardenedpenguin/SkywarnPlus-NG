@@ -386,7 +386,7 @@ class NhcConfig(BaseModel):
     enabled: bool = Field(False, description="Enable NHC tropical cyclone voice advisories")
     feed_path: str = Field(
         "/gis-at.xml",
-        description="NHC GIS RSS path (e.g. /gis-at.xml Atlantic, /gis-ep.xml East Pacific)",
+        description="NHC GIS RSS path (e.g. /gis-at.xml Atlantic, /gis-ep.xml East Pacific, /gis-cp.xml Central Pacific)",
     )
     poll_interval_minutes: int = Field(
         60,
