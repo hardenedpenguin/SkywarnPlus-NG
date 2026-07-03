@@ -122,6 +122,25 @@ def test_parse_pseudo_navy_coord() -> None:
     assert abs(lat - (19 + 25 / 60)) < 0.01
     lon = parse_pseudo_navy_coord("W", "15517")
     assert abs(lon + (155 + 17 / 60)) < 0.01
+    decimal_lat = parse_pseudo_navy_coord("N", "19.42")
+    assert abs(decimal_lat - 19.42) < 0.01
+
+
+def test_parse_volcano_notice_uses_catalog_coords_when_psn_missing() -> None:
+    item = {
+        "vnum": "332010",
+        "vName": "Kilauea",
+        "colorCode": "ORANGE",
+        "obs": "HVO",
+        "noticeType": "VONA",
+        "noticeIssued": "2026-05-18T10:00:00+00:00",
+        "noticeHtml": "<pre>No PSN line here</pre>",
+        "lat": 19.42,
+        "lon": -155.29,
+    }
+    notice = parse_volcano_notice(item, origin_lat=21.3, origin_lon=-157.8)
+    assert notice is not None
+    assert notice.distance_miles is not None
 
 
 def test_extract_pseudo_coords_from_notice() -> None:

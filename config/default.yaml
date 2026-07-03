@@ -181,6 +181,7 @@ space_weather:
   announce_warnings: true
   announce_alerts: true
   announce_summaries: false
+  announce_history_on_enable: false
   max_announcements_per_cycle: 2
 
 # USGS volcano notices (VONA) near geo-hazard position

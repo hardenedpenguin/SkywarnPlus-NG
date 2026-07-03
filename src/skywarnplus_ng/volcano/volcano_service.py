@@ -58,6 +58,7 @@ class VolcanoService:
         )
         self._last_poll_at: Optional[datetime] = None
         self._tracked_notices: List[Dict[str, Any]] = []
+        self._notices_in_feed: int = 0
         self._last_fetch_ok_at: Optional[datetime] = None
         self._last_error_message: Optional[str] = None
         self._last_display_refresh_at: Optional[datetime] = None
@@ -221,6 +222,7 @@ class VolcanoService:
             )
 
         self._tracked_notices = tracked
+        self._notices_in_feed = len(notices)
         return selected
 
     async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -313,6 +315,7 @@ class VolcanoService:
     async def poll(self, state: Dict[str, Any]) -> List[VolcanoNotice]:
         if not self.config.volcano.enabled:
             self._tracked_notices = []
+            self._notices_in_feed = 0
             return []
 
         position = self.get_position()
@@ -373,6 +376,7 @@ class VolcanoService:
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "position": ({"lat": position[0], "lon": position[1]} if position else None),
             "tracked_notices": self._tracked_notices,
+            "notices_in_feed": self._notices_in_feed,
             "announced_count": len(state.get("volcano_announced_notices") or []),
             "last_error_message": self._last_error_message,
             "last_fetch_ok_at": (

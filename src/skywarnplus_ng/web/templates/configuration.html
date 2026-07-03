@@ -644,6 +644,12 @@
                         <input type="number" id="space_weather_max_announcements_per_cycle" name="space_weather.max_announcements_per_cycle" min="1" max="20" value="2"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="space_weather_announce_history_on_enable" name="space_weather.announce_history_on_enable" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="space_weather_announce_history_on_enable" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Announce existing feed alerts when first enabled (otherwise seed history without voice)
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -3036,6 +3042,7 @@
         document.getElementById('space_weather_announce_alerts').checked = config.space_weather?.announce_alerts !== false;
         document.getElementById('space_weather_announce_summaries').checked = config.space_weather?.announce_summaries || false;
         document.getElementById('space_weather_max_announcements_per_cycle').value = config.space_weather?.max_announcements_per_cycle ?? 2;
+        document.getElementById('space_weather_announce_history_on_enable').checked = config.space_weather?.announce_history_on_enable || false;
 
         document.getElementById('volcano_enabled').checked = config.volcano?.enabled || false;
         document.getElementById('volcano_announce_enabled').checked = config.volcano?.announce_enabled !== false;
@@ -4045,6 +4052,7 @@
         { id: 'space_weather_announce_warnings', path: ['space_weather', 'announce_warnings'] },
         { id: 'space_weather_announce_alerts', path: ['space_weather', 'announce_alerts'] },
         { id: 'space_weather_announce_summaries', path: ['space_weather', 'announce_summaries'] },
+        { id: 'space_weather_announce_history_on_enable', path: ['space_weather', 'announce_history_on_enable'] },
         { id: 'volcano_enabled', path: ['volcano', 'enabled'] },
         { id: 'volcano_announce_enabled', path: ['volcano', 'announce_enabled'] },
         { id: 'volcano_announce_history_on_enable', path: ['volcano', 'announce_history_on_enable'] }

@@ -49,6 +49,7 @@ from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
 from ..usgs.earthquake_service import EarthquakeEvent, UsgsEarthquakeService
 from ..wildfire.wfigs_service import WildfireIncident, WfigsWildfireService
 from ..tsunami.tsunami_service import TsunamiAlert, TsunamiService
+from ..tsunami.parser import is_tsunami_event
 from ..spaceweather.swpc_service import SpaceWeatherAlert, SwpcSpaceWeatherService
 from ..volcano.volcano_service import VolcanoNotice, VolcanoService
 from ..playback.policy import PlaybackPolicy
@@ -1221,6 +1222,15 @@ class SkywarnPlusApplication:
             )
             return False
 
+        if self.config.tsunami.enabled and self.tsunami_service and is_tsunami_event(alert.event):
+            logger.debug(
+                "Alert %s (%s) handled by geo-hazard tsunami monitoring, "
+                "skipping county voice announcement",
+                alert.id,
+                alert.event,
+            )
+            return False
+
         # Check if this event type is blocked from announcement
         for blocked_event in self.config.filtering.say_alert_blocked:
             if self._matches_pattern(alert.event, blocked_event):
@@ -2370,6 +2380,10 @@ class SkywarnPlusApplication:
                 not previous.volcano.enabled and config.volcano.enabled
             ):
                 self.state.pop("volcano_history_seeded", None)
+            if not config.space_weather.enabled or (
+                not previous.space_weather.enabled and config.space_weather.enabled
+            ):
+                self.state.pop("spaceweather_history_seeded", None)
 
         self._schedule_notification_manager_reload()
         if getattr(self, "_pushover_notifier", None) is not None:

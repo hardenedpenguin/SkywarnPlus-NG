@@ -625,6 +625,7 @@
         section.classList.remove('hidden');
 
         var metaParts = [];
+        if (spaceWeather.history_seeded === false && spaceWeather.enabled && !spaceWeather.announce_history_on_enable) metaParts.push('First poll will seed history without voice');
         if (spaceWeather.display_tracked_limit > 0) metaParts.push('Showing ' + escHtml(spaceWeather.display_tracked_limit) + ' most recent');
         if (spaceWeather.min_geomagnetic_scale > 0) metaParts.push('G≥' + escHtml(spaceWeather.min_geomagnetic_scale));
         if (spaceWeather.announce_enabled === false) metaParts.push('Monitor only (no voice)');
@@ -681,7 +682,10 @@
 
         var notices = Array.isArray(volcano.tracked_notices) ? volcano.tracked_notices.slice() : [];
         if (notices.length === 0) {
-            var emptyMsg = 'No volcano notices within range.';
+            var emptyMsg = 'No matching volcano notices in the current feed.';
+            if (volcano.notices_in_feed > 0) {
+                emptyMsg = 'No volcano notices match current filters or distance.';
+            }
             if (volcano.last_fetch_ok_at) emptyMsg += ' Feed checked ' + escHtml(formatRelativeTime(volcano.last_fetch_ok_at)) + '.';
             container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">' + emptyMsg + '</p>';
             return;

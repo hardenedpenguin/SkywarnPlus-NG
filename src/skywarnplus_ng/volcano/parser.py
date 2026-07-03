@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -41,10 +42,29 @@ def color_rank(color: str) -> int:
 
 def parse_pseudo_navy_coord(hemisphere: str, value: str) -> float:
     # USGS pseudo format: N1925 = 19°25' -> 19 + 25/60
-    val_int = int(round(float(value)))
-    whole_deg = val_int // 100
-    minutes = val_int % 100
-    decimal = whole_deg + minutes / 60.0
+    raw = (value or "").strip()
+    if not raw:
+        return 0.0
+
+    fval = float(raw)
+    if "." in raw:
+        int_part = int(fval)
+        if int_part < 100:
+            decimal = fval
+        else:
+            val_int = int(round(fval))
+            whole_deg = val_int // 100
+            minutes = val_int % 100
+            decimal = whole_deg + minutes / 60.0
+    else:
+        val_int = int(round(fval))
+        if val_int < 100:
+            decimal = fval
+        else:
+            whole_deg = val_int // 100
+            minutes = val_int % 100
+            decimal = whole_deg + minutes / 60.0
+
     if hemisphere.upper() in ("S", "W"):
         decimal = -decimal
     return decimal
@@ -57,6 +77,24 @@ def extract_pseudo_coords(text: str) -> Optional[tuple[float, float]]:
     lat = parse_pseudo_navy_coord(match.group(1), match.group(2))
     lon = parse_pseudo_navy_coord(match.group(3), match.group(4))
     return lat, lon
+
+
+def _catalog_coords(item: Dict[str, Any]) -> Optional[tuple[float, float]]:
+    for lat_key, lon_key in (
+        ("lat", "lon"),
+        ("latitude", "longitude"),
+        ("vLat", "vLon"),
+        ("volcanoLat", "volcanoLon"),
+    ):
+        lat = item.get(lat_key)
+        lon = item.get(lon_key)
+        if lat is None or lon is None:
+            continue
+        try:
+            return float(lat), float(lon)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _parse_notice_issued(value: Optional[str]) -> Optional[datetime]:
@@ -83,6 +121,17 @@ def build_volcano_tts(name: str, color_code: str, notice_type: str) -> str:
     return " ".join(parts)
 
 
+def _build_announcement_key(
+    vnum: str,
+    notice_issued: str,
+    notice_type: str,
+    notice_html: str,
+) -> str:
+    issued_part = notice_issued or "unknown"
+    digest = hashlib.sha256(notice_html.encode("utf-8", errors="ignore")).hexdigest()[:12]
+    return f"{vnum}:{issued_part}:{notice_type}:{digest}"
+
+
 def parse_volcano_notice(
     item: Dict[str, Any],
     *,
@@ -100,7 +149,7 @@ def parse_volcano_notice(
     notice_issued = str(item.get("noticeIssued") or item.get("notice_issued") or "")
     notice_html = str(item.get("noticeHtml") or item.get("notice_html") or "")
 
-    coords = extract_pseudo_coords(notice_html)
+    coords = extract_pseudo_coords(notice_html) or _catalog_coords(item)
     lat = coords[0] if coords else None
     lon = coords[1] if coords else None
     distance_miles: Optional[int] = None
@@ -108,7 +157,7 @@ def parse_volcano_notice(
         distance_miles = haversine_miles(origin_lat, origin_lon, lat, lon)
 
     issued_utc = _parse_notice_issued(notice_issued)
-    announcement_key = f"{vnum}:{notice_issued or notice_type}"
+    announcement_key = _build_announcement_key(vnum, notice_issued, notice_type, notice_html)
     tts_text = build_volcano_tts(name, color_code, notice_type)
 
     return ParsedVolcano(

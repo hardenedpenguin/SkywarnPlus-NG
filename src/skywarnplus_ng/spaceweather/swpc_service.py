@@ -94,15 +94,21 @@ class SwpcSpaceWeatherService:
             return False
         if message_type == "other":
             return False
-        if sw.min_geomagnetic_scale > 0 and alert.geomagnetic_scale < sw.min_geomagnetic_scale:
+        if (
+            sw.min_geomagnetic_scale > 0
+            and alert.geomagnetic_scale > 0
+            and alert.geomagnetic_scale < sw.min_geomagnetic_scale
+        ):
             return False
         if (
             sw.min_radio_blackout_scale > 0
+            and alert.radio_blackout_scale > 0
             and alert.radio_blackout_scale < sw.min_radio_blackout_scale
         ):
             return False
         if (
             sw.min_solar_radiation_scale > 0
+            and alert.solar_radiation_scale > 0
             and alert.solar_radiation_scale < sw.min_solar_radiation_scale
         ):
             return False
@@ -122,6 +128,47 @@ class SwpcSpaceWeatherService:
             announced.append(announcement_key)
         state["spaceweather_announced_alerts"] = announced[-500:]
 
+    def _maybe_seed_announced_history(
+        self,
+        alerts: List[ParsedSpaceWeather],
+        state: Dict[str, Any],
+    ) -> None:
+        if state.get("spaceweather_history_seeded"):
+            return
+        sw = self.config.space_weather
+        seeded = 0
+        if not sw.announce_history_on_enable:
+            for alert in alerts[:DISPLAY_TRACKED_LIMIT]:
+                if self._passes_filters(alert):
+                    self.mark_announced(alert.announcement_key, state)
+                    seeded += 1
+            if seeded:
+                logger.info(
+                    "SWPC: seeded %s existing alert(s) as announced "
+                    "(announce_history_on_enable=false)",
+                    seeded,
+                )
+        state["spaceweather_history_seeded"] = True
+
+    def _tracked_alert_payload(
+        self,
+        alert: ParsedSpaceWeather,
+        *,
+        within_filters: bool,
+        announced: bool,
+    ) -> Dict[str, Any]:
+        return {
+            "product_id": alert.product_id,
+            "title": alert.title,
+            "message_type": alert.message_type,
+            "geomagnetic_scale": alert.geomagnetic_scale,
+            "radio_blackout_scale": alert.radio_blackout_scale,
+            "solar_radiation_scale": alert.solar_radiation_scale,
+            "issued_utc": alert.issued_utc.isoformat(),
+            "within_range": within_filters,
+            "announced": announced,
+        }
+
     def select_new_alerts(
         self,
         alerts: List[ParsedSpaceWeather],
@@ -129,24 +176,10 @@ class SwpcSpaceWeatherService:
     ) -> List[SpaceWeatherAlert]:
         selected: List[SpaceWeatherAlert] = []
         tracked: List[Dict[str, Any]] = []
-        recent_alerts = alerts[:DISPLAY_TRACKED_LIMIT]
 
-        for alert in recent_alerts:
+        for alert in alerts:
             within_filters = self._passes_filters(alert)
             announced = self._already_announced(alert.announcement_key, state)
-            tracked.append(
-                {
-                    "product_id": alert.product_id,
-                    "title": alert.title,
-                    "message_type": alert.message_type,
-                    "geomagnetic_scale": alert.geomagnetic_scale,
-                    "radio_blackout_scale": alert.radio_blackout_scale,
-                    "solar_radiation_scale": alert.solar_radiation_scale,
-                    "issued_utc": alert.issued_utc.isoformat(),
-                    "within_range": within_filters,
-                    "announced": announced,
-                }
-            )
             if not within_filters or announced:
                 continue
             selected.append(
@@ -159,6 +192,15 @@ class SwpcSpaceWeatherService:
                     announcement_key=alert.announcement_key,
                     tts_text=alert.tts_text,
                     issued_utc=alert.issued_utc,
+                )
+            )
+
+        for alert in alerts[:DISPLAY_TRACKED_LIMIT]:
+            tracked.append(
+                self._tracked_alert_payload(
+                    alert,
+                    within_filters=self._passes_filters(alert),
+                    announced=self._already_announced(alert.announcement_key, state),
                 )
             )
 
@@ -249,6 +291,7 @@ class SwpcSpaceWeatherService:
             return []
 
         alerts = parse_swpc_alerts(data)
+        self._maybe_seed_announced_history(alerts, state)
         selected = self.select_new_alerts(alerts, state)
         self._last_poll_at = datetime.now(timezone.utc)
         self._last_display_refresh_at = self._last_poll_at
@@ -282,6 +325,8 @@ class SwpcSpaceWeatherService:
             "announce_alerts": sw.announce_alerts,
             "announce_summaries": sw.announce_summaries,
             "max_announcements_per_cycle": sw.max_announcements_per_cycle,
+            "announce_history_on_enable": sw.announce_history_on_enable,
+            "history_seeded": bool(state.get("spaceweather_history_seeded")),
             "display_tracked_limit": DISPLAY_TRACKED_LIMIT,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "tracked_alerts": self._tracked_alerts,

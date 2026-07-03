@@ -544,6 +544,16 @@ class TsunamiConfig(BaseModel):
         "warning",
         description="Minimum tsunami level to announce: warning, advisory, or watch",
     )
+
+    @field_validator("min_level")
+    @classmethod
+    def validate_min_level(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        allowed = {"watch", "advisory", "warning", "statement"}
+        if normalized not in allowed:
+            raise ValueError(f"min_level must be one of: {', '.join(sorted(allowed))}")
+        return normalized
+
     announce_history_on_enable: bool = Field(
         False,
         description="When false, mark existing feed alerts as announced without voice on first enable",
@@ -592,6 +602,10 @@ class SpaceWeatherConfig(BaseModel):
     announce_warnings: bool = Field(True, description="Announce SWPC warnings")
     announce_alerts: bool = Field(True, description="Announce SWPC alerts")
     announce_summaries: bool = Field(False, description="Announce SWPC summary products")
+    announce_history_on_enable: bool = Field(
+        False,
+        description="When false, mark existing feed alerts as announced without voice on first enable",
+    )
     max_announcements_per_cycle: int = Field(
         2,
         ge=1,
@@ -624,6 +638,16 @@ class VolcanoConfig(BaseModel):
         "orange",
         description="Minimum aviation color code: green, yellow, orange, or red",
     )
+
+    @field_validator("min_color_code")
+    @classmethod
+    def validate_min_color_code(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        allowed = {"green", "yellow", "orange", "red", "unassigned"}
+        if normalized not in allowed:
+            raise ValueError(f"min_color_code must be one of: {', '.join(sorted(allowed))}")
+        return normalized
+
     observatories: List[str] = Field(
         default_factory=list,
         description="Optional observatory filter (empty = all); USGS codes: AVO, CALVO, CVO, HVO, NMI, YVO",

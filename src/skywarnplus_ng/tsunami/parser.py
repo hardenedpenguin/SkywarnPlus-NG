@@ -57,12 +57,16 @@ def level_rank(level: str) -> int:
     return _LEVEL_RANK.get((level or "").lower(), 0)
 
 
+def is_tsunami_event(event: str) -> bool:
+    return bool(_TSUNAMI_EVENT_RE.search(event or ""))
+
+
 def is_tsunami_feature(feature: Dict[str, Any]) -> bool:
     props = feature.get("properties") if isinstance(feature, dict) else None
     if not isinstance(props, dict):
         return False
     event = str(props.get("event") or "")
-    return bool(_TSUNAMI_EVENT_RE.search(event))
+    return is_tsunami_event(event)
 
 
 def build_tsunami_tts(event: str, headline: str) -> str:
