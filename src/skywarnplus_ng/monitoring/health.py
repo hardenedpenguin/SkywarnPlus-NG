@@ -84,6 +84,9 @@ class HealthMonitor:
         self.nhc_service = None
         self.earthquake_service = None
         self.wildfire_service = None
+        self.tsunami_service = None
+        self.space_weather_service = None
+        self.volcano_service = None
         self.mobile_county_service = None
         self.audio_manager: Optional[AudioManager] = None
         self.asterisk_manager: Optional[AsteriskManager] = None
@@ -100,6 +103,9 @@ class HealthMonitor:
         nhc_service=None,
         earthquake_service=None,
         wildfire_service=None,
+        tsunami_service=None,
+        space_weather_service=None,
+        volcano_service=None,
         mobile_county_service=None,
         audio_manager: Optional[AudioManager] = None,
         asterisk_manager: Optional[AsteriskManager] = None,
@@ -111,6 +117,9 @@ class HealthMonitor:
         self.nhc_service = nhc_service
         self.earthquake_service = earthquake_service
         self.wildfire_service = wildfire_service
+        self.tsunami_service = tsunami_service
+        self.space_weather_service = space_weather_service
+        self.volcano_service = volcano_service
         self.mobile_county_service = mobile_county_service
         self.audio_manager = audio_manager
         self.asterisk_manager = asterisk_manager
@@ -540,6 +549,96 @@ class HealthMonitor:
             disabled_message="Wildfire monitoring disabled",
         )
 
+    async def check_tsunami_health(
+        self, state: Optional[Dict[str, Any]] = None
+    ) -> ComponentHealth:
+        """Check NWS tsunami feed and position health when enabled."""
+        return await self._check_position_hazard_health(
+            component_name="tsunami_api",
+            enabled=self.config.tsunami.enabled,
+            service=self.tsunami_service,
+            use_gps_position=self.config.geo_hazard_position.use_gps_position,
+            state=state,
+            disabled_message="Tsunami monitoring disabled",
+        )
+
+    async def check_volcano_health(
+        self, state: Optional[Dict[str, Any]] = None
+    ) -> ComponentHealth:
+        """Check USGS volcano feed and position health when enabled."""
+        return await self._check_position_hazard_health(
+            component_name="volcano_api",
+            enabled=self.config.volcano.enabled,
+            service=self.volcano_service,
+            use_gps_position=self.config.geo_hazard_position.use_gps_position,
+            state=state,
+            disabled_message="Volcano monitoring disabled",
+        )
+
+    async def check_space_weather_health(
+        self, state: Optional[Dict[str, Any]] = None
+    ) -> ComponentHealth:
+        """Check SWPC space weather feed when enabled."""
+        start_time = datetime.now(timezone.utc)
+
+        if not self.config.space_weather.enabled:
+            return ComponentHealth(
+                name="swpc_api",
+                status=ComponentStatus.UNKNOWN,
+                message="Space weather monitoring disabled",
+                last_check=start_time,
+            )
+
+        if not self.space_weather_service:
+            return ComponentHealth(
+                name="swpc_api",
+                status=ComponentStatus.UNKNOWN,
+                message="swpc_api service not initialized",
+                last_check=start_time,
+            )
+
+        try:
+            result = await asyncio.wait_for(
+                self.space_weather_service.check_health(state or {}),
+                timeout=20.0,
+            )
+            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            details = result.get("details") or {}
+
+            if result.get("ok"):
+                return ComponentHealth(
+                    name="swpc_api",
+                    status=ComponentStatus.HEALTHY,
+                    message=str(result.get("message") or "swpc_api OK"),
+                    last_check=start_time,
+                    response_time_ms=response_time,
+                    details=details,
+                )
+
+            return ComponentHealth(
+                name="swpc_api",
+                status=ComponentStatus.UNHEALTHY,
+                message=str(result.get("message") or "swpc_api health check failed"),
+                last_check=start_time,
+                response_time_ms=response_time,
+                details=details,
+            )
+        except asyncio.TimeoutError:
+            return ComponentHealth(
+                name="swpc_api",
+                status=ComponentStatus.UNHEALTHY,
+                message="swpc_api health check timeout",
+                last_check=start_time,
+                response_time_ms=20000.0,
+            )
+        except Exception as e:
+            return ComponentHealth(
+                name="swpc_api",
+                status=ComponentStatus.UNHEALTHY,
+                message=f"swpc_api error: {e}",
+                last_check=start_time,
+            )
+
     async def get_health_status(self, state: Optional[Dict[str, Any]] = None) -> HealthStatus:
         """Get comprehensive health status."""
         start_time = datetime.now(timezone.utc)
@@ -558,6 +657,12 @@ class HealthMonitor:
             check_coroutines.append(self.check_earthquake_health(state))
         if self.config.wildfire.enabled:
             check_coroutines.append(self.check_wildfire_health(state))
+        if self.config.tsunami.enabled:
+            check_coroutines.append(self.check_tsunami_health(state))
+        if self.config.space_weather.enabled:
+            check_coroutines.append(self.check_space_weather_health(state))
+        if self.config.volcano.enabled:
+            check_coroutines.append(self.check_volcano_health(state))
 
         health_checks = await asyncio.gather(
             *check_coroutines,
@@ -595,6 +700,9 @@ class HealthMonitor:
             "nhc_enabled": self.config.nhc.enabled,
             "earthquake_enabled": self.config.earthquake.enabled,
             "wildfire_enabled": self.config.wildfire.enabled,
+            "tsunami_enabled": self.config.tsunami.enabled,
+            "space_weather_enabled": self.config.space_weather.enabled,
+            "volcano_enabled": self.config.volcano.enabled,
             "gpsd_enabled": self.config.gpsd.enabled,
         }
 

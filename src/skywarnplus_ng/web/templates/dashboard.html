@@ -54,6 +54,21 @@
         <p id="wildfire-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
     </div>
 
+    <div id="tsunami-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
+        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Tsunami monitoring warning</p>
+        <p id="tsunami-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
+    </div>
+
+    <div id="spaceweather-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
+        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Space weather monitoring warning</p>
+        <p id="spaceweather-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
+    </div>
+
+    <div id="volcano-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
+        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Volcano monitoring warning</p>
+        <p id="volcano-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
+    </div>
+
     <!-- Main Content Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Active Alerts -->
@@ -110,6 +125,36 @@
                 </div>
                 <div id="wildfire-container">
                     <p class="text-sm text-gray-500 dark:text-gray-400">Loading wildfire data…</p>
+                </div>
+            </div>
+
+            <div id="tsunami-section" class="card mt-6 hidden" aria-labelledby="tsunami-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h2 id="tsunami-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Tsunami Alerts (NWS)</h2>
+                    <p id="tsunami-meta" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                </div>
+                <div id="tsunami-container">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading tsunami data…</p>
+                </div>
+            </div>
+
+            <div id="spaceweather-section" class="card mt-6 hidden" aria-labelledby="spaceweather-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h2 id="spaceweather-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Space Weather (SWPC)</h2>
+                    <p id="spaceweather-meta" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                </div>
+                <div id="spaceweather-container">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading space weather data…</p>
+                </div>
+            </div>
+
+            <div id="volcano-section" class="card mt-6 hidden" aria-labelledby="volcano-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h2 id="volcano-heading" class="text-xl font-semibold text-gray-900 dark:text-white">Volcano Notices (USGS)</h2>
+                    <p id="volcano-meta" class="text-xs text-gray-500 dark:text-gray-400"></p>
+                </div>
+                <div id="volcano-container">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Loading volcano data…</p>
                 </div>
             </div>
         </div>
@@ -189,6 +234,9 @@
         updateNhcFetchWarning(status);
         updateUsgsFetchWarning(status);
         updateWildfireFetchWarning(status);
+        updateTsunamiFetchWarning(status);
+        updateSpaceweatherFetchWarning(status);
+        updateVolcanoFetchWarning(status);
     }
 
     function updateUsgsFetchWarning(status) {
@@ -215,6 +263,51 @@
             box.classList.remove('hidden');
             var msg = status.wildfire_last_error_message || 'The last wildfire poll did not complete successfully.';
             var when = formatRelativeTime(status.wildfire_last_error_at);
+            detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
+        } else {
+            box.classList.add('hidden');
+        }
+    }
+
+    function updateTsunamiFetchWarning(status) {
+        var box = document.getElementById('tsunami-fetch-warning');
+        var detail = document.getElementById('tsunami-fetch-warning-detail');
+        if (!box || !detail) return;
+        var enabled = status && status.tsunami && status.tsunami.enabled;
+        if (enabled && status.tsunami_last_error_at) {
+            box.classList.remove('hidden');
+            var msg = status.tsunami_last_error_message || 'The last tsunami poll did not complete successfully.';
+            var when = formatRelativeTime(status.tsunami_last_error_at);
+            detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
+        } else {
+            box.classList.add('hidden');
+        }
+    }
+
+    function updateSpaceweatherFetchWarning(status) {
+        var box = document.getElementById('spaceweather-fetch-warning');
+        var detail = document.getElementById('spaceweather-fetch-warning-detail');
+        if (!box || !detail) return;
+        var enabled = status && status.space_weather && status.space_weather.enabled;
+        if (enabled && status.spaceweather_last_error_at) {
+            box.classList.remove('hidden');
+            var msg = status.spaceweather_last_error_message || 'The last space weather poll did not complete successfully.';
+            var when = formatRelativeTime(status.spaceweather_last_error_at);
+            detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
+        } else {
+            box.classList.add('hidden');
+        }
+    }
+
+    function updateVolcanoFetchWarning(status) {
+        var box = document.getElementById('volcano-fetch-warning');
+        var detail = document.getElementById('volcano-fetch-warning-detail');
+        if (!box || !detail) return;
+        var enabled = status && status.volcano && status.volcano.enabled;
+        if (enabled && status.volcano_last_error_at) {
+            box.classList.remove('hidden');
+            var msg = status.volcano_last_error_message || 'The last volcano poll did not complete successfully.';
+            var when = formatRelativeTime(status.volcano_last_error_at);
             detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
         } else {
             box.classList.add('hidden');
@@ -346,7 +439,8 @@
 
         var metaParts = [];
         if (earthquake.min_magnitude != null) metaParts.push('M≥' + escHtml(earthquake.min_magnitude));
-        if (earthquake.max_distance_miles) metaParts.push('Voice within ' + escHtml(earthquake.max_distance_miles) + ' mi');
+        if (earthquake.max_distance_miles) metaParts.push((earthquake.announce_enabled === false ? 'Within ' : 'Voice within ') + escHtml(earthquake.max_distance_miles) + ' mi');
+        if (earthquake.announce_enabled === false) metaParts.push('Monitor only (no voice)');
         if (earthquake.max_event_age_hours != null) metaParts.push('Age ≤' + escHtml(earthquake.max_event_age_hours) + 'h');
         if (earthquake.max_announcements_per_cycle != null) metaParts.push('Cap ' + escHtml(earthquake.max_announcements_per_cycle) + '/poll');
         if (earthquake.history_seeded === false && earthquake.enabled && !earthquake.announce_history_on_enable) metaParts.push('First poll will seed history without voice');
@@ -413,7 +507,8 @@
 
         var metaParts = [];
         if (wildfire.min_acres != null) metaParts.push('≥' + escHtml(wildfire.min_acres) + ' acres');
-        if (wildfire.max_distance_miles) metaParts.push('Voice within ' + escHtml(wildfire.max_distance_miles) + ' mi');
+        if (wildfire.max_distance_miles) metaParts.push((wildfire.announce_enabled === false ? 'Within ' : 'Voice within ') + escHtml(wildfire.max_distance_miles) + ' mi');
+        if (wildfire.announce_enabled === false) metaParts.push('Monitor only (no voice)');
         if (wildfire.max_discovery_age_hours != null) metaParts.push('Discovery ≤' + escHtml(wildfire.max_discovery_age_hours) + 'h');
         if (wildfire.max_announcements_per_cycle != null) metaParts.push('Cap ' + escHtml(wildfire.max_announcements_per_cycle) + '/poll');
         if (wildfire.exclude_prescribed) metaParts.push('Prescribed burns excluded');
@@ -462,6 +557,148 @@
             if (incident.percent_contained != null) {
                 html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Contained</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(incident.percent_contained) + '%</dd></div>';
             }
+            html += '</dl></div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function renderTsunamis(tsunami) {
+        var section = document.getElementById('tsunami-section');
+        var container = document.getElementById('tsunami-container');
+        var meta = document.getElementById('tsunami-meta');
+        if (!section || !container) return;
+
+        if (!tsunami || !tsunami.enabled) {
+            section.classList.add('hidden');
+            return;
+        }
+        section.classList.remove('hidden');
+
+        var metaParts = [];
+        if (tsunami.min_level) metaParts.push('Min ' + escHtml(tsunami.min_level));
+        if (tsunami.announce_enabled === false) metaParts.push('Monitor only (no voice)');
+        if (tsunami.max_announcements_per_cycle != null) metaParts.push('Cap ' + escHtml(tsunami.max_announcements_per_cycle) + '/poll');
+        if (tsunami.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(tsunami.last_poll_at)));
+        if (meta) meta.innerHTML = metaParts.join(' · ');
+
+        if (!tsunami.position) {
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Waiting for position — enable gpsd or set static latitude/longitude under <strong>Configuration → Geo Hazard Position</strong>.</p>';
+            return;
+        }
+
+        var alerts = Array.isArray(tsunami.tracked_alerts) ? tsunami.tracked_alerts.slice() : [];
+        if (alerts.length === 0) {
+            var emptyMsg = 'No tsunami alerts at your position.';
+            if (tsunami.last_fetch_ok_at) emptyMsg += ' Feed checked ' + escHtml(formatRelativeTime(tsunami.last_fetch_ok_at)) + '.';
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">' + emptyMsg + '</p>';
+            return;
+        }
+
+        var posLabel = tsunami.position.lat.toFixed(2) + ', ' + tsunami.position.lon.toFixed(2);
+        var html = '<p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Alerts at ' + escHtml(posLabel) + '</p><div class="space-y-3">';
+        alerts.forEach(function(alert) {
+            var within = !!alert.within_range;
+            var announced = !!alert.announced;
+            html += '<div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/30">';
+            html += '<div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0">';
+            html += '<p class="text-base font-semibold text-gray-900 dark:text-white">' + escHtml(alert.event || 'Tsunami alert') + '</p>';
+            html += '<p class="text-sm text-gray-600 dark:text-gray-400">' + escHtml(alert.headline || '') + '</p></div>';
+            html += '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium shrink-0 ' + geoHazardBadgeClass(within, announced) + '">' + escHtml(geoHazardBadgeLabel(within, announced)) + '</span></div>';
+            if (alert.issued_utc) html += '<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Issued ' + escHtml(formatTimestampUtc(alert.issued_utc)) + '</p>';
+            html += '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function renderSpaceWeather(spaceWeather) {
+        var section = document.getElementById('spaceweather-section');
+        var container = document.getElementById('spaceweather-container');
+        var meta = document.getElementById('spaceweather-meta');
+        if (!section || !container) return;
+
+        if (!spaceWeather || !spaceWeather.enabled) {
+            section.classList.add('hidden');
+            return;
+        }
+        section.classList.remove('hidden');
+
+        var metaParts = [];
+        if (spaceWeather.min_geomagnetic_scale > 0) metaParts.push('G≥' + escHtml(spaceWeather.min_geomagnetic_scale));
+        if (spaceWeather.announce_enabled === false) metaParts.push('Monitor only (no voice)');
+        if (spaceWeather.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(spaceWeather.last_poll_at)));
+        if (meta) meta.innerHTML = metaParts.join(' · ');
+
+        var alerts = Array.isArray(spaceWeather.tracked_alerts) ? spaceWeather.tracked_alerts.slice() : [];
+        if (alerts.length === 0) {
+            var emptyMsg = 'No matching SWPC alerts in the current feed.';
+            if (spaceWeather.last_fetch_ok_at) emptyMsg += ' Feed checked ' + escHtml(formatRelativeTime(spaceWeather.last_fetch_ok_at)) + '.';
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">' + emptyMsg + '</p>';
+            return;
+        }
+
+        var html = '<div class="space-y-3">';
+        alerts.forEach(function(alert) {
+            var within = !!alert.within_range;
+            var announced = !!alert.announced;
+            html += '<div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/30">';
+            html += '<div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0">';
+            html += '<p class="text-base font-semibold text-gray-900 dark:text-white">' + escHtml(alert.title || alert.product_id || 'Space weather') + '</p>';
+            html += '<p class="text-sm text-gray-600 dark:text-gray-400">' + escHtml(alert.message_type || '') + (alert.geomagnetic_scale ? ' · G' + escHtml(alert.geomagnetic_scale) : '') + '</p></div>';
+            html += '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium shrink-0 ' + geoHazardBadgeClass(within, announced) + '">' + escHtml(geoHazardBadgeLabel(within, announced)) + '</span></div>';
+            if (alert.issued_utc) html += '<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Issued ' + escHtml(formatTimestampUtc(alert.issued_utc)) + '</p>';
+            html += '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function renderVolcanoes(volcano) {
+        var section = document.getElementById('volcano-section');
+        var container = document.getElementById('volcano-container');
+        var meta = document.getElementById('volcano-meta');
+        if (!section || !container) return;
+
+        if (!volcano || !volcano.enabled) {
+            section.classList.add('hidden');
+            return;
+        }
+        section.classList.remove('hidden');
+
+        var metaParts = [];
+        if (volcano.min_color_code) metaParts.push('Color ≥ ' + escHtml(volcano.min_color_code));
+        if (volcano.max_distance_miles) metaParts.push((volcano.announce_enabled === false ? 'Within ' : 'Voice within ') + escHtml(volcano.max_distance_miles) + ' mi');
+        if (volcano.announce_enabled === false) metaParts.push('Monitor only (no voice)');
+        if (volcano.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(volcano.last_poll_at)));
+        if (meta) meta.innerHTML = metaParts.join(' · ');
+
+        if (!volcano.position) {
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">Waiting for position — enable gpsd or set static latitude/longitude under <strong>Configuration → Geo Hazard Position</strong>.</p>';
+            return;
+        }
+
+        var notices = Array.isArray(volcano.tracked_notices) ? volcano.tracked_notices.slice() : [];
+        if (notices.length === 0) {
+            var emptyMsg = 'No volcano notices within range.';
+            if (volcano.last_fetch_ok_at) emptyMsg += ' Feed checked ' + escHtml(formatRelativeTime(volcano.last_fetch_ok_at)) + '.';
+            container.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">' + emptyMsg + '</p>';
+            return;
+        }
+
+        var posLabel = volcano.position.lat.toFixed(2) + ', ' + volcano.position.lon.toFixed(2);
+        var html = '<p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Distance from ' + escHtml(posLabel) + '</p><div class="space-y-3">';
+        notices.forEach(function(notice) {
+            var within = !!notice.within_range;
+            var announced = !!notice.announced;
+            html += '<div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/30">';
+            html += '<div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0">';
+            html += '<p class="text-base font-semibold text-gray-900 dark:text-white">' + escHtml(notice.name || 'Unknown volcano') + '</p>';
+            html += '<p class="text-sm text-gray-600 dark:text-gray-400">' + escHtml(notice.color_code || '') + (notice.notice_type ? ' · ' + escHtml(notice.notice_type) : '') + '</p></div>';
+            html += '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium shrink-0 ' + geoHazardBadgeClass(within, announced) + '">' + escHtml(geoHazardBadgeLabel(within, announced)) + '</span></div>';
+            html += '<dl class="mt-3 grid grid-cols-2 gap-2 text-sm">';
+            if (notice.distance_miles != null) html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Distance</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(notice.distance_miles) + ' mi</dd></div>';
+            if (notice.observatory) html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Observatory</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(notice.observatory) + '</dd></div>';
             html += '</dl></div>';
         });
         html += '</div>';
@@ -644,6 +881,9 @@
         nhc_api: 'NHC Cyclones',
         usgs_api: 'USGS Earthquakes',
         wfigs_api: 'Wildfire Incidents',
+        tsunami_api: 'Tsunami Alerts',
+        swpc_api: 'Space Weather',
+        volcano_api: 'Volcano Notices',
         audio_system: 'Audio System',
         asterisk_system: 'Asterisk',
         script_system: 'Scripts',
@@ -690,6 +930,9 @@
             renderNhcStorms(status.nhc);
             renderEarthquakes(status.earthquake);
             renderWildfires(status.wildfire);
+            renderTsunamis(status.tsunami);
+            renderSpaceWeather(status.space_weather);
+            renderVolcanoes(status.volcano);
 
             const alertsResp = await apiCall('/api/alerts', {}, false);
             const alertsList = Array.isArray(alertsResp) ? alertsResp : (alertsResp.alerts || []);

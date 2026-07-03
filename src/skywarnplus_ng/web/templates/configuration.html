@@ -327,7 +327,7 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Geo Hazard Position</h3>
                 <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Shared position:</strong> Used by NHC tropical cyclones, USGS earthquakes, and wildfire monitoring. When gpsd is slow or unavailable, static latitude/longitude are used as a fallback for all enabled geo hazards.
+                        <strong>Shared position:</strong> Used by NHC tropical cyclones, USGS earthquakes, wildfire, tsunami, and volcano monitoring. When gpsd is slow or unavailable, static latitude/longitude are used as a fallback for all enabled geo hazards.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -412,14 +412,20 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">USGS Earthquakes</h3>
                 <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Earthquake alerts:</strong> Polls the USGS earthquake catalog and announces new events within range of your position (see Geo Hazard Position above). On first enable, existing feed events are marked as announced without voice unless you enable “Announce history on enable” below.
+                        <strong>Earthquake alerts:</strong> Polls the USGS earthquake catalog for events within range of your position (see Geo Hazard Position above). Enable monitoring to track on the dashboard; enable voice separately to announce on the repeater. On first enable, existing feed events are marked as announced without voice unless you enable “Announce history on enable” below.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="flex items-center md:col-span-2">
-                        <input type="checkbox" id="earthquake_enabled" name="earthquake.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <input type="checkbox" id="earthquake_enabled" name="earthquake.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="syncGeoHazardAnnounceToggles()">
                         <label for="earthquake_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Enable USGS earthquake voice announcements
+                            Enable USGS earthquake monitoring
+                        </label>
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="earthquake_announce_enabled" name="earthquake.announce_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="earthquake_announce_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable voice announcements on repeater
                         </label>
                     </div>
                     <div>
@@ -471,14 +477,20 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Wildfire Incidents</h3>
                 <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Active wildfires:</strong> Polls NIFC WFIGS interagency fire perimeters and announces new incidents within range. On first enable, existing incidents are marked as announced without voice unless you enable “Announce history on enable” below. Prescribed burns can be excluded.
+                        <strong>Active wildfires:</strong> Polls NIFC WFIGS interagency fire perimeters for incidents within range. Enable monitoring to track on the dashboard; enable voice separately to announce on the repeater. On first enable, existing incidents are marked as announced without voice unless you enable “Announce history on enable” below. Prescribed burns can be excluded.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="flex items-center md:col-span-2">
-                        <input type="checkbox" id="wildfire_enabled" name="wildfire.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <input type="checkbox" id="wildfire_enabled" name="wildfire.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="syncGeoHazardAnnounceToggles()">
                         <label for="wildfire_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Enable wildfire incident voice announcements
+                            Enable wildfire incident monitoring
+                        </label>
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="wildfire_announce_enabled" name="wildfire.announce_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="wildfire_announce_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable voice announcements on repeater
                         </label>
                     </div>
                     <div>
@@ -516,6 +528,186 @@
                         <input type="checkbox" id="wildfire_announce_history_on_enable" name="wildfire.announce_history_on_enable" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                         <label for="wildfire_announce_history_on_enable" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                             Announce history on enable (voice all incidents in radius on first poll)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tsunami Section -->
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Tsunami Alerts (NWS)</h3>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Tsunami alerts:</strong> Polls NWS active alerts at your geo-hazard position and filters for tsunami products. Enable monitoring to track on the dashboard; enable voice separately to announce on the repeater.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="tsunami_enabled" name="tsunami.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="syncGeoHazardAnnounceToggles()">
+                        <label for="tsunami_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable NWS tsunami monitoring
+                        </label>
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="tsunami_announce_enabled" name="tsunami.announce_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="tsunami_announce_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable voice announcements on repeater
+                        </label>
+                    </div>
+                    <div>
+                        <label for="tsunami_poll_interval_minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Poll Interval (minutes)</label>
+                        <input type="number" id="tsunami_poll_interval_minutes" name="tsunami.poll_interval_minutes" min="1" max="60" value="2"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="tsunami_min_level" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Minimum Level</label>
+                        <select id="tsunami_min_level" name="tsunami.min_level"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="warning">Warning</option>
+                            <option value="advisory">Advisory</option>
+                            <option value="watch">Watch</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tsunami_max_announcements_per_cycle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Announcements Per Poll</label>
+                        <input type="number" id="tsunami_max_announcements_per_cycle" name="tsunami.max_announcements_per_cycle" min="1" max="20" value="2"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="tsunami_announce_history_on_enable" name="tsunami.announce_history_on_enable" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="tsunami_announce_history_on_enable" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Announce history on enable (voice all active tsunami alerts on first poll)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Space Weather Section -->
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Space Weather (NOAA SWPC)</h3>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Space weather:</strong> Polls NOAA SWPC alerts globally (geomagnetic storms, radio blackouts, solar radiation). Not position-based — affects all nodes. Enable monitoring to track on the dashboard; enable voice separately to announce on the repeater.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="space_weather_enabled" name="space_weather.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="syncGeoHazardAnnounceToggles()">
+                        <label for="space_weather_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable SWPC space weather monitoring
+                        </label>
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="space_weather_announce_enabled" name="space_weather.announce_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="space_weather_announce_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable voice announcements on repeater
+                        </label>
+                    </div>
+                    <div>
+                        <label for="space_weather_poll_interval_minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Poll Interval (minutes)</label>
+                        <input type="number" id="space_weather_poll_interval_minutes" name="space_weather.poll_interval_minutes" min="1" max="60" value="5"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="space_weather_min_geomagnetic_scale" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Min G-Scale (0=any)</label>
+                        <input type="number" id="space_weather_min_geomagnetic_scale" name="space_weather.min_geomagnetic_scale" min="0" max="5" value="0"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="space_weather_min_radio_blackout_scale" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Min R-Scale (0=any)</label>
+                        <input type="number" id="space_weather_min_radio_blackout_scale" name="space_weather.min_radio_blackout_scale" min="0" max="5" value="0"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="space_weather_min_solar_radiation_scale" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Min S-Scale (0=any)</label>
+                        <input type="number" id="space_weather_min_solar_radiation_scale" name="space_weather.min_solar_radiation_scale" min="0" max="5" value="0"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="space_weather_announce_watches" name="space_weather.announce_watches" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="space_weather_announce_watches" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Announce watches</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="space_weather_announce_warnings" name="space_weather.announce_warnings" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="space_weather_announce_warnings" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Announce warnings</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="space_weather_announce_alerts" name="space_weather.announce_alerts" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="space_weather_announce_alerts" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Announce alerts</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="space_weather_announce_summaries" name="space_weather.announce_summaries" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="space_weather_announce_summaries" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Announce summaries</label>
+                    </div>
+                    <div>
+                        <label for="space_weather_max_announcements_per_cycle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Announcements Per Poll</label>
+                        <input type="number" id="space_weather_max_announcements_per_cycle" name="space_weather.max_announcements_per_cycle" min="1" max="20" value="2"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Volcano Section -->
+            <div class="card mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Volcano Notices (USGS VONA)</h3>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <strong>Volcano notices:</strong> Polls USGS Aviation Color Code notices and filters by distance from your geo-hazard position. Enable monitoring to track on the dashboard; enable voice separately to announce on the repeater.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="volcano_enabled" name="volcano.enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" onchange="syncGeoHazardAnnounceToggles()">
+                        <label for="volcano_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable USGS volcano monitoring
+                        </label>
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="volcano_announce_enabled" name="volcano.announce_enabled" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="volcano_announce_enabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Enable voice announcements on repeater
+                        </label>
+                    </div>
+                    <div>
+                        <label for="volcano_poll_interval_minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Poll Interval (minutes)</label>
+                        <input type="number" id="volcano_poll_interval_minutes" name="volcano.poll_interval_minutes" min="5" max="360" value="15"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="volcano_max_distance_miles" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Distance (miles)</label>
+                        <input type="number" id="volcano_max_distance_miles" name="volcano.max_distance_miles" min="1" max="5000" value="150"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="volcano_min_color_code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Minimum Color Code</label>
+                        <select id="volcano_min_color_code" name="volcano.min_color_code"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="green">Green</option>
+                            <option value="yellow">Yellow</option>
+                            <option value="orange">Orange</option>
+                            <option value="red">Red</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="volcano_lookback_days" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lookback (days)</label>
+                        <input type="number" id="volcano_lookback_days" name="volcano.lookback_days" min="1" max="30" value="7"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="volcano_observatories" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observatories (comma-separated, optional)</label>
+                        <input type="text" id="volcano_observatories" name="volcano.observatories"
+                               placeholder="HVO, AVO"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label for="volcano_max_announcements_per_cycle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Announcements Per Poll</label>
+                        <input type="number" id="volcano_max_announcements_per_cycle" name="volcano.max_announcements_per_cycle" min="1" max="20" value="2"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    </div>
+                    <div class="flex items-center md:col-span-2">
+                        <input type="checkbox" id="volcano_announce_history_on_enable" name="volcano.announce_history_on_enable" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="volcano_announce_history_on_enable" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Announce history on enable (voice all notices in radius on first poll)
                         </label>
                     </div>
                 </div>
@@ -2471,6 +2663,25 @@
         loadTtsVoices(false);
     }
 
+    function syncGeoHazardAnnounceToggles() {
+        const pairs = [
+            { monitorId: 'earthquake_enabled', announceId: 'earthquake_announce_enabled' },
+            { monitorId: 'wildfire_enabled', announceId: 'wildfire_announce_enabled' },
+            { monitorId: 'tsunami_enabled', announceId: 'tsunami_announce_enabled' },
+            { monitorId: 'space_weather_enabled', announceId: 'space_weather_announce_enabled' },
+            { monitorId: 'volcano_enabled', announceId: 'volcano_announce_enabled' },
+        ];
+        pairs.forEach(function (pair) {
+            const monitor = document.getElementById(pair.monitorId);
+            const announce = document.getElementById(pair.announceId);
+            if (!monitor || !announce) return;
+            const on = monitor.checked;
+            announce.disabled = !on;
+            announce.parentElement.classList.toggle('opacity-50', !on);
+            if (!on) announce.checked = false;
+        });
+    }
+
     // Tab management
     function updateTTSEngineFields() {
         const engine = document.getElementById('tts_engine').value;
@@ -2766,6 +2977,7 @@
         document.getElementById('geo_hazard_static_lon').value = geoPos.static_lon ?? '';
 
         document.getElementById('earthquake_enabled').checked = config.earthquake?.enabled || false;
+        document.getElementById('earthquake_announce_enabled').checked = config.earthquake?.announce_enabled !== false;
         document.getElementById('earthquake_poll_interval_minutes').value = config.earthquake?.poll_interval_minutes ?? 10;
         document.getElementById('earthquake_min_magnitude').value = config.earthquake?.min_magnitude ?? 3.5;
         document.getElementById('earthquake_max_distance_miles').value = config.earthquake?.max_distance_miles ?? 75;
@@ -2776,6 +2988,7 @@
         document.getElementById('earthquake_ignore_automatic_below').value = config.earthquake?.ignore_automatic_below ?? '';
 
         document.getElementById('wildfire_enabled').checked = config.wildfire?.enabled || false;
+        document.getElementById('wildfire_announce_enabled').checked = config.wildfire?.announce_enabled !== false;
         document.getElementById('wildfire_poll_interval_minutes').value = config.wildfire?.poll_interval_minutes ?? 15;
         document.getElementById('wildfire_max_distance_miles').value = config.wildfire?.max_distance_miles ?? 50;
         document.getElementById('wildfire_min_acres').value = config.wildfire?.min_acres ?? 250;
@@ -2783,6 +2996,35 @@
         document.getElementById('wildfire_max_announcements_per_cycle').value = config.wildfire?.max_announcements_per_cycle ?? 3;
         document.getElementById('wildfire_announce_history_on_enable').checked = config.wildfire?.announce_history_on_enable || false;
         document.getElementById('wildfire_exclude_prescribed').checked = config.wildfire?.exclude_prescribed !== false;
+
+        document.getElementById('tsunami_enabled').checked = config.tsunami?.enabled || false;
+        document.getElementById('tsunami_announce_enabled').checked = config.tsunami?.announce_enabled !== false;
+        document.getElementById('tsunami_poll_interval_minutes').value = config.tsunami?.poll_interval_minutes ?? 2;
+        document.getElementById('tsunami_min_level').value = config.tsunami?.min_level || 'warning';
+        document.getElementById('tsunami_max_announcements_per_cycle').value = config.tsunami?.max_announcements_per_cycle ?? 2;
+        document.getElementById('tsunami_announce_history_on_enable').checked = config.tsunami?.announce_history_on_enable || false;
+
+        document.getElementById('space_weather_enabled').checked = config.space_weather?.enabled || false;
+        document.getElementById('space_weather_announce_enabled').checked = config.space_weather?.announce_enabled !== false;
+        document.getElementById('space_weather_poll_interval_minutes').value = config.space_weather?.poll_interval_minutes ?? 5;
+        document.getElementById('space_weather_min_geomagnetic_scale').value = config.space_weather?.min_geomagnetic_scale ?? 0;
+        document.getElementById('space_weather_min_radio_blackout_scale').value = config.space_weather?.min_radio_blackout_scale ?? 0;
+        document.getElementById('space_weather_min_solar_radiation_scale').value = config.space_weather?.min_solar_radiation_scale ?? 0;
+        document.getElementById('space_weather_announce_watches').checked = config.space_weather?.announce_watches !== false;
+        document.getElementById('space_weather_announce_warnings').checked = config.space_weather?.announce_warnings !== false;
+        document.getElementById('space_weather_announce_alerts').checked = config.space_weather?.announce_alerts !== false;
+        document.getElementById('space_weather_announce_summaries').checked = config.space_weather?.announce_summaries || false;
+        document.getElementById('space_weather_max_announcements_per_cycle').value = config.space_weather?.max_announcements_per_cycle ?? 2;
+
+        document.getElementById('volcano_enabled').checked = config.volcano?.enabled || false;
+        document.getElementById('volcano_announce_enabled').checked = config.volcano?.announce_enabled !== false;
+        document.getElementById('volcano_poll_interval_minutes').value = config.volcano?.poll_interval_minutes ?? 15;
+        document.getElementById('volcano_max_distance_miles').value = config.volcano?.max_distance_miles ?? 150;
+        document.getElementById('volcano_min_color_code').value = config.volcano?.min_color_code || 'orange';
+        document.getElementById('volcano_lookback_days').value = config.volcano?.lookback_days ?? 7;
+        document.getElementById('volcano_observatories').value = (config.volcano?.observatories || []).join(', ');
+        document.getElementById('volcano_max_announcements_per_cycle').value = config.volcano?.max_announcements_per_cycle ?? 2;
+        document.getElementById('volcano_announce_history_on_enable').checked = config.volcano?.announce_history_on_enable || false;
 
         // Filtering
         document.getElementById('filtering_max_alerts').value = config.filtering?.max_alerts || 99;
@@ -2795,6 +3037,7 @@
         document.getElementById('scripts_default_timeout').value = config.scripts?.default_timeout || 30;
         populateAlertScripts(config.scripts?.alert_scripts || {});
         updateConfigBanners(config);
+        syncGeoHazardAnnounceToggles();
 
         // Logging
         document.getElementById('logging_level').value = config.logging?.level || 'INFO';
@@ -3621,10 +3864,24 @@
         { id: 'nhc_enabled', path: ['nhc', 'enabled'] },
         { id: 'nhc_hurricanes_only', path: ['nhc', 'hurricanes_only'] },
         { id: 'earthquake_enabled', path: ['earthquake', 'enabled'] },
+        { id: 'earthquake_announce_enabled', path: ['earthquake', 'announce_enabled'] },
         { id: 'earthquake_announce_history_on_enable', path: ['earthquake', 'announce_history_on_enable'] },
         { id: 'wildfire_enabled', path: ['wildfire', 'enabled'] },
+        { id: 'wildfire_announce_enabled', path: ['wildfire', 'announce_enabled'] },
         { id: 'wildfire_announce_history_on_enable', path: ['wildfire', 'announce_history_on_enable'] },
-        { id: 'wildfire_exclude_prescribed', path: ['wildfire', 'exclude_prescribed'] }
+        { id: 'wildfire_exclude_prescribed', path: ['wildfire', 'exclude_prescribed'] },
+        { id: 'tsunami_enabled', path: ['tsunami', 'enabled'] },
+        { id: 'tsunami_announce_enabled', path: ['tsunami', 'announce_enabled'] },
+        { id: 'tsunami_announce_history_on_enable', path: ['tsunami', 'announce_history_on_enable'] },
+        { id: 'space_weather_enabled', path: ['space_weather', 'enabled'] },
+        { id: 'space_weather_announce_enabled', path: ['space_weather', 'announce_enabled'] },
+        { id: 'space_weather_announce_watches', path: ['space_weather', 'announce_watches'] },
+        { id: 'space_weather_announce_warnings', path: ['space_weather', 'announce_warnings'] },
+        { id: 'space_weather_announce_alerts', path: ['space_weather', 'announce_alerts'] },
+        { id: 'space_weather_announce_summaries', path: ['space_weather', 'announce_summaries'] },
+        { id: 'volcano_enabled', path: ['volcano', 'enabled'] },
+        { id: 'volcano_announce_enabled', path: ['volcano', 'announce_enabled'] },
+        { id: 'volcano_announce_history_on_enable', path: ['volcano', 'announce_history_on_enable'] }
     ];
 
     function applyConfigCheckboxes(config) {

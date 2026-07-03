@@ -396,7 +396,7 @@ class ConfigApiMixin:
                             if ghp[coord].strip() == "":
                                 ghp[coord] = None
 
-                for section in ("earthquake", "wildfire"):
+                for section in ("earthquake", "wildfire", "tsunami", "space_weather", "volcano"):
                     if section in data and isinstance(data[section], dict):
                         block = data[section]
                         for legacy in ("static_lat", "static_lon", "use_gps_position"):
@@ -405,6 +405,12 @@ class ConfigApiMixin:
                             below = block.get("ignore_automatic_below")
                             if isinstance(below, str) and below.strip() == "":
                                 block["ignore_automatic_below"] = None
+                        if section == "volcano":
+                            obs = block.get("observatories")
+                            if isinstance(obs, str):
+                                block["observatories"] = [
+                                    part.strip() for part in obs.split(",") if part.strip()
+                                ]
 
                 if "gpsd" in data and isinstance(data["gpsd"], dict):
                     acc = data["gpsd"].get("min_accuracy_meters")
@@ -442,6 +448,23 @@ class ConfigApiMixin:
                         "min_acres": 250,
                         "max_discovery_age_hours": 48,
                         "max_announcements_per_cycle": 3,
+                    },
+                    "tsunami": {
+                        "poll_interval_minutes": 2,
+                        "max_announcements_per_cycle": 2,
+                    },
+                    "space_weather": {
+                        "poll_interval_minutes": 5,
+                        "min_geomagnetic_scale": 0,
+                        "min_radio_blackout_scale": 0,
+                        "min_solar_radiation_scale": 0,
+                        "max_announcements_per_cycle": 2,
+                    },
+                    "volcano": {
+                        "poll_interval_minutes": 15,
+                        "max_distance_miles": 150,
+                        "lookback_days": 7,
+                        "max_announcements_per_cycle": 2,
                     },
                     "scripts": {"default_timeout": 30},
                     "database": {

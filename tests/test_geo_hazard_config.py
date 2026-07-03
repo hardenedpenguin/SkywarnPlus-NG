@@ -75,3 +75,8 @@ def test_default_yaml_includes_geo_hazard_sections():
     assert config.earthquake.min_magnitude == 3.5
     assert config.wildfire.enabled is False
     assert config.wildfire.min_acres == 250
+    assert config.tsunami.enabled is False
+    assert config.tsunami.min_level == "warning"
+    assert config.space_weather.enabled is False
+    assert config.volcano.enabled is False
+    assert config.volcano.min_color_code == "orange"

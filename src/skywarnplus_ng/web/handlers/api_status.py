@@ -50,6 +50,33 @@ class StatusApiMixin:
             ):
                 await wildfire_service.refresh_tracked_incidents_if_stale(self.app.state)
 
+            tsunami_service = getattr(self.app, "tsunami_service", None)
+            if (
+                tsunami_service
+                and self.config.tsunami.enabled
+                and hasattr(self.app, "state")
+                and self.app.state is not None
+            ):
+                await tsunami_service.refresh_tracked_alerts_if_stale(self.app.state)
+
+            space_weather_service = getattr(self.app, "space_weather_service", None)
+            if (
+                space_weather_service
+                and self.config.space_weather.enabled
+                and hasattr(self.app, "state")
+                and self.app.state is not None
+            ):
+                await space_weather_service.refresh_tracked_alerts_if_stale(self.app.state)
+
+            volcano_service = getattr(self.app, "volcano_service", None)
+            if (
+                volcano_service
+                and self.config.volcano.enabled
+                and hasattr(self.app, "state")
+                and self.app.state is not None
+            ):
+                await volcano_service.refresh_tracked_notices_if_stale(self.app.state)
+
             status = self.app.get_status()
 
             # Get active alerts for Supermon compatibility

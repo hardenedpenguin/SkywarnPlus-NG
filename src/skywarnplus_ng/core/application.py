@@ -48,6 +48,9 @@ from ..location.mobile_counties import MobileCountyService
 from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
 from ..usgs.earthquake_service import EarthquakeEvent, UsgsEarthquakeService
 from ..wildfire.wfigs_service import WildfireIncident, WfigsWildfireService
+from ..tsunami.tsunami_service import TsunamiAlert, TsunamiService
+from ..spaceweather.swpc_service import SpaceWeatherAlert, SwpcSpaceWeatherService
+from ..volcano.volcano_service import VolcanoNotice, VolcanoService
 from ..playback.policy import PlaybackPolicy
 from ..notifications.factory import build_notification_manager
 from ..notifications.manager import NotificationManager
@@ -101,6 +104,9 @@ class SkywarnPlusApplication:
         self.nhc_service: Optional[NhcCycloneService] = None
         self.earthquake_service: Optional[UsgsEarthquakeService] = None
         self.wildfire_service: Optional[WfigsWildfireService] = None
+        self.tsunami_service: Optional[TsunamiService] = None
+        self.space_weather_service: Optional[SwpcSpaceWeatherService] = None
+        self.volcano_service: Optional[VolcanoService] = None
         self.notification_manager: Optional[NotificationManager] = None
         self._delivery_processor_task: Optional[asyncio.Task] = None
         self.running = False
@@ -120,6 +126,11 @@ class SkywarnPlusApplication:
         self.nhc_service = NhcCycloneService(self.config, self.mobile_county_service)
         self.earthquake_service = UsgsEarthquakeService(self.config, self.mobile_county_service)
         self.wildfire_service = WfigsWildfireService(self.config, self.mobile_county_service)
+        self.tsunami_service = TsunamiService(
+            self.config, self.nws_client, self.mobile_county_service
+        )
+        self.space_weather_service = SwpcSpaceWeatherService(self.config)
+        self.volcano_service = VolcanoService(self.config, self.mobile_county_service)
         if self.config.gpsd.enabled:
             logger.info("gpsd mobile county monitoring enabled")
         if self.config.nhc.enabled:
@@ -128,6 +139,12 @@ class SkywarnPlusApplication:
             logger.info("USGS earthquake monitoring enabled")
         if self.config.wildfire.enabled:
             logger.info("NIFC wildfire monitoring enabled")
+        if self.config.tsunami.enabled:
+            logger.info("NWS tsunami monitoring enabled")
+        if self.config.space_weather.enabled:
+            logger.info("SWPC space weather monitoring enabled")
+        if self.config.volcano.enabled:
+            logger.info("USGS volcano monitoring enabled")
 
         # Test NWS connection
         if not await self.nws_client.test_connection():
@@ -292,6 +309,9 @@ class SkywarnPlusApplication:
             nhc_service=self.nhc_service,
             earthquake_service=self.earthquake_service,
             wildfire_service=self.wildfire_service,
+            tsunami_service=self.tsunami_service,
+            space_weather_service=self.space_weather_service,
+            volcano_service=self.volcano_service,
             mobile_county_service=self.mobile_county_service,
             audio_manager=self.audio_manager,
             asterisk_manager=self.asterisk_manager,
@@ -577,6 +597,12 @@ class SkywarnPlusApplication:
         if self.wildfire_service:
             await self.wildfire_service.close()
 
+        if self.space_weather_service:
+            await self.space_weather_service.close()
+
+        if self.volcano_service:
+            await self.volcano_service.close()
+
         # Save final state (only if we initialized far enough to load it)
         if hasattr(self, "state") and self.state is not None:
             self.state_manager.save_state(self.state)
@@ -677,6 +703,9 @@ class SkywarnPlusApplication:
             # USGS earthquakes and NIFC wildfires (separate cadence)
             await self._handle_earthquake_events()
             await self._handle_wildfire_incidents()
+            await self._handle_tsunami_alerts()
+            await self._handle_space_weather_alerts()
+            await self._handle_volcano_notices()
 
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
@@ -1817,7 +1846,12 @@ class SkywarnPlusApplication:
 
         events = await self.earthquake_service.poll(self.state)
         self._persist_announced_state()
+        eq = self.config.earthquake
         for event in events:
+            if not eq.announce_enabled:
+                self.earthquake_service.mark_announced(event.announcement_key, self.state)
+                self._persist_announced_state()
+                continue
             if self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_geo_hazard()
                 if not allowed:
@@ -1846,7 +1880,12 @@ class SkywarnPlusApplication:
 
         incidents = await self.wildfire_service.poll(self.state)
         self._persist_announced_state()
+        wf = self.config.wildfire
         for incident in incidents:
+            if not wf.announce_enabled:
+                self.wildfire_service.mark_announced(incident.announcement_key, self.state)
+                self._persist_announced_state()
+                continue
             if self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_geo_hazard()
                 if not allowed:
@@ -1864,6 +1903,108 @@ class SkywarnPlusApplication:
                 await self._notify_geo_hazard_broadcast(
                     title=f"Wildfire: {incident.name}",
                     message=incident.tts_text,
+                )
+
+    async def _handle_tsunami_alerts(self) -> None:
+        """Poll NWS and announce new tsunami alerts at the monitoring position."""
+        if not self.tsunami_service or not hasattr(self, "state") or self.state is None:
+            return
+        if not self.tsunami_service.should_poll():
+            return
+
+        alerts = await self.tsunami_service.poll(self.state)
+        self._persist_announced_state()
+        ts = self.config.tsunami
+        for alert in alerts:
+            if not ts.announce_enabled:
+                self.tsunami_service.mark_announced(alert.announcement_key, self.state)
+                self._persist_announced_state()
+                continue
+            if self.playback_policy:
+                allowed, reason = self.playback_policy.should_announce_geo_hazard()
+                if not allowed:
+                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
+                    log_fn(
+                        "Skipping tsunami %s (%s): %s",
+                        alert.alert_id,
+                        alert.event,
+                        reason,
+                    )
+                    continue
+            if await self._announce_tsunami(alert):
+                self.tsunami_service.mark_announced(alert.announcement_key, self.state)
+                self._persist_announced_state()
+                await self._notify_geo_hazard_broadcast(
+                    title=f"Tsunami: {alert.event}",
+                    message=alert.tts_text,
+                )
+
+    async def _handle_space_weather_alerts(self) -> None:
+        """Poll SWPC and announce new space weather alerts."""
+        if not self.space_weather_service or not hasattr(self, "state") or self.state is None:
+            return
+        if not self.space_weather_service.should_poll():
+            return
+
+        alerts = await self.space_weather_service.poll(self.state)
+        self._persist_announced_state()
+        sw = self.config.space_weather
+        for alert in alerts:
+            if not sw.announce_enabled:
+                self.space_weather_service.mark_announced(alert.announcement_key, self.state)
+                self._persist_announced_state()
+                continue
+            if self.playback_policy:
+                allowed, reason = self.playback_policy.should_announce_geo_hazard()
+                if not allowed:
+                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
+                    log_fn(
+                        "Skipping space weather %s (%s): %s",
+                        alert.product_id,
+                        alert.title,
+                        reason,
+                    )
+                    continue
+            if await self._announce_space_weather(alert):
+                self.space_weather_service.mark_announced(alert.announcement_key, self.state)
+                self._persist_announced_state()
+                await self._notify_geo_hazard_broadcast(
+                    title=f"Space Weather: {alert.title}",
+                    message=alert.tts_text,
+                )
+
+    async def _handle_volcano_notices(self) -> None:
+        """Poll USGS and announce new volcano notices within range."""
+        if not self.volcano_service or not hasattr(self, "state") or self.state is None:
+            return
+        if not self.volcano_service.should_poll():
+            return
+
+        notices = await self.volcano_service.poll(self.state)
+        self._persist_announced_state()
+        vo = self.config.volcano
+        for notice in notices:
+            if not vo.announce_enabled:
+                self.volcano_service.mark_announced(notice.announcement_key, self.state)
+                self._persist_announced_state()
+                continue
+            if self.playback_policy:
+                allowed, reason = self.playback_policy.should_announce_geo_hazard()
+                if not allowed:
+                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
+                    log_fn(
+                        "Skipping volcano %s (%s): %s",
+                        notice.vnum,
+                        notice.name,
+                        reason,
+                    )
+                    continue
+            if await self._announce_volcano(notice):
+                self.volcano_service.mark_announced(notice.announcement_key, self.state)
+                self._persist_announced_state()
+                await self._notify_geo_hazard_broadcast(
+                    title=f"Volcano: {notice.name}",
+                    message=notice.tts_text,
                 )
 
     def _persist_announced_state(self) -> None:
@@ -1978,6 +2119,29 @@ class SkywarnPlusApplication:
             tts_text=incident.tts_text,
             audio_prefix=prefix,
             label=f"wildfire {incident.name} ({incident.distance_miles} mi)",
+        )
+
+    async def _announce_tsunami(self, alert: TsunamiAlert) -> bool:
+        safe_id = re.sub(r"[^A-Za-z0-9_]", "_", alert.alert_id)[:40]
+        return await self._announce_position_hazard(
+            tts_text=alert.tts_text,
+            audio_prefix=f"tsunami_{safe_id}",
+            label=f"tsunami {alert.event}",
+        )
+
+    async def _announce_space_weather(self, alert: SpaceWeatherAlert) -> bool:
+        return await self._announce_position_hazard(
+            tts_text=alert.tts_text,
+            audio_prefix=f"swpc_{alert.product_id.lower()[:40]}",
+            label=f"space weather {alert.title}",
+        )
+
+    async def _announce_volcano(self, notice: VolcanoNotice) -> bool:
+        dist = notice.distance_miles if notice.distance_miles is not None else "?"
+        return await self._announce_position_hazard(
+            tts_text=notice.tts_text,
+            audio_prefix=f"volcano_{notice.vnum[:40]}",
+            label=f"volcano {notice.name} ({dist} mi)",
         )
 
     async def _announce_cyclone(self, advisory: CycloneAdvisory) -> bool:
@@ -2137,6 +2301,14 @@ class SkywarnPlusApplication:
         if self.wildfire_service:
             self.wildfire_service.config = config
             self.wildfire_service.sync_http_client_user_agent()
+        if self.tsunami_service:
+            self.tsunami_service.config = config
+        if self.space_weather_service:
+            self.space_weather_service.config = config
+            self.space_weather_service.sync_http_client_user_agent()
+        if self.volcano_service:
+            self.volcano_service.config = config
+            self.volcano_service.sync_http_client_user_agent()
         if self.audio_manager:
             self.audio_manager.config = config.audio
             self.audio_manager.reload_tts_engine()
@@ -2156,6 +2328,9 @@ class SkywarnPlusApplication:
                 nhc_service=self.nhc_service,
                 earthquake_service=self.earthquake_service,
                 wildfire_service=self.wildfire_service,
+                tsunami_service=self.tsunami_service,
+                space_weather_service=self.space_weather_service,
+                volcano_service=self.volcano_service,
                 mobile_county_service=self.mobile_county_service,
                 audio_manager=self.audio_manager,
                 asterisk_manager=self.asterisk_manager,
@@ -2171,6 +2346,12 @@ class SkywarnPlusApplication:
             logger.info("USGS earthquake monitoring enabled (config updated)")
         if config.wildfire.enabled:
             logger.info("NIFC wildfire monitoring enabled (config updated)")
+        if config.tsunami.enabled:
+            logger.info("NWS tsunami monitoring enabled (config updated)")
+        if config.space_weather.enabled:
+            logger.info("SWPC space weather monitoring enabled (config updated)")
+        if config.volcano.enabled:
+            logger.info("USGS volcano monitoring enabled (config updated)")
 
         if hasattr(self, "state") and self.state is not None:
             if not config.earthquake.enabled or (
@@ -2181,6 +2362,14 @@ class SkywarnPlusApplication:
                 not previous.wildfire.enabled and config.wildfire.enabled
             ):
                 self.state.pop("wildfire_history_seeded", None)
+            if not config.tsunami.enabled or (
+                not previous.tsunami.enabled and config.tsunami.enabled
+            ):
+                self.state.pop("tsunami_history_seeded", None)
+            if not config.volcano.enabled or (
+                not previous.volcano.enabled and config.volcano.enabled
+            ):
+                self.state.pop("volcano_history_seeded", None)
 
         self._schedule_notification_manager_reload()
         if getattr(self, "_pushover_notifier", None) is not None:
@@ -2247,6 +2436,14 @@ class SkywarnPlusApplication:
                     "usgs_last_error_message": self.state.get("usgs_last_error_message"),
                     "wildfire_last_error_at": self.state.get("wildfire_last_error_at"),
                     "wildfire_last_error_message": self.state.get("wildfire_last_error_message"),
+                    "tsunami_last_error_at": self.state.get("tsunami_last_error_at"),
+                    "tsunami_last_error_message": self.state.get("tsunami_last_error_message"),
+                    "spaceweather_last_error_at": self.state.get("spaceweather_last_error_at"),
+                    "spaceweather_last_error_message": self.state.get(
+                        "spaceweather_last_error_message"
+                    ),
+                    "volcano_last_error_at": self.state.get("volcano_last_error_at"),
+                    "volcano_last_error_message": self.state.get("volcano_last_error_message"),
                 }
             )
         else:
@@ -2264,6 +2461,12 @@ class SkywarnPlusApplication:
                     "usgs_last_error_message": None,
                     "wildfire_last_error_at": None,
                     "wildfire_last_error_message": None,
+                    "tsunami_last_error_at": None,
+                    "tsunami_last_error_message": None,
+                    "spaceweather_last_error_at": None,
+                    "spaceweather_last_error_message": None,
+                    "volcano_last_error_at": None,
+                    "volcano_last_error_message": None,
                 }
             )
 
@@ -2348,5 +2551,32 @@ class SkywarnPlusApplication:
             except Exception as e:
                 logger.error(f"Failed to get wildfire status: {e}")
                 status["wildfire"] = {"enabled": self.config.wildfire.enabled}
+
+        if self.tsunami_service and initialized:
+            try:
+                ts_status = self.tsunami_service.get_status(self.state)
+                ts_status["enabled"] = self.config.tsunami.enabled
+                status["tsunami"] = ts_status
+            except Exception as e:
+                logger.error(f"Failed to get tsunami status: {e}")
+                status["tsunami"] = {"enabled": self.config.tsunami.enabled}
+
+        if self.space_weather_service and initialized:
+            try:
+                sw_status = self.space_weather_service.get_status(self.state)
+                sw_status["enabled"] = self.config.space_weather.enabled
+                status["space_weather"] = sw_status
+            except Exception as e:
+                logger.error(f"Failed to get space weather status: {e}")
+                status["space_weather"] = {"enabled": self.config.space_weather.enabled}
+
+        if self.volcano_service and initialized:
+            try:
+                vo_status = self.volcano_service.get_status(self.state)
+                vo_status["enabled"] = self.config.volcano.enabled
+                status["volcano"] = vo_status
+            except Exception as e:
+                logger.error(f"Failed to get volcano status: {e}")
+                status["volcano"] = {"enabled": self.config.volcano.enabled}
 
         return status

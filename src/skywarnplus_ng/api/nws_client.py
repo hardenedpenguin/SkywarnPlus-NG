@@ -387,6 +387,26 @@ class NWSClient:
         logger.debug(f"Retrieved {len(alerts)} alerts for zone {zone_code}")
         return alerts
 
+    async def fetch_active_alert_features_at_point(
+        self, lat: float, lon: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch raw active alert GeoJSON features for a geographic point.
+
+        Used by tsunami monitoring (NWS /alerts/active?point=).
+        """
+        url = f"/alerts/active?point={lat:.4f},{lon:.4f}"
+        logger.debug("Fetching active alerts at point: %s, %s", lat, lon)
+
+        data = await self._fetch_with_retry(url)
+        if data is None:
+            return []
+
+        features = data.get("features", [])
+        if not isinstance(features, list):
+            return []
+        return [f for f in features if isinstance(f, dict)]
+
     async def fetch_alerts_for_zones(
         self, zone_codes: List[str], deduplicate: bool = True
     ) -> List[WeatherAlert]:

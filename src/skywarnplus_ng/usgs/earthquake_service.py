@@ -361,14 +361,16 @@ class UsgsEarthquakeService:
         self._last_poll_at = datetime.now(timezone.utc)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
-        cap = self.config.earthquake.max_announcements_per_cycle
-        if len(selected) > cap:
-            logger.info(
-                "USGS: deferring %s earthquake(s) to later poll cycles (cap=%s)",
-                len(selected) - cap,
-                cap,
-            )
-            selected = selected[:cap]
+        eq = self.config.earthquake
+        if eq.announce_enabled:
+            cap = eq.max_announcements_per_cycle
+            if len(selected) > cap:
+                logger.info(
+                    "USGS: deferring %s earthquake(s) to later poll cycles (cap=%s)",
+                    len(selected) - cap,
+                    cap,
+                )
+                selected = selected[:cap]
         if selected:
             logger.info(
                 "USGS: %s new earthquake(s) within %s miles (M>=%s)",
@@ -383,6 +385,7 @@ class UsgsEarthquakeService:
         eq = self.config.earthquake
         return {
             "enabled": eq.enabled,
+            "announce_enabled": eq.announce_enabled,
             "poll_interval_minutes": eq.poll_interval_minutes,
             "min_magnitude": eq.min_magnitude,
             "max_distance_miles": eq.max_distance_miles,

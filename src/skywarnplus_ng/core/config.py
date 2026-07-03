@@ -421,7 +421,11 @@ class NhcConfig(BaseModel):
 class EarthquakeConfig(BaseModel):
     """USGS earthquake monitoring near a monitoring position."""
 
-    enabled: bool = Field(False, description="Enable USGS earthquake voice announcements")
+    enabled: bool = Field(False, description="Enable USGS earthquake monitoring")
+    announce_enabled: bool = Field(
+        True,
+        description="Voice announcements on repeater for new earthquakes (requires enabled)",
+    )
     poll_interval_minutes: int = Field(
         10,
         ge=1,
@@ -478,7 +482,11 @@ class EarthquakeConfig(BaseModel):
 class WildfireConfig(BaseModel):
     """NIFC WFIGS wildfire incident monitoring near a monitoring position."""
 
-    enabled: bool = Field(False, description="Enable wildfire incident voice announcements")
+    enabled: bool = Field(False, description="Enable wildfire incident monitoring")
+    announce_enabled: bool = Field(
+        True,
+        description="Voice announcements on repeater for new wildfires (requires enabled)",
+    )
     poll_interval_minutes: int = Field(
         15,
         ge=5,
@@ -515,6 +523,126 @@ class WildfireConfig(BaseModel):
         ge=1,
         le=20,
         description="Maximum wildfire voice announcements per poll cycle",
+    )
+
+
+class TsunamiConfig(BaseModel):
+    """NWS tsunami alert monitoring at the geo-hazard position."""
+
+    enabled: bool = Field(False, description="Enable NWS tsunami alert monitoring")
+    announce_enabled: bool = Field(
+        True,
+        description="Voice announcements on repeater for new tsunami alerts (requires enabled)",
+    )
+    poll_interval_minutes: int = Field(
+        2,
+        ge=1,
+        le=60,
+        description="Minimum minutes between NWS tsunami fetches",
+    )
+    min_level: str = Field(
+        "warning",
+        description="Minimum tsunami level to announce: warning, advisory, or watch",
+    )
+    announce_history_on_enable: bool = Field(
+        False,
+        description="When false, mark existing feed alerts as announced without voice on first enable",
+    )
+    max_announcements_per_cycle: int = Field(
+        2,
+        ge=1,
+        le=20,
+        description="Maximum tsunami voice announcements per poll cycle",
+    )
+
+
+class SpaceWeatherConfig(BaseModel):
+    """NOAA SWPC space weather alert monitoring (global, not position-based)."""
+
+    enabled: bool = Field(False, description="Enable SWPC space weather monitoring")
+    announce_enabled: bool = Field(
+        True,
+        description="Voice announcements on repeater for new space weather alerts (requires enabled)",
+    )
+    poll_interval_minutes: int = Field(
+        5,
+        ge=1,
+        le=60,
+        description="Minimum minutes between SWPC alert fetches",
+    )
+    min_geomagnetic_scale: int = Field(
+        0,
+        ge=0,
+        le=5,
+        description="Minimum G-scale (0=any, 1=G1+, etc.)",
+    )
+    min_radio_blackout_scale: int = Field(
+        0,
+        ge=0,
+        le=5,
+        description="Minimum R-scale (0=any, 1=R1+, etc.)",
+    )
+    min_solar_radiation_scale: int = Field(
+        0,
+        ge=0,
+        le=5,
+        description="Minimum S-scale (0=any, 1=S1+, etc.)",
+    )
+    announce_watches: bool = Field(True, description="Announce SWPC watches")
+    announce_warnings: bool = Field(True, description="Announce SWPC warnings")
+    announce_alerts: bool = Field(True, description="Announce SWPC alerts")
+    announce_summaries: bool = Field(False, description="Announce SWPC summary products")
+    max_announcements_per_cycle: int = Field(
+        2,
+        ge=1,
+        le=20,
+        description="Maximum space weather voice announcements per poll cycle",
+    )
+
+
+class VolcanoConfig(BaseModel):
+    """USGS volcano notice (VONA) monitoring near the geo-hazard position."""
+
+    enabled: bool = Field(False, description="Enable USGS volcano notice monitoring")
+    announce_enabled: bool = Field(
+        True,
+        description="Voice announcements on repeater for new volcano notices (requires enabled)",
+    )
+    poll_interval_minutes: int = Field(
+        15,
+        ge=5,
+        le=360,
+        description="Minimum minutes between USGS volcano fetches",
+    )
+    max_distance_miles: int = Field(
+        150,
+        ge=1,
+        le=5000,
+        description="Only announce volcano notices within this distance",
+    )
+    min_color_code: str = Field(
+        "orange",
+        description="Minimum aviation color code: green, yellow, orange, or red",
+    )
+    observatories: List[str] = Field(
+        default_factory=list,
+        description="Optional observatory filter (empty = all); e.g. HVO, AVO",
+    )
+    lookback_days: int = Field(
+        7,
+        ge=1,
+        le=30,
+        description="Days of VONA history to fetch from USGS",
+    )
+    announce_history_on_enable: bool = Field(
+        False,
+        description="When false, mark existing feed notices as announced without voice on first enable",
+    )
+    max_announcements_per_cycle: int = Field(
+        2,
+        ge=1,
+        le=20,
+        description="Maximum volcano voice announcements per poll cycle",
     )
 
 
@@ -850,11 +978,14 @@ class AppConfig(BaseSettings):
     gpsd: GpsdConfig = Field(default_factory=GpsdConfig)
     geo_hazard_position: GeoHazardPositionConfig = Field(
         default_factory=GeoHazardPositionConfig,
-        description="Shared gpsd/static position for NHC, USGS, and wildfire monitoring",
+        description="Shared gpsd/static position for NHC, USGS, wildfire, tsunami, and volcano monitoring",
     )
     nhc: NhcConfig = Field(default_factory=NhcConfig)
     earthquake: EarthquakeConfig = Field(default_factory=EarthquakeConfig)
     wildfire: WildfireConfig = Field(default_factory=WildfireConfig)
+    tsunami: TsunamiConfig = Field(default_factory=TsunamiConfig)
+    space_weather: SpaceWeatherConfig = Field(default_factory=SpaceWeatherConfig)
+    volcano: VolcanoConfig = Field(default_factory=VolcanoConfig)
 
     @model_validator(mode="before")
     @classmethod

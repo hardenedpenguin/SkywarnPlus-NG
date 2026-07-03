@@ -37,6 +37,7 @@ When `use_gps_position` is true, gpsd is preferred; static lat/lon are the fallb
 ```yaml
 earthquake:
   enabled: true
+  announce_enabled: false   # monitor on dashboard only
   poll_interval_minutes: 10
   min_magnitude: 3.5
   max_distance_miles: 75
@@ -48,6 +49,7 @@ earthquake:
 ```
 
 - Polls [USGS GeoJSON](https://earthquake.usgs.gov/fdsnws/event/1/) within `max_distance_miles` of your position.
+- `enabled` turns on feed polling and dashboard tracking; `announce_enabled` controls repeater voice (defaults to true).
 - Only announces events newer than `max_event_age_hours` (default 6), even though the feed lookback may be longer.
 - On first enable, existing in-range events are **seeded** as already announced (no voice) unless `announce_history_on_enable: true`.
 - At most `max_announcements_per_cycle` earthquakes are voiced per poll (default 3); additional matches wait for later polls.
@@ -65,6 +67,7 @@ earthquake:
 ```yaml
 wildfire:
   enabled: true
+  announce_enabled: true
   poll_interval_minutes: 15
   max_distance_miles: 50
   min_acres: 250
@@ -75,6 +78,7 @@ wildfire:
 ```
 
 - Polls NIFC **WFIGS Interagency Perimeters (Current)** near your position.
+- `enabled` turns on feed polling and dashboard tracking; `announce_enabled` controls repeater voice (defaults to true).
 - Filters by acreage, distance, discovery age, and optionally excludes prescribed burns.
 - On first enable, existing in-range incidents are seeded without voice unless `announce_history_on_enable: true`.
 - At most `max_announcements_per_cycle` incidents are voiced per poll (default 3).

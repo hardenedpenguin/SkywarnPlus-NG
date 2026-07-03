@@ -386,14 +386,16 @@ class WfigsWildfireService:
         self._last_poll_at = datetime.now(timezone.utc)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
-        cap = self.config.wildfire.max_announcements_per_cycle
-        if len(selected) > cap:
-            logger.info(
-                "WFIGS: deferring %s wildfire incident(s) to later poll cycles (cap=%s)",
-                len(selected) - cap,
-                cap,
-            )
-            selected = selected[:cap]
+        wf = self.config.wildfire
+        if wf.announce_enabled:
+            cap = wf.max_announcements_per_cycle
+            if len(selected) > cap:
+                logger.info(
+                    "WFIGS: deferring %s wildfire incident(s) to later poll cycles (cap=%s)",
+                    len(selected) - cap,
+                    cap,
+                )
+                selected = selected[:cap]
         if selected:
             logger.info(
                 "WFIGS: %s new wildfire incident(s) within %s miles (>=%s acres)",
@@ -408,6 +410,7 @@ class WfigsWildfireService:
         wf = self.config.wildfire
         return {
             "enabled": wf.enabled,
+            "announce_enabled": wf.announce_enabled,
             "poll_interval_minutes": wf.poll_interval_minutes,
             "min_acres": wf.min_acres,
             "max_distance_miles": wf.max_distance_miles,
