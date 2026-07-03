@@ -12,7 +12,7 @@ from skywarnplus_ng.core.config import (
     NWSApiConfig,
     NhcConfig,
 )
-from skywarnplus_ng.monitoring.health import ComponentStatus, HealthMonitor
+from skywarnplus_ng.monitoring.health import ComponentStatus, HealthMonitor, rollup_overall_status
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
 
 
@@ -132,3 +132,32 @@ async def test_get_health_status_skips_nhc_when_disabled():
     status = await monitor.get_health_status({})
     names = [c.name for c in status.components]
     assert "nhc_api" not in names
+
+
+def test_rollup_overall_status_ignores_unknown_components():
+    statuses = [
+        ComponentStatus.HEALTHY,
+        ComponentStatus.UNKNOWN,
+        ComponentStatus.UNKNOWN,
+    ]
+    assert rollup_overall_status(statuses) == ComponentStatus.HEALTHY
+
+
+@pytest.mark.asyncio
+async def test_get_health_status_healthy_when_optional_components_unknown():
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        nhc=NhcConfig(enabled=False),
+    )
+    monitor = HealthMonitor(config, MagicMock())
+    monitor.nws_client = MagicMock()
+    monitor.nws_client.test_connection = AsyncMock(return_value=True)
+    monitor.audio_manager = MagicMock()
+    monitor.audio_manager.tts_engine = MagicMock()
+    monitor.audio_manager.tts_engine.is_available.return_value = True
+    monitor.asterisk_manager = None
+    monitor.script_manager = None
+    monitor.database_manager = None
+
+    status = await monitor.get_health_status({})
+    assert status.overall_status == ComponentStatus.HEALTHY

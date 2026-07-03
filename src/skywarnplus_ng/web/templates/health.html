@@ -152,9 +152,16 @@
         }
     }
 
+    // Format status label for display
+    function formatStatusLabel(status) {
+        if (!status) return 'Unknown';
+        const normalized = String(status).toLowerCase();
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    }
+
     // Update overall status
     function updateOverallStatus(health) {
-        document.getElementById('overall-status').textContent = health.overall_status;
+        document.getElementById('overall-status').textContent = formatStatusLabel(health.overall_status);
         document.getElementById('overall-status-indicator').className = `status-indicator ${getStatusClasses(health.overall_status)}`;
         document.getElementById('uptime').textContent = formatUptime(health.uptime_seconds);
         document.getElementById('version').textContent = health.version || '{{ app_version }}';
@@ -217,7 +224,7 @@
                 <div class="flex items-center space-x-3">
                     <div class="status-indicator ${getStatusClasses(entry.overall_status)}"></div>
                     <div>
-                        <span class="text-sm font-medium text-gray-900 dark:text-white">${entry.overall_status}</span>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">${formatStatusLabel(entry.overall_status)}</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400">${formatRelativeTime(entry.timestamp)}</p>
                     </div>
                 </div>

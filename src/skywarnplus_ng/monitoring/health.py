@@ -50,6 +50,20 @@ class HealthStatus:
     metrics: Dict[str, Any]
 
 
+def rollup_overall_status(statuses: List[ComponentStatus]) -> ComponentStatus:
+    """Derive overall status from components, ignoring non-applicable UNKNOWN checks."""
+    actionable = [status for status in statuses if status != ComponentStatus.UNKNOWN]
+    if not actionable:
+        return ComponentStatus.UNKNOWN
+    if ComponentStatus.UNHEALTHY in actionable:
+        return ComponentStatus.UNHEALTHY
+    if ComponentStatus.DEGRADED in actionable:
+        return ComponentStatus.DEGRADED
+    if all(status == ComponentStatus.HEALTHY for status in actionable):
+        return ComponentStatus.HEALTHY
+    return ComponentStatus.UNKNOWN
+
+
 class HealthMonitor:
     """Monitors system health and provides status reporting."""
 
@@ -565,16 +579,8 @@ class HealthMonitor:
             else:
                 components.append(check)
 
-        # Determine overall status
-        statuses = [comp.status for comp in components]
-        if ComponentStatus.UNHEALTHY in statuses:
-            overall_status = ComponentStatus.UNHEALTHY
-        elif ComponentStatus.DEGRADED in statuses:
-            overall_status = ComponentStatus.DEGRADED
-        elif all(s == ComponentStatus.HEALTHY for s in statuses):
-            overall_status = ComponentStatus.HEALTHY
-        else:
-            overall_status = ComponentStatus.UNKNOWN
+        # Determine overall status (disabled/uninitialized components are UNKNOWN and ignored)
+        overall_status = rollup_overall_status([comp.status for comp in components])
 
         # Calculate uptime
         uptime = (start_time - self.start_time).total_seconds()
