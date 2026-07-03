@@ -13,6 +13,7 @@ from skywarnplus_ng.tsunami.parser import (
 from skywarnplus_ng.volcano.parser import (
     color_rank,
     extract_pseudo_coords,
+    latest_notices_per_volcano,
     parse_pseudo_navy_coord,
     parse_volcano_notice,
 )
@@ -165,3 +166,53 @@ def test_parse_volcano_notice_with_distance() -> None:
     assert notice is not None
     assert notice.distance_miles is not None
     assert color_rank(notice.color_code) == color_rank("orange")
+
+
+def test_parse_volcano_notice_uses_sent_utc_and_notice_id() -> None:
+    item = {
+        "vnum": "332010",
+        "vName": "Kilauea",
+        "colorCode": "ORANGE",
+        "obs": "HVO",
+        "sentUtc": "2026-06-28T02:53:57+00:00",
+        "noticeId": "DOI-USGS-HVO-2026-06-28T02:53:57+00:00",
+        "noticeHtml": "<pre>PSN: N1925 W15517</pre>",
+    }
+    notice = parse_volcano_notice(item)
+    assert notice is not None
+    assert notice.announcement_key == "DOI-USGS-HVO-2026-06-28T02:53:57+00:00"
+    assert notice.issued_utc is not None
+    assert notice.issued_utc.year == 2026
+
+
+def test_latest_notices_per_volcano_keeps_newest_only() -> None:
+    from datetime import datetime
+
+    from skywarnplus_ng.volcano.parser import ParsedVolcano
+
+    def _notice(color: str, issued: str, html: str) -> ParsedVolcano:
+        issued_dt = datetime.fromisoformat(issued)
+        return ParsedVolcano(
+            vnum="332010",
+            name="Kilauea",
+            color_code=color,
+            observatory="HVO",
+            notice_type="VONA",
+            notice_issued=issued,
+            announcement_key=f"kilauea:{issued}:{html}",
+            lat=19.42,
+            lon=-155.29,
+            distance_miles=100,
+            issued_utc=issued_dt,
+            tts_text=f"Kilauea {color}",
+        )
+
+    notices = [
+        _notice("YELLOW", "2026-06-26T19:14:00+00:00", "old"),
+        _notice("ORANGE", "2026-06-27T20:36:00+00:00", "mid"),
+        _notice("ORANGE", "2026-06-28T02:53:57+00:00", "new"),
+    ]
+    latest = latest_notices_per_volcano(notices)
+    assert len(latest) == 1
+    assert latest[0].color_code == "ORANGE"
+    assert latest[0].issued_utc.isoformat().startswith("2026-06-28")

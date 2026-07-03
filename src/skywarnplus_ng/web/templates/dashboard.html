@@ -669,6 +669,7 @@
         section.classList.remove('hidden');
 
         var metaParts = [];
+        metaParts.push('Latest notice per volcano');
         if (volcano.min_color_code) metaParts.push('Color ≥ ' + escHtml(volcano.min_color_code));
         if (volcano.max_distance_miles) metaParts.push((volcano.announce_enabled === false ? 'Within ' : 'Voice within ') + escHtml(volcano.max_distance_miles) + ' mi');
         if (volcano.announce_enabled === false) metaParts.push('Monitor only (no voice)');

@@ -16,7 +16,7 @@ from ..geo_hazard.position_health import (
     position_source_label,
 )
 from ..location.position import get_monitoring_position
-from .parser import ParsedVolcano, color_rank, parse_volcano_notices
+from .parser import ParsedVolcano, color_rank, latest_notices_per_volcano, parse_volcano_notices
 
 if TYPE_CHECKING:
     from ..core.config import AppConfig
@@ -222,8 +222,16 @@ class VolcanoService:
             )
 
         self._tracked_notices = tracked
-        self._notices_in_feed = len(notices)
         return selected
+
+    def _prepare_notices(
+        self,
+        data: List[Dict[str, Any]],
+        position: Tuple[float, float],
+    ) -> tuple[List[ParsedVolcano], List[ParsedVolcano]]:
+        notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
+        self._notices_in_feed = len(notices)
+        return notices, latest_notices_per_volcano(notices)
 
     async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         state = state or {}
@@ -309,8 +317,8 @@ class VolcanoService:
         if data is None:
             return
 
-        notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
-        self.select_new_notices(notices, state)
+        all_notices, latest_notices = self._prepare_notices(data, position)
+        self.select_new_notices(latest_notices, state)
 
     async def poll(self, state: Dict[str, Any]) -> List[VolcanoNotice]:
         if not self.config.volcano.enabled:
@@ -333,9 +341,9 @@ class VolcanoService:
             )
             return []
 
-        notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
-        self._maybe_seed_announced_history(notices, state)
-        selected = self.select_new_notices(notices, state)
+        all_notices, latest_notices = self._prepare_notices(data, position)
+        self._maybe_seed_announced_history(all_notices, state)
+        selected = self.select_new_notices(latest_notices, state)
         self._last_poll_at = datetime.now(timezone.utc)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)

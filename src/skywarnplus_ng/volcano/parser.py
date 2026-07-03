@@ -123,13 +123,41 @@ def build_volcano_tts(name: str, color_code: str, notice_type: str) -> str:
 
 def _build_announcement_key(
     vnum: str,
+    notice_id: str,
     notice_issued: str,
     notice_type: str,
     notice_html: str,
 ) -> str:
+    if notice_id:
+        return notice_id
     issued_part = notice_issued or "unknown"
     digest = hashlib.sha256(notice_html.encode("utf-8", errors="ignore")).hexdigest()[:12]
     return f"{vnum}:{issued_part}:{notice_type}:{digest}"
+
+
+def latest_notices_per_volcano(notices: List[ParsedVolcano]) -> List[ParsedVolcano]:
+    """Keep only the newest notice for each volcano (vnum)."""
+    min_dt = datetime.min.replace(tzinfo=timezone.utc)
+    latest_by_vnum: dict[str, ParsedVolcano] = {}
+
+    for notice in notices:
+        existing = latest_by_vnum.get(notice.vnum)
+        if existing is None:
+            latest_by_vnum[notice.vnum] = notice
+            continue
+
+        notice_dt = notice.issued_utc or min_dt
+        existing_dt = existing.issued_utc or min_dt
+        if notice_dt > existing_dt:
+            latest_by_vnum[notice.vnum] = notice
+        elif notice_dt == existing_dt and color_rank(notice.color_code) > color_rank(
+            existing.color_code
+        ):
+            latest_by_vnum[notice.vnum] = notice
+
+    result = list(latest_by_vnum.values())
+    result.sort(key=lambda n: n.issued_utc or min_dt, reverse=True)
+    return result
 
 
 def parse_volcano_notice(
@@ -146,7 +174,9 @@ def parse_volcano_notice(
     color_code = str(item.get("colorCode") or item.get("color_code") or "unassigned")
     observatory = str(item.get("obs") or item.get("observatory") or "")
     notice_type = str(item.get("noticeType") or item.get("notice_type") or "")
-    notice_issued = str(item.get("noticeIssued") or item.get("notice_issued") or "")
+    notice_id = str(item.get("noticeId") or item.get("notice_id") or "").strip()
+    sent_utc = item.get("sentUtc") or item.get("sent_utc")
+    notice_issued = str(item.get("noticeIssued") or item.get("notice_issued") or notice_id or "")
     notice_html = str(item.get("noticeHtml") or item.get("notice_html") or "")
 
     coords = extract_pseudo_coords(notice_html) or _catalog_coords(item)
@@ -156,8 +186,10 @@ def parse_volcano_notice(
     if lat is not None and lon is not None and origin_lat is not None and origin_lon is not None:
         distance_miles = haversine_miles(origin_lat, origin_lon, lat, lon)
 
-    issued_utc = _parse_notice_issued(notice_issued)
-    announcement_key = _build_announcement_key(vnum, notice_issued, notice_type, notice_html)
+    issued_utc = _parse_notice_issued(sent_utc) or _parse_notice_issued(notice_issued)
+    announcement_key = _build_announcement_key(
+        vnum, notice_id, notice_issued, notice_type, notice_html
+    )
     tts_text = build_volcano_tts(name, color_code, notice_type)
 
     return ParsedVolcano(
