@@ -11,7 +11,7 @@ Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDes
 
 Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Mason Nelson (N5LSN/WRKF394). Release notes: [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases).
 
-**Current release:** [v1.5.0](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.5.0)
+**Current release:** [v1.6.0](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.0)
 
 > **Install and upgrades:** SkywarnPlus-NG is moving to the **Debian `.deb` package** for new installs and updates. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — it remains for legacy sites but is no longer supported. Tarball installs do not reliably deploy package-managed files (for example voice-install sudoers, systemd units, and Apache snippets). See **[docs/debian.md](docs/debian.md)**. Existing tarball installs should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) rather than re-run `install.sh`.
 
@@ -52,9 +52,9 @@ Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatica
 Not recommended for new deployments. May miss package-managed files (sudoers for voice install, systemd, Apache conf).
 
 ```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.5.0/skywarnplus-ng-1.5.0.tar.gz
-tar -xzf skywarnplus-ng-1.5.0.tar.gz
-cd skywarnplus-ng-1.5.0
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.0/skywarnplus-ng-1.6.0.tar.gz
+tar -xzf skywarnplus-ng-1.6.0.tar.gz
+cd skywarnplus-ng-1.6.0
 ./install.sh
 sudo systemctl enable --now skywarnplus-ng
 ```
@@ -86,17 +86,23 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 | **NHC Tropical Cyclones** | Tropical cyclone advisories within range | NOAA NHC GIS RSS (`/gis-at.xml` Atlantic, `/gis-ep.xml` East Pacific, or `/gis-cp.xml` Central Pacific) |
 | **USGS Earthquakes** | Earthquakes above a magnitude threshold within range | USGS FDSN event API |
 | **Wildfire Incidents** | Active wildfire **perimeters** (not Red Flag Warnings) | NIFC WFIGS interagency perimeter feed |
+| **Tsunami Alerts** | Tsunami watch/advisory/warning at your position | NWS active alerts (point query) |
+| **Space Weather** | Geomagnetic storms, radio blackouts, solar radiation | NOAA SWPC `alerts.json` (global, not position-based) |
+| **Volcano Notices** | Latest aviation color-code notice per volcano within range | USGS VONA / HANS API |
 
 **Per-section settings (UI)** include, where applicable:
 
-- **Geo Hazard Position** (shared) — use **gpsd** when available; optional static lat/lon fallback for NHC, earthquakes, and wildfires
-- **Enable** — master on/off for that hazard type (stops polling and voice when unchecked)
+- **Geo Hazard Position** (shared) — use **gpsd** when available; optional static lat/lon fallback for NHC, earthquakes, wildfires, tsunami, and volcano
+- **Enable monitoring** and **Enable voice** — track on the dashboard without announcing, or both
 - **Poll interval**, **max distance** (miles), **max announcements per poll cycle**
-- **NHC:** feed (Atlantic/East Pacific), max advisory age, hurricanes-only filter
+- **NHC:** feed (Atlantic/East Pacific/Central Pacific), max advisory age, hurricanes-only filter
 - **Earthquakes:** minimum magnitude, lookback/age limits, optional ignore-below for automatic events, announce history on first enable
 - **Wildfires:** minimum acres, discovery age, exclude prescribed burns, announce history on first enable
+- **Tsunami:** minimum level (watch/advisory/warning), announce history on first enable
+- **Space weather:** G/R/S scale floors, watch/warning/alert/summary toggles, announce history on first enable
+- **Volcano:** minimum color code, observatory filter (e.g. HVO), lookback days, announce history on first enable
 
-When enabled, tracked events appear on the **Dashboard** and in **Health** (`nhc`, `usgs_api`, `wfigs_api` checks). Voice announcements respect **quiet hours** (same as NWS). Optional **Pushover / email / webhooks** can broadcast when a geo hazard is announced on the air.
+When enabled, tracked events appear on the **Dashboard** and in **Health** (`nhc`, `usgs_api`, `wfigs_api`, `tsunami_api`, `swpc_api`, `volcano_api` checks). Voice announcements respect **quiet hours** (same as NWS). Optional **Pushover / email / webhooks** can broadcast when a geo hazard is announced on the air.
 
 Full YAML reference and tuning notes: **[docs/geo-hazards.md](docs/geo-hazards.md)**.
 
@@ -124,9 +130,9 @@ Tarball sites should [migrate to apt](docs/debian.md#migrating-from-tarball-inst
 Do not use on sites that can move to the `.deb`. Re-running `install.sh` runs `pip install` on the node and may skip new privileged scripts (for example `install-tts-voice.sh` and sudoers).
 
 ```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.5.0/skywarnplus-ng-1.5.0.tar.gz
-tar -xzf skywarnplus-ng-1.5.0.tar.gz
-cd skywarnplus-ng-1.5.0
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.0/skywarnplus-ng-1.6.0.tar.gz
+tar -xzf skywarnplus-ng-1.6.0.tar.gz
+cd skywarnplus-ng-1.6.0
 ./install.sh
 sudo systemctl restart skywarnplus-ng
 ```

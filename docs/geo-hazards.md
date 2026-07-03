@@ -1,6 +1,6 @@
-# Earthquake and wildfire monitoring
+# Geo-hazard monitoring
 
-SkywarnPlus-NG can announce **position-based hazards** on your repeater nodes in addition to NWS county alerts. These use the same gpsd or static coordinates as [NHC tropical cyclone](https://www.nhc.noaa.gov) monitoring.
+SkywarnPlus-NG can announce **position-based hazards** (and global space weather) on your repeater nodes in addition to NWS county alerts. Position-based types share gpsd or static coordinates under **Geo Hazard Position**, the same settings used for [NHC tropical cyclone](https://www.nhc.noaa.gov) monitoring.
 
 ## What is covered where
 
@@ -11,15 +11,18 @@ SkywarnPlus-NG can announce **position-based hazards** on your repeater nodes in
 | Tropical cyclone advisories | NHC GIS RSS | **NHC Tropical Cyclones** (+ **Geo Hazard Position**) |
 | **Earthquakes** | USGS FDSN event API | **USGS Earthquakes** (+ **Geo Hazard Position**) |
 | **Active wildfire perimeters** | NIFC WFIGS | **Wildfire Incidents** (+ **Geo Hazard Position**) |
+| **Tsunami alerts** | NWS active alerts (point) | **Tsunami Alerts** (+ **Geo Hazard Position**) |
+| **Space weather** | NOAA SWPC | **Space Weather** (global — no position) |
+| **Volcano notices** | USGS VONA / HANS | **Volcano Notices** (+ **Geo Hazard Position**) |
 
-Fire weather forecasts are NWS alerts. The wildfire section tracks **active fire boundaries** from interagency perimeter data, not Red Flag Warnings.
+Fire weather forecasts are NWS alerts. The wildfire section tracks **active fire boundaries** from interagency perimeter data, not Red Flag Warnings. When tsunami monitoring is enabled, county NWS voice skips tsunami events so they are not announced twice.
 
 ## Requirements
 
-1. **Enable per feature** — each of NHC, earthquakes, and wildfires has its own **Enable** checkbox in Configuration (all default to off). Uncheck and save to stop polling and voice alerts for that hazard type.
-2. **Position** — enable **gpsd** and/or set **static latitude/longitude** once under **Geo Hazard Position** (shared by NHC, earthquakes, and wildfires). Static coordinates are used when GPS is slow or unavailable.
+1. **Enable per feature** — each hazard has **Enable monitoring** and **Enable voice** in Configuration (all default to off). Uncheck monitoring and save to stop polling for that type.
+2. **Position** — enable **gpsd** and/or set **static latitude/longitude** once under **Geo Hazard Position** (shared by NHC, earthquakes, wildfires, tsunami, and volcano). Space weather does not use position.
 3. **Asterisk / asl-tts** — voice announcements use the same TTS pipeline as weather alerts.
-4. **Optional notifications** — when email, Pushover, or global webhooks are configured, subscribers receive a broadcast when an earthquake or wildfire is announced on the air (same as general notifications, not county-filtered NWS alerts).
+4. **Optional notifications** — when email, Pushover, or global webhooks are configured, subscribers receive a broadcast when a geo hazard is announced on the air (same as general notifications, not county-filtered NWS alerts).
 
 ## Shared geo hazard position
 
@@ -30,7 +33,7 @@ geo_hazard_position:
   static_lon: -90.07
 ```
 
-When `use_gps_position` is true, gpsd is preferred; static lat/lon are the fallback for all enabled geo hazards.
+When `use_gps_position` is true, gpsd is preferred; static lat/lon are the fallback for all position-based geo hazards.
 
 ## USGS earthquakes
 
@@ -91,14 +94,68 @@ wildfire:
 - Rural / mountain West: try `max_distance_miles: 150–500` with higher `min_acres` to limit chatter.
 - Wide-area monitoring (dashboard + occasional distant large fires): up to **5000** miles (same cap as NHC/earthquake).
 
+## Tsunami alerts (NWS point)
+
+```yaml
+tsunami:
+  enabled: true
+  announce_enabled: true
+  poll_interval_minutes: 2
+  min_level: warning   # watch, advisory, or warning
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 2
+```
+
+- Polls NWS active alerts at the geo-hazard position and filters for tsunami products.
+- When monitoring is enabled, county NWS voice does not announce tsunami events (geo-hazard path owns them).
+
+## Space weather (NOAA SWPC)
+
+```yaml
+space_weather:
+  enabled: true
+  announce_enabled: true
+  poll_interval_minutes: 5
+  min_geomagnetic_scale: 0
+  min_radio_blackout_scale: 0
+  min_solar_radiation_scale: 0
+  announce_watches: true
+  announce_warnings: true
+  announce_alerts: true
+  announce_summaries: false
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 2
+```
+
+- Global feed (not position-based). Dashboard shows the five most recent matching alerts; voice considers the full feed with per-cycle caps.
+- Scale floors apply only when that scale is present on an alert (G/R/S are independent).
+
+## Volcano notices (USGS VONA)
+
+```yaml
+volcano:
+  enabled: true
+  announce_enabled: true
+  poll_interval_minutes: 15
+  max_distance_miles: 150
+  min_color_code: orange
+  observatories: ["HVO"]   # empty = all
+  lookback_days: 7
+  announce_history_on_enable: false
+  max_announcements_per_cycle: 2
+```
+
+- Dashboard and voice use the **latest notice per volcano** (not full VONA history).
+- Distance uses PSN coordinates in the notice when present, otherwise catalog lat/lon from the API.
+
 ## Dashboard and health
 
 - **Dashboard** — sections appear when each feature is enabled; warnings show if the last poll failed.
-- **Health** — `usgs_api` and `wfigs_api` checks run when the corresponding feature is enabled.
+- **Health** — `usgs_api`, `wfigs_api`, `tsunami_api`, `swpc_api`, and `volcano_api` checks run when the corresponding feature is enabled.
 
 ## Testing
 
-1. Enable the feature and set static coordinates near a recent event (or use a test position in a active fire zone).
-2. Lower thresholds temporarily (`min_magnitude`, `min_acres`) to verify voice and dashboard.
+1. Enable the feature and set static coordinates near a recent event (or use a test position in an active fire zone).
+2. Lower thresholds temporarily (`min_magnitude`, `min_acres`, `min_color_code`) to verify voice and dashboard.
 3. Check **Health** and poll error banners if feeds are unreachable.
-4. Confirm announcements are not repeated after the first voice alert (state keys `usgs_announced_events`, `wildfire_announced_incidents`).
+4. Confirm announcements are not repeated after the first voice alert (state keys such as `usgs_announced_events`, `wildfire_announced_incidents`, `tsunami_announced_alerts`, `spaceweather_announced_alerts`, `volcano_announced_notices`).

@@ -1,3 +1,17 @@
+skywarnplus-ng (1.6.0-1) unstable; urgency=medium
+
+  * Add tsunami (NWS point), space weather (NOAA SWPC), and volcano (USGS VONA)
+    monitoring with separate enable and voice toggles.
+  * Shared geo_hazard_position for NHC, earthquake, wildfire, tsunami, and
+    volcano; Central Pacific NHC feed option.
+  * SWPC alerts.json object-format parsing; dashboard/voice limited to latest
+    VONA per volcano; volcano observatory picker in Configuration.
+  * Config API reloads from disk on get/save so the UI reflects saved settings.
+  * Geo-hazard hardening: history seeding for space weather, tsunami/NWS voice
+    dedup, SWPC scale filters, and volcano coordinate fallbacks.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Fri, 03 Jul 2026 14:30:00 -0500
+
 skywarnplus-ng (1.5.0-1) unstable; urgency=medium
 
   * Application-wide hardening: NWS zone fetch integrity, dedup alias state,
