@@ -79,7 +79,7 @@ The dashboard shows the **running version** so you can confirm what's live.
 
 NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / Red Flag Warning, etc.) are configured under **Configuration → Counties**. They do not use the sections below.
 
-**Geo hazards** are optional, **position-based** announcements for events near your node. Each type has its own **Enable** checkbox, poll settings, distance/range filters, and **gpsd** or **static latitude/longitude** in **Configuration**:
+**Geo hazards** are optional, **position-based** announcements for events near your node. Set **Geo Hazard Position** once (gpsd and/or static lat/lon shared by all enabled types), then enable each hazard under its own section in **Configuration**:
 
 | Dashboard section | What it monitors | Data source |
 |-------------------|------------------|-------------|
@@ -89,9 +89,9 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 
 **Per-section settings (UI)** include, where applicable:
 
+- **Geo Hazard Position** (shared) — use **gpsd** when available; optional static lat/lon fallback for NHC, earthquakes, and wildfires
 - **Enable** — master on/off for that hazard type (stops polling and voice when unchecked)
 - **Poll interval**, **max distance** (miles), **max announcements per poll cycle**
-- **Position** — use **gpsd** or fixed coordinates for that feature
 - **NHC:** feed (Atlantic/East Pacific), max advisory age, hurricanes-only filter
 - **Earthquakes:** minimum magnitude, lookback/age limits, optional ignore-below for automatic events, announce history on first enable
 - **Wildfires:** minimum acres, discovery age, exclude prescribed burns, announce history on first enable
