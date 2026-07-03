@@ -279,9 +279,7 @@ class VolcanoService:
                 msg = str(state["volcano_last_error_message"])
             return {"ok": False, "message": msg, "details": details}
 
-        notices = parse_volcano_notices(
-            data, origin_lat=position[0], origin_lon=position[1]
-        )
+        notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
         details["notices_in_feed"] = len(notices)
         return {
             "ok": True,
@@ -309,9 +307,7 @@ class VolcanoService:
         if data is None:
             return
 
-        notices = parse_volcano_notices(
-            data, origin_lat=position[0], origin_lon=position[1]
-        )
+        notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
         self.select_new_notices(notices, state)
 
     async def poll(self, state: Dict[str, Any]) -> List[VolcanoNotice]:
@@ -334,9 +330,7 @@ class VolcanoService:
             )
             return []
 
-        notices = parse_volcano_notices(
-            data, origin_lat=position[0], origin_lon=position[1]
-        )
+        notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
         self._maybe_seed_announced_history(notices, state)
         selected = self.select_new_notices(notices, state)
         self._last_poll_at = datetime.now(timezone.utc)

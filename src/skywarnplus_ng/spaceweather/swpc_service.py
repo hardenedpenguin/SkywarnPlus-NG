@@ -96,9 +96,15 @@ class SwpcSpaceWeatherService:
             return False
         if sw.min_geomagnetic_scale > 0 and alert.geomagnetic_scale < sw.min_geomagnetic_scale:
             return False
-        if sw.min_radio_blackout_scale > 0 and alert.radio_blackout_scale < sw.min_radio_blackout_scale:
+        if (
+            sw.min_radio_blackout_scale > 0
+            and alert.radio_blackout_scale < sw.min_radio_blackout_scale
+        ):
             return False
-        if sw.min_solar_radiation_scale > 0 and alert.solar_radiation_scale < sw.min_solar_radiation_scale:
+        if (
+            sw.min_solar_radiation_scale > 0
+            and alert.solar_radiation_scale < sw.min_solar_radiation_scale
+        ):
             return False
         return True
 

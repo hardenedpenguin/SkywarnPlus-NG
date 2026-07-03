@@ -549,9 +549,7 @@ class HealthMonitor:
             disabled_message="Wildfire monitoring disabled",
         )
 
-    async def check_tsunami_health(
-        self, state: Optional[Dict[str, Any]] = None
-    ) -> ComponentHealth:
+    async def check_tsunami_health(self, state: Optional[Dict[str, Any]] = None) -> ComponentHealth:
         """Check NWS tsunami feed and position health when enabled."""
         return await self._check_position_hazard_health(
             component_name="tsunami_api",
@@ -562,9 +560,7 @@ class HealthMonitor:
             disabled_message="Tsunami monitoring disabled",
         )
 
-    async def check_volcano_health(
-        self, state: Optional[Dict[str, Any]] = None
-    ) -> ComponentHealth:
+    async def check_volcano_health(self, state: Optional[Dict[str, Any]] = None) -> ComponentHealth:
         """Check USGS volcano feed and position health when enabled."""
         return await self._check_position_hazard_health(
             component_name="volcano_api",

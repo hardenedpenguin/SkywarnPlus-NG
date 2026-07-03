@@ -517,7 +517,9 @@ class ConfigApiMixin:
                     merged["counties"] = data["counties"]
                 if isinstance(data.get("volcano"), dict) and "observatories" in data["volcano"]:
                     merged.setdefault("volcano", {})
-                    merged["volcano"]["observatories"] = list(data["volcano"]["observatories"] or [])
+                    merged["volcano"]["observatories"] = list(
+                        data["volcano"]["observatories"] or []
+                    )
 
                 mon = merged.setdefault("monitoring", {}).setdefault("http_server", {})
                 auth = mon.setdefault("auth", {})
