@@ -694,10 +694,31 @@
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
                     <div class="md:col-span-2">
-                        <label for="volcano_observatories" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observatories (comma-separated, optional)</label>
-                        <input type="text" id="volcano_observatories" name="volcano.observatories"
-                               placeholder="HVO, AVO"
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observatory Filter (optional)</label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            Leave empty to include all USGS observatories. Choose a preset to add it immediately, or use Custom code for other values. Combine multiple as needed.
+                        </p>
+                        <div id="volcano-observatories-selected" class="flex flex-wrap gap-2 mb-3 min-h-[1.5rem]"></div>
+                        <div id="volcano-observatories-hidden-inputs" aria-hidden="true"></div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <select id="volcano_observatory_picker" onchange="onVolcanoObservatoryPickerChange()"
+                                    class="flex-1 min-w-[12rem] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <option value="">Add observatory…</option>
+                                <option value="AVO">AVO — Alaska Volcano Observatory</option>
+                                <option value="CALVO">CALVO — California Volcano Observatory</option>
+                                <option value="CVO">CVO — Cascades Volcano Observatory</option>
+                                <option value="HVO">HVO — Hawaiian Volcano Observatory</option>
+                                <option value="NMI">NMI — Northern Mariana Islands</option>
+                                <option value="YVO">YVO — Yellowstone Volcano Observatory</option>
+                                <option value="__custom__">Custom code…</option>
+                            </select>
+                            <input type="text" id="volcano_observatory_custom" maxlength="20" placeholder="e.g. HVO"
+                                   onkeydown="if (event.key === 'Enter') { event.preventDefault(); addVolcanoObservatoryFromPicker(); }"
+                                   class="hidden flex-1 min-w-[8rem] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <button type="button" onclick="addVolcanoObservatoryFromPicker()" class="btn-secondary text-sm shrink-0">
+                                Add
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <label for="volcano_max_announcements_per_cycle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Announcements Per Poll</label>
@@ -3022,7 +3043,7 @@
         document.getElementById('volcano_max_distance_miles').value = config.volcano?.max_distance_miles ?? 150;
         document.getElementById('volcano_min_color_code').value = config.volcano?.min_color_code || 'orange';
         document.getElementById('volcano_lookback_days').value = config.volcano?.lookback_days ?? 7;
-        document.getElementById('volcano_observatories').value = (config.volcano?.observatories || []).join(', ');
+        populateVolcanoObservatories(config.volcano?.observatories || []);
         document.getElementById('volcano_max_announcements_per_cycle').value = config.volcano?.max_announcements_per_cycle ?? 2;
         document.getElementById('volcano_announce_history_on_enable').checked = config.volcano?.announce_history_on_enable || false;
 
@@ -3690,6 +3711,151 @@
         button.closest('.flex').remove();
     }
 
+    const VOLCANO_OBSERVATORY_LABELS = {
+        AVO: 'Alaska',
+        CALVO: 'California',
+        CVO: 'Cascades',
+        HVO: 'Hawaii',
+        NMI: 'Northern Mariana Islands',
+        YVO: 'Yellowstone',
+    };
+
+    let volcanoObservatoriesSelected = [];
+
+    function normalizeVolcanoObsCode(code) {
+        const norm = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (norm === 'HOV') return 'HVO';
+        return norm;
+    }
+
+    function normalizeVolcanoObservatoriesList(codes) {
+        if (Array.isArray(codes)) {
+            return codes;
+        }
+        if (typeof codes === 'string' && codes.trim()) {
+            return codes.split(',').map(function (part) { return part.trim(); }).filter(Boolean);
+        }
+        return [];
+    }
+
+    function populateVolcanoObservatories(codes) {
+        volcanoObservatoriesSelected = [];
+        const picker = document.getElementById('volcano_observatory_picker');
+        const custom = document.getElementById('volcano_observatory_custom');
+        normalizeVolcanoObservatoriesList(codes).forEach(function (code) {
+            const norm = normalizeVolcanoObsCode(code);
+            if (norm && volcanoObservatoriesSelected.indexOf(norm) === -1) {
+                volcanoObservatoriesSelected.push(norm);
+            }
+        });
+        renderVolcanoObservatoryChips();
+        if (picker) picker.value = '';
+        if (custom) {
+            custom.value = '';
+            custom.classList.add('hidden');
+        }
+    }
+
+    function renderVolcanoObservatoryChips() {
+        const container = document.getElementById('volcano-observatories-selected');
+        const hidden = document.getElementById('volcano-observatories-hidden-inputs');
+        if (!container || !hidden) return;
+
+        container.innerHTML = '';
+        hidden.innerHTML = '';
+
+        if (volcanoObservatoriesSelected.length === 0) {
+            const hint = document.createElement('p');
+            hint.className = 'text-xs text-gray-500 dark:text-gray-400 italic';
+            hint.textContent = 'All observatories (no filter)';
+            container.appendChild(hint);
+            return;
+        }
+
+        volcanoObservatoriesSelected.forEach(function (code, index) {
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+
+            const label = VOLCANO_OBSERVATORY_LABELS[code];
+            const text = document.createElement('span');
+            text.textContent = label ? code + ' (' + label + ')' : code;
+            chip.appendChild(text);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ml-0.5 hover:opacity-70 leading-none';
+            removeBtn.setAttribute('aria-label', 'Remove ' + code);
+            removeBtn.textContent = '×';
+            removeBtn.onclick = function () {
+                removeVolcanoObservatory(code);
+            };
+            chip.appendChild(removeBtn);
+            container.appendChild(chip);
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'volcano.observatories[' + index + ']';
+            input.value = code;
+            hidden.appendChild(input);
+        });
+    }
+
+    function onVolcanoObservatoryPickerChange() {
+        const picker = document.getElementById('volcano_observatory_picker');
+        const custom = document.getElementById('volcano_observatory_custom');
+        if (!picker || !custom) return;
+        if (picker.value === '__custom__') {
+            custom.classList.remove('hidden');
+            custom.focus();
+            return;
+        }
+        custom.classList.add('hidden');
+        custom.value = '';
+        if (picker.value) {
+            addVolcanoObservatoryFromPicker();
+        }
+    }
+
+    function flushPendingVolcanoObservatory() {
+        const picker = document.getElementById('volcano_observatory_picker');
+        if (!picker || !picker.value) return;
+        addVolcanoObservatoryFromPicker();
+    }
+
+    function addVolcanoObservatoryFromPicker() {
+        const picker = document.getElementById('volcano_observatory_picker');
+        const custom = document.getElementById('volcano_observatory_custom');
+        if (!picker) return;
+
+        let code = '';
+        if (picker.value === '__custom__') {
+            code = custom ? custom.value : '';
+        } else {
+            code = picker.value;
+        }
+
+        code = normalizeVolcanoObsCode(code);
+        if (!code) return;
+
+        if (volcanoObservatoriesSelected.indexOf(code) === -1) {
+            volcanoObservatoriesSelected.push(code);
+            renderVolcanoObservatoryChips();
+        }
+
+        picker.value = '';
+        if (custom) {
+            custom.value = '';
+            custom.classList.add('hidden');
+        }
+    }
+
+    function removeVolcanoObservatory(code) {
+        volcanoObservatoriesSelected = volcanoObservatoriesSelected.filter(function (item) {
+            return item !== code;
+        });
+        renderVolcanoObservatoryChips();
+    }
+
     // Similar functions for say_alert_blocked and tail_message_blocked
     function populateSayAlertBlocked(events) {
         const container = document.getElementById('say-alert-blocked-container');
@@ -3893,6 +4059,7 @@
 
     function buildConfigFromForm() {
             syncAllConfigPresetFields();
+            flushPendingVolcanoObservatory();
             reindexCountyRows();
             const formData = new FormData(document.getElementById('config-form'));
             const config = {};
@@ -4053,6 +4220,10 @@
                     config.earthquake.ignore_automatic_below = null;
                 }
             }
+            if (!config.volcano) {
+                config.volcano = {};
+            }
+            config.volcano.observatories = volcanoObservatoriesSelected.slice();
             if (config.gpsd && config.gpsd.min_accuracy_meters === '') {
                 config.gpsd.min_accuracy_meters = null;
             }
@@ -4101,7 +4272,7 @@
             }
             
             const prevMon = JSON.parse(JSON.stringify((window.currentConfig && window.currentConfig.monitoring) || {}));
-            await apiCall('/api/config', {
+            const saveResult = await apiCall('/api/config', {
                 method: 'POST',
                 body: JSON.stringify(config)
             });
@@ -4116,7 +4287,14 @@
                 if (rb) rb.classList.remove('hidden');
             }
             showNotification('Configuration saved successfully', 'success');
-            await loadConfig(true);
+            if (saveResult && saveResult.config) {
+                currentConfig = saveResult.config;
+                window.currentConfig = currentConfig;
+                populateForm(currentConfig);
+                updateConfigBanners(currentConfig);
+            } else {
+                await loadConfig(true);
+            }
         } catch (error) {
             console.error('Failed to save configuration:', error);
             if (!error.message) showNotification('Failed to save configuration', 'error');

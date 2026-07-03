@@ -626,7 +626,7 @@ class VolcanoConfig(BaseModel):
     )
     observatories: List[str] = Field(
         default_factory=list,
-        description="Optional observatory filter (empty = all); e.g. HVO, AVO",
+        description="Optional observatory filter (empty = all); USGS codes: AVO, CALVO, CVO, HVO, NMI, YVO",
     )
     lookback_days: int = Field(
         7,

@@ -625,6 +625,7 @@
         section.classList.remove('hidden');
 
         var metaParts = [];
+        if (spaceWeather.display_tracked_limit > 0) metaParts.push('Showing ' + escHtml(spaceWeather.display_tracked_limit) + ' most recent');
         if (spaceWeather.min_geomagnetic_scale > 0) metaParts.push('G≥' + escHtml(spaceWeather.min_geomagnetic_scale));
         if (spaceWeather.announce_enabled === false) metaParts.push('Monitor only (no voice)');
         if (spaceWeather.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(spaceWeather.last_poll_at)));

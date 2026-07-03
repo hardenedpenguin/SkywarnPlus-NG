@@ -186,73 +186,73 @@ class ConfigApiMixin:
                 continue
         return out
 
+    def _build_serializable_config_for_api(self) -> dict[str, Any]:
+        """Build the configuration payload returned to the dashboard UI."""
+        config_dict = self.config.model_dump()
+
+        def convert_paths(obj: Any) -> Any:
+            if isinstance(obj, dict):
+                return {k: convert_paths(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [convert_paths(item) for item in obj]
+            if hasattr(obj, "__fspath__"):
+                return str(obj)
+            return obj
+
+        serializable_config = convert_paths(config_dict)
+
+        if "asterisk" in serializable_config and "nodes" in serializable_config["asterisk"]:
+            raw = serializable_config["asterisk"]["nodes"]
+            serializable_config["asterisk"]["nodes"] = self._serialize_asterisk_nodes(
+                raw if isinstance(raw, list) else [raw]
+            )
+
+        voices_dir = _tts_voices_dir(self.config)
+        tts = self.config.audio.tts
+        default_voice = str(getattr(tts, "voice", "en_US-amy-low.onnx"))
+        voices_payload = build_voices_payload(
+            voices_dir=voices_dir,
+            default_voice=default_voice,
+        )
+        serializable_config["tts_voices"] = voices_payload
+        serializable_config["tts_voices_dir"] = voices_payload["voices_dir"]
+        serializable_config["tts_default_voice"] = voices_payload["default"]
+        serializable_config["tts_available_voices"] = list_voice_models(voices_dir)
+        serializable_config["tts_voice_regions"] = voices_payload["regions"]
+        serializable_config["piper_available_models"] = [
+            str(voices_dir / name) for name in serializable_config["tts_available_voices"]
+        ]
+        serializable_config["piper_default_model_path"] = str(voices_dir / default_voice)
+
+        nodes = getattr(getattr(self.config, "asterisk", None), "nodes", None) or []
+        default_node = getattr(tts, "node_number", None)
+        if default_node is None and nodes:
+            first = nodes[0]
+            if isinstance(first, int):
+                default_node = first
+            elif isinstance(first, dict):
+                default_node = first.get("number")
+            elif hasattr(first, "number"):
+                default_node = first.number
+        serializable_config["tts_default_node_number"] = default_node or 1
+
+        serializable_config["runtime_warnings"] = _collect_runtime_warnings(self.config)
+        serializable_config["auth_uses_default_password"] = (
+            self.config.monitoring.http_server.auth.enabled
+            and self._uses_default_dashboard_password()
+        )
+        serializable_config["is_configured"] = is_dashboard_configured(
+            self.config, self._verify_password
+        )
+        return serializable_config
+
     async def api_config_get_handler(self, request: Request) -> Response:
         """Handle API config get endpoint."""
         try:
-            # Convert config to dict and handle Path objects
-            config_dict = self.config.model_dump()
-
-            # Convert Path objects to strings for JSON serialization
-            def convert_paths(obj):
-                if isinstance(obj, dict):
-                    return {k: convert_paths(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [convert_paths(item) for item in obj]
-                elif hasattr(obj, "__fspath__"):  # Path-like object
-                    return str(obj)
-                else:
-                    return obj
-
-            serializable_config = convert_paths(config_dict)
-
-            # Ensure asterisk.nodes is JSON-serializable (NodeConfig -> dict)
-            if "asterisk" in serializable_config and "nodes" in serializable_config["asterisk"]:
-                raw = serializable_config["asterisk"]["nodes"]
-                serializable_config["asterisk"]["nodes"] = self._serialize_asterisk_nodes(
-                    raw if isinstance(raw, list) else [raw]
-                )
-
-            # asl-tts voice catalog for configuration UI
-            voices_dir = _tts_voices_dir(self.config)
-            tts = self.config.audio.tts
-            default_voice = str(getattr(tts, "voice", "en_US-amy-low.onnx"))
-            voices_payload = build_voices_payload(
-                voices_dir=voices_dir,
-                default_voice=default_voice,
+            self._reload_config_from_disk()
+            return web.json_response(
+                redact_config_for_api(self._build_serializable_config_for_api())
             )
-            serializable_config["tts_voices"] = voices_payload
-            serializable_config["tts_voices_dir"] = voices_payload["voices_dir"]
-            serializable_config["tts_default_voice"] = voices_payload["default"]
-            serializable_config["tts_available_voices"] = list_voice_models(voices_dir)
-            serializable_config["tts_voice_regions"] = voices_payload["regions"]
-            serializable_config["piper_available_models"] = [
-                str(voices_dir / name) for name in serializable_config["tts_available_voices"]
-            ]
-            serializable_config["piper_default_model_path"] = str(voices_dir / default_voice)
-
-            # Suggest asl-tts node from first configured Asterisk node
-            nodes = getattr(getattr(self.config, "asterisk", None), "nodes", None) or []
-            default_node = getattr(tts, "node_number", None)
-            if default_node is None and nodes:
-                first = nodes[0]
-                if isinstance(first, int):
-                    default_node = first
-                elif isinstance(first, dict):
-                    default_node = first.get("number")
-                elif hasattr(first, "number"):
-                    default_node = first.number
-            serializable_config["tts_default_node_number"] = default_node or 1
-
-            serializable_config["runtime_warnings"] = _collect_runtime_warnings(self.config)
-            serializable_config["auth_uses_default_password"] = (
-                self.config.monitoring.http_server.auth.enabled
-                and self._uses_default_dashboard_password()
-            )
-            serializable_config["is_configured"] = is_dashboard_configured(
-                self.config, self._verify_password
-            )
-
-            return web.json_response(redact_config_for_api(serializable_config))
         except Exception as e:
             logger.error(f"Error getting config: {e}")
             return web.json_response({"error": str(e)}, status=500)
@@ -515,6 +515,9 @@ class ConfigApiMixin:
                 merged = deep_merge_dict(model_dump_for_merge(self.config), data)
                 if "counties" in data:
                     merged["counties"] = data["counties"]
+                if isinstance(data.get("volcano"), dict) and "observatories" in data["volcano"]:
+                    merged.setdefault("volcano", {})
+                    merged["volcano"]["observatories"] = list(data["volcano"]["observatories"] or [])
 
                 mon = merged.setdefault("monitoring", {}).setdefault("http_server", {})
                 auth = mon.setdefault("auth", {})
@@ -529,11 +532,7 @@ class ConfigApiMixin:
 
                 config_path = resolve_config_path(self.config)
                 self._write_config_yaml(updated_config, config_path)
-
-                # Update the application's config reference
-                self.config = updated_config
-                if self.app:
-                    self.app.apply_runtime_config(updated_config)
+                config_path = self._reload_config_from_disk()
 
                 logger.info(f"Configuration saved to {config_path}")
 
@@ -542,6 +541,7 @@ class ConfigApiMixin:
                         "success": True,
                         "message": "Configuration updated and saved successfully",
                         "config_file": str(config_path),
+                        "config": redact_config_for_api(self._build_serializable_config_for_api()),
                     }
                 )
 

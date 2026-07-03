@@ -86,6 +86,37 @@ def test_parse_swpc_alerts_dedupes() -> None:
     assert len(alerts) == 1
 
 
+def test_parse_swpc_alert_dict_current_feed_shape() -> None:
+    item = {
+        "product_id": "A30F",
+        "issue_datetime": "2026-07-02 09:35:50.760",
+        "message": (
+            "Space Weather Message Code: WATA30\r\n"
+            "Serial Number: 278\r\n"
+            "Issue Time: 2026 Jul 02 0935 UTC\r\n\r\n"
+            "WATCH: Geomagnetic Storm Category G2 Predicted"
+        ),
+    }
+    alert = parse_swpc_alerts([item])[0]
+    assert alert.message_type == "watch"
+    assert alert.geomagnetic_scale == 2
+    assert alert.title.startswith("WATCH:")
+    assert "G2" in alert.tts_text
+
+
+def test_parse_swpc_alert_dict_warning_product_id() -> None:
+    item = {
+        "product_id": "K05W",
+        "issue_datetime": "2026-07-01 05:54:08.210",
+        "message": (
+            "Space Weather Message Code: WARK05\r\n"
+            "EXTENDED WARNING: Geomagnetic K-index of 5 expected"
+        ),
+    }
+    alert = parse_swpc_alerts([item])[0]
+    assert alert.message_type == "warning"
+
+
 def test_parse_pseudo_navy_coord() -> None:
     lat = parse_pseudo_navy_coord("N", "1925")
     assert abs(lat - (19 + 25 / 60)) < 0.01

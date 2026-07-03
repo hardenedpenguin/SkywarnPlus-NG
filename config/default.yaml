@@ -190,7 +190,7 @@ volcano:
   poll_interval_minutes: 15
   max_distance_miles: 150
   min_color_code: orange  # green, yellow, orange, or red
-  observatories: []  # e.g. ["HVO", "AVO"]; empty = all
+  observatories: []  # e.g. ["HVO", "AVO", "CVO"]; empty = all USGS observatories
   lookback_days: 7
   announce_history_on_enable: false
   max_announcements_per_cycle: 2

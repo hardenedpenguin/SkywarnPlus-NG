@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 SWPC_ALERTS_URL = "https://services.swpc.noaa.gov/products/alerts.json"
 DISPLAY_REFRESH_MINUTES = 5
+DISPLAY_TRACKED_LIMIT = 5
 
 
 @dataclass(frozen=True)
@@ -122,8 +123,9 @@ class SwpcSpaceWeatherService:
     ) -> List[SpaceWeatherAlert]:
         selected: List[SpaceWeatherAlert] = []
         tracked: List[Dict[str, Any]] = []
+        recent_alerts = alerts[:DISPLAY_TRACKED_LIMIT]
 
-        for alert in alerts:
+        for alert in recent_alerts:
             within_filters = self._passes_filters(alert)
             announced = self._already_announced(alert.announcement_key, state)
             tracked.append(
@@ -274,6 +276,7 @@ class SwpcSpaceWeatherService:
             "announce_alerts": sw.announce_alerts,
             "announce_summaries": sw.announce_summaries,
             "max_announcements_per_cycle": sw.max_announcements_per_cycle,
+            "display_tracked_limit": DISPLAY_TRACKED_LIMIT,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "tracked_alerts": self._tracked_alerts,
             "announced_count": len(state.get("spaceweather_announced_alerts") or []),
