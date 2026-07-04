@@ -51,9 +51,7 @@ def _fix(**overrides) -> GpsFix:
 async def test_gps_active_overrides_mobile_node_counties():
     config = _mobile_config()
     nws = AsyncMock()
-    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
-        return_value=("TXZ213", "Inland Harris")
-    )
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(return_value=("TXZ213", "Inland Harris"))
     service = MobileCountyService(config, nws)
     config.gpsd.hysteresis_polls = 1
 
@@ -124,9 +122,7 @@ async def test_initial_county_lock_is_immediate_with_higher_hysteresis():
     config = _mobile_config()
     config.gpsd.hysteresis_polls = 3
     nws = AsyncMock()
-    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
-        return_value=("TXZ213", "Inland Harris")
-    )
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(return_value=("TXZ213", "Inland Harris"))
     service = MobileCountyService(config, nws)
 
     with patch(
@@ -206,9 +202,7 @@ async def test_gps_only_active_without_global_counties_config():
         gpsd=GpsdConfig(enabled=True, hysteresis_polls=1),
     )
     nws = AsyncMock()
-    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
-        return_value=("TXZ213", "Inland Harris")
-    )
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(return_value=("TXZ213", "Inland Harris"))
     service = MobileCountyService(config, nws)
 
     with patch(

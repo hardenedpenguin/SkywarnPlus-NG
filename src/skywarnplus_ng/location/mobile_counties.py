@@ -105,7 +105,9 @@ class MobileCountyService:
                     return (static[0], static[1], "static"), None
                 return None, "no_fix"
 
-            if (datetime.now(timezone.utc) - fix.fix_time).total_seconds() > self.config.gpsd.stale_seconds:
+            if (
+                datetime.now(timezone.utc) - fix.fix_time
+            ).total_seconds() > self.config.gpsd.stale_seconds:
                 static = self._static_position()
                 if static:
                     return (static[0], static[1], "static"), None

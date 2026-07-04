@@ -132,7 +132,10 @@ class SkywarnPlusApplication:
         )
         self.space_weather_service = SwpcSpaceWeatherService(self.config)
         self.volcano_service = VolcanoService(self.config, self.mobile_county_service)
-        if self.mobile_county_service and self.mobile_county_service.is_position_monitoring_configured():
+        if (
+            self.mobile_county_service
+            and self.mobile_county_service.is_position_monitoring_configured()
+        ):
             logger.info("Position-based NWS forecast zone monitoring enabled")
         if self.config.nhc.enabled:
             logger.info("NHC tropical cyclone monitoring enabled")
@@ -2348,7 +2351,10 @@ class SkywarnPlusApplication:
                 database_manager=self.database_manager,
             )
 
-        if self.mobile_county_service and self.mobile_county_service.is_position_monitoring_configured():
+        if (
+            self.mobile_county_service
+            and self.mobile_county_service.is_position_monitoring_configured()
+        ):
             logger.info("Position-based NWS forecast zone monitoring enabled (config updated)")
         if config.nhc.enabled:
             logger.info("NHC tropical cyclone monitoring enabled (config updated)")
