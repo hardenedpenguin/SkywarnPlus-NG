@@ -9,6 +9,8 @@ skywarnplus-ng (1.6.0-1) unstable; urgency=medium
   * Config API reloads from disk on get/save so the UI reflects saved settings.
   * Preserve email/SMS/FCM secrets on save when the form field is blank (fixes
     Yahoo/Gmail app password wiped after Test + Save; issue #10).
+  * Fix Debian package build: normalize venv launchers without failing on
+    activate scripts or copied Python binaries that embed CI paths.
   * Geo-hazard hardening: history seeding for space weather, tsunami/NWS voice
     dedup, SWPC scale filters, and volcano coordinate fallbacks.
 

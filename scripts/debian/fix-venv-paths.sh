@@ -12,9 +12,22 @@ fi
 
 python_bin="${INSTALL_PREFIX}/bin/python"
 
+# Activate helpers are not used by the systemd service and embed build-time paths.
+rm -f \
+  "${VENV_DIR}/bin/activate" \
+  "${VENV_DIR}/bin/activate.csh" \
+  "${VENV_DIR}/bin/activate.fish" \
+  "${VENV_DIR}/bin/Activate.ps1"
+
+# Rewrite console-script shebangs (text files only; skip copied python binaries).
 for entry in "${VENV_DIR}/bin/"*; do
-  [[ -f "${entry}" ]] || continue
-  first_line="$(head -1 "${entry}" 2>/dev/null || true)"
+  [[ -f "${entry}" && ! -L "${entry}" ]] || continue
+  [[ -x "${entry}" ]] || continue
+  # ELF / binary interpreters embed build paths; leave them alone.
+  if ! head -c 2 "${entry}" 2>/dev/null | grep -q '^#!'; then
+    continue
+  fi
+  first_line="$(head -n 1 "${entry}" 2>/dev/null || true)"
   [[ "${first_line}" == \#!*python* ]] || continue
   sed -i "1s|^#!.*|#!${python_bin}|" "${entry}"
 done
@@ -33,13 +46,26 @@ command = ${INSTALL_PREFIX}/bin/python3 -m venv --copies ${INSTALL_PREFIX}
 EOF
 fi
 
-# Fail the build if CI paths leaked into launchers.
-if grep -R -l '/home/runner/' "${VENV_DIR}/bin" 2>/dev/null; then
-  echo "CI build paths remain in ${VENV_DIR}/bin" >&2
+# Fail if CI paths leaked into text launchers (not ELF interpreters).
+leaked=0
+for entry in "${VENV_DIR}/bin/"*; do
+  [[ -f "${entry}" && ! -L "${entry}" ]] || continue
+  if ! head -c 2 "${entry}" 2>/dev/null | grep -q '^#!'; then
+    continue
+  fi
+  if grep -q '/home/runner/' "${entry}" 2>/dev/null \
+    || grep -q '/opt/hostedtoolcache/' "${entry}" 2>/dev/null; then
+    echo "${entry}" >&2
+    leaked=1
+  fi
+done
+if [[ "${leaked}" -ne 0 ]]; then
+  echo "CI build paths remain in ${VENV_DIR}/bin launchers" >&2
   exit 1
 fi
 
-if grep -q '/opt/hostedtoolcache/' "${VENV_DIR}/pyvenv.cfg" 2>/dev/null; then
+if grep -q '/opt/hostedtoolcache/' "${VENV_DIR}/pyvenv.cfg" 2>/dev/null \
+  || grep -q '/home/runner/' "${VENV_DIR}/pyvenv.cfg" 2>/dev/null; then
   echo "CI build paths remain in ${VENV_DIR}/pyvenv.cfg" >&2
   exit 1
 fi
