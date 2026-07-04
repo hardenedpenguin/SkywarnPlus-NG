@@ -37,6 +37,7 @@ def append_gps_health_details(
         gps = mobile_service.get_status()
         details["gps_active"] = gps.get("active")
         details["gps_reason"] = gps.get("reason")
+        details["gps_zone"] = gps.get("zone_code") or gps.get("county_code")
         details["gps_county"] = gps.get("county_code")
         if not position:
             details["position"] = None

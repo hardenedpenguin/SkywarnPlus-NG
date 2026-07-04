@@ -97,7 +97,7 @@ def test_county_codes_from_geocode_marine_zones_and_same():
         "SAME": ["048167", "048039"],
     }
     codes = NWSClient._county_codes_from_nws_geocode(geo)
-    assert codes == ["TXC039", "TXC167"]
+    assert codes == ["TXZ436", "TXC039", "TXC167"]
 
 
 def test_parse_alert_derives_county_codes_from_same_when_ugc_is_marine_zones_only(nws_client):
@@ -114,4 +114,4 @@ def test_parse_alert_derives_county_codes_from_same_when_ugc_is_marine_zones_onl
         }
     }
     alert = nws_client._parse_alert(feature)
-    assert alert.county_codes == ["TXC321", "TXC039", "TXC167"]
+    assert alert.county_codes == ["TXZ436", "TXZ437", "TXC321", "TXC039", "TXC167"]

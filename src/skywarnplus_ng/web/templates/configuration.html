@@ -277,7 +277,7 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mobile GPS (gpsd)</h3>
                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors only the county resolved from a local gpsd fix.
+                        <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors the NWS forecast zone resolved from a local gpsd fix (more precise than whole-county monitoring).
                         Static counties on that node are used when GPS is inactive or stale (default 15 minutes),
                         unless <em>GPS only</em> is enabled (no static fallback; node is silent without a fix).
                         Requires <code class="text-xs">gpsd</code> and a USB GPS receiver on the server.
@@ -311,7 +311,7 @@
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
                     <div>
-                        <label for="gpsd_hysteresis_polls" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">County Switch Hysteresis (polls)</label>
+                        <label for="gpsd_hysteresis_polls" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zone Switch Hysteresis (polls)</label>
                         <input type="number" id="gpsd_hysteresis_polls" name="gpsd.hysteresis_polls" min="1" value="3"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
@@ -3531,7 +3531,7 @@
                         <input type="checkbox" name="asterisk.nodes[${index}].gps_controlled" ${gpsControlled ? 'checked' : ''}
                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded node-gps-controlled">
                         <label class="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                            GPS controlled (uses gpsd county when active)
+                            GPS controlled (uses gpsd forecast zone when active)
                         </label>
                     </div>
                     <div class="mt-2 flex items-center">

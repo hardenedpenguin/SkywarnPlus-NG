@@ -45,7 +45,9 @@ def _fix(**overrides) -> GpsFix:
 async def test_gps_active_overrides_mobile_node_counties():
     config = _mobile_config()
     nws = AsyncMock()
-    nws.resolve_county_from_coordinates = AsyncMock(return_value=("TXC167", "Harris County"))
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
+        return_value=("TXZ213", "Inland Harris")
+    )
     service = MobileCountyService(config, nws)
     config.gpsd.hysteresis_polls = 1
 
@@ -55,9 +57,9 @@ async def test_gps_active_overrides_mobile_node_counties():
         await service.refresh()
 
     assert service.is_gps_active()
-    assert service.get_effective_counties_for_node(546050) == {"TXC167"}
-    assert service.get_fetch_counties() == ["TXC039", "TXC167"]
-    assert service.get_nodes_for_counties(["TXC167"]) == [546050]
+    assert service.get_effective_counties_for_node(546050) == {"TXZ213"}
+    assert service.get_fetch_counties() == ["TXC039", "TXZ213"]
+    assert service.get_nodes_for_counties(["TXZ213"]) == [546050]
     assert service.get_nodes_for_counties(["TXC039"]) == [546051]
 
 
@@ -84,12 +86,12 @@ async def test_hysteresis_requires_multiple_polls():
     config = _mobile_config()
     config.gpsd.hysteresis_polls = 2
     nws = AsyncMock()
-    nws.resolve_county_from_coordinates = AsyncMock(
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
         side_effect=[
-            ("TXC167", "Harris County"),
-            ("TXC167", "Harris County"),
-            ("TXC201", "Galveston County"),
-            ("TXC201", "Galveston County"),
+            ("TXZ213", "Inland Harris"),
+            ("TXZ213", "Inland Harris"),
+            ("TXZ227", "Coastal Galveston"),
+            ("TXZ227", "Coastal Galveston"),
         ]
     )
     service = MobileCountyService(config, nws)
@@ -99,16 +101,16 @@ async def test_hysteresis_requires_multiple_polls():
     ):
         await service.refresh()
         assert service.is_gps_active()
-        assert service.active_gps_county_code == "TXC167"
+        assert service.active_gps_county_code == "TXZ213"
 
         await service.refresh()
-        assert service.active_gps_county_code == "TXC167"
+        assert service.active_gps_county_code == "TXZ213"
 
         await service.refresh()
-        assert service.active_gps_county_code == "TXC167"
+        assert service.active_gps_county_code == "TXZ213"
 
         await service.refresh()
-        assert service.active_gps_county_code == "TXC201"
+        assert service.active_gps_county_code == "TXZ227"
 
 
 @pytest.mark.asyncio
@@ -116,7 +118,9 @@ async def test_initial_county_lock_is_immediate_with_higher_hysteresis():
     config = _mobile_config()
     config.gpsd.hysteresis_polls = 3
     nws = AsyncMock()
-    nws.resolve_county_from_coordinates = AsyncMock(return_value=("TXC167", "Harris County"))
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
+        return_value=("TXZ213", "Inland Harris")
+    )
     service = MobileCountyService(config, nws)
 
     with patch(
@@ -125,8 +129,8 @@ async def test_initial_county_lock_is_immediate_with_higher_hysteresis():
         await service.refresh()
 
     assert service.is_gps_active()
-    assert service.active_gps_county_code == "TXC167"
-    assert service.get_fetch_counties() == ["TXC039", "TXC167"]
+    assert service.active_gps_county_code == "TXZ213"
+    assert service.get_fetch_counties() == ["TXC039", "TXZ213"]
 
 
 @pytest.mark.asyncio
@@ -196,7 +200,9 @@ async def test_gps_only_active_without_global_counties_config():
         gpsd=GpsdConfig(enabled=True, hysteresis_polls=1),
     )
     nws = AsyncMock()
-    nws.resolve_county_from_coordinates = AsyncMock(return_value=("TXC167", "Harris County"))
+    nws.resolve_forecast_zone_from_coordinates = AsyncMock(
+        return_value=("TXZ213", "Inland Harris")
+    )
     service = MobileCountyService(config, nws)
 
     with patch(
@@ -205,9 +211,9 @@ async def test_gps_only_active_without_global_counties_config():
         await service.refresh()
 
     assert service.is_gps_active()
-    assert service.get_fetch_counties() == ["TXC167"]
-    assert service.get_nodes_for_counties(["TXC167"]) == [546050]
-    assert "TXC167" in service.get_monitored_county_codes()
+    assert service.get_fetch_counties() == ["TXZ213"]
+    assert service.get_nodes_for_counties(["TXZ213"]) == [546050]
+    assert "TXZ213" in service.get_monitored_county_codes()
 
 
 def test_gpsd_config_in_default_yaml():

@@ -83,6 +83,7 @@ _FIPS_STATE_POSTAL: Dict[str, str] = {
 }
 
 _UGC_COUNTY_CODE = re.compile(r"^[A-Z]{2}C\d{3}$")
+_UGC_ZONE_CODE = re.compile(r"^[A-Z]{2}[A-Z]\d{3}$")
 
 
 class NWSClientError(Exception):
@@ -111,6 +112,7 @@ class NWSClient:
             follow_redirects=True,
         )
         self._point_county_cache: Dict[Tuple[float, float], Tuple[str, str]] = {}
+        self._point_forecast_zone_cache: Dict[Tuple[float, float], Tuple[str, str]] = {}
 
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -211,10 +213,10 @@ class NWSClient:
     @staticmethod
     def _county_codes_from_nws_geocode(geocode: Dict[str, Any]) -> List[str]:
         """
-        Build NWS county zone codes (e.g. TXC167) for filtering and display.
+        Build NWS zone codes for filtering and geographic matching.
 
-        Coastal/marine products often list forecast zones (TXZ###) in UGC while SAME still
-        lists affected county FIPS. Geographic matching uses ``TXC###`` codes from config.
+        Includes all UGC codes (county ``TXC###``, forecast ``TXZ###``, marine ``TXM###``,
+        etc.) plus county codes derived from SAME FIPS when present.
         """
         out: List[str] = []
         seen: Set[str] = set()
@@ -229,7 +231,7 @@ class NWSClient:
             for raw in ugc_raw:
                 if isinstance(raw, str):
                     u = raw.strip().upper()
-                    if _UGC_COUNTY_CODE.match(u):
+                    if _UGC_ZONE_CODE.match(u):
                         add(u)
 
         same_raw = geocode.get("SAME", [])
@@ -649,16 +651,19 @@ class NWSClient:
 
         return alerts
 
-    async def resolve_county_from_coordinates(
-        self, latitude: float, longitude: float
+    async def _resolve_zone_from_coordinates(
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        points_property: str,
+        zone_pattern: re.Pattern[str],
+        cache: Dict[Tuple[float, float], Tuple[str, str]],
+        label: str,
     ) -> Optional[Tuple[str, str]]:
-        """
-        Resolve an NWS county zone code (e.g. TXC039) from coordinates.
-
-        Uses the NWS /points endpoint and caches by rounded lat/lon.
-        """
+        """Resolve an NWS zone code from coordinates via the /points endpoint."""
         cache_key = (round(latitude, 3), round(longitude, 3))
-        cached = self._point_county_cache.get(cache_key)
+        cached = cache.get(cache_key)
         if cached:
             return cached
 
@@ -666,7 +671,7 @@ class NWSClient:
         try:
             data = await self._fetch_with_retry(url)
         except NWSClientError as exc:
-            logger.warning("Failed to resolve county from coordinates: %s", exc)
+            logger.warning("Failed to resolve %s from coordinates: %s", label, exc)
             return None
 
         if not isinstance(data, dict):
@@ -676,36 +681,71 @@ class NWSClient:
         if not isinstance(props, dict):
             return None
 
-        county_url = props.get("county")
-        if not isinstance(county_url, str):
+        zone_url = props.get(points_property)
+        if not isinstance(zone_url, str):
             return None
 
-        match = re.search(r"/zones/county/([A-Z]{2}C\d{3})$", county_url.strip())
+        match = zone_pattern.search(zone_url.strip())
         if not match:
             return None
 
-        county_code = match.group(1)
-        county_name = county_code
+        zone_code = match.group(1)
+        zone_name = zone_code
 
-        zone_path = county_url
-        if county_url.startswith(self.config.base_url):
-            zone_path = county_url[len(self.config.base_url) :]
-        elif county_url.startswith("http"):
+        zone_path = zone_url
+        if zone_url.startswith(self.config.base_url):
+            zone_path = zone_url[len(self.config.base_url) :]
+        elif zone_url.startswith("http"):
             from urllib.parse import urlparse
 
-            zone_path = urlparse(county_url).path
+            zone_path = urlparse(zone_url).path
 
         try:
             zone_data = await self._fetch_with_retry(zone_path)
             zone_props = zone_data.get("properties") if isinstance(zone_data, dict) else None
             if isinstance(zone_props, dict) and zone_props.get("name"):
-                county_name = str(zone_props["name"])
+                zone_name = str(zone_props["name"])
         except NWSClientError:
-            logger.debug("County zone lookup failed for %s", county_code)
+            logger.debug("%s zone lookup failed for %s", label.title(), zone_code)
 
-        result = (county_code, county_name)
-        self._point_county_cache[cache_key] = result
+        result = (zone_code, zone_name)
+        cache[cache_key] = result
         return result
+
+    async def resolve_county_from_coordinates(
+        self, latitude: float, longitude: float
+    ) -> Optional[Tuple[str, str]]:
+        """
+        Resolve an NWS county zone code (e.g. TXC039) from coordinates.
+
+        Uses the NWS /points endpoint and caches by rounded lat/lon.
+        """
+        return await self._resolve_zone_from_coordinates(
+            latitude,
+            longitude,
+            points_property="county",
+            zone_pattern=re.compile(r"/zones/county/([A-Z]{2}C\d{3})$"),
+            cache=self._point_county_cache,
+            label="county",
+        )
+
+    async def resolve_forecast_zone_from_coordinates(
+        self, latitude: float, longitude: float
+    ) -> Optional[Tuple[str, str]]:
+        """
+        Resolve an NWS forecast zone code (e.g. TXZ213) from coordinates.
+
+        Forecast zones are smaller than counties and better match a GPS fix for
+        mobile monitoring.
+        """
+        return await self._resolve_zone_from_coordinates(
+            latitude,
+            longitude,
+            points_property="forecastZone",
+            zone_pattern=re.compile(r"/zones/forecast/([A-Z]{2}Z\d{3})$"),
+            cache=self._point_forecast_zone_cache,
+            label="forecast zone",
+        )
 
     async def test_connection(self) -> bool:
         """
