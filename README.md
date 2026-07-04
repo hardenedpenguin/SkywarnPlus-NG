@@ -66,14 +66,33 @@ sudo systemctl enable --now skywarnplus-ng
 ## After install
 
 1. Set a new dashboard password.
-2. Add your [NWS county codes](CountyCodes.md) under **Configuration → Counties**.
-3. Set **Asterisk node number(s)** and per-node counties if you run multiple nodes.
+2. Add your [NWS county codes](CountyCodes.md) under **Configuration → Counties** — default monitoring uses whole counties (`TXC###`).
+3. Set **Asterisk node number(s)** and per-node counties if you run multiple nodes. For **forecast-zone** monitoring instead of entire counties, see [Position-based NWS alerts](#position-based-nws-alerts-forecast-zones) below.
 4. Pick **asl-tts** (local ASL3 Piper, default) or **gTTS** under **Audio / TTS**.
 5. Save — the service reloads config from the UI.
 
 Optional **geo hazards** (position-based voice alerts, separate from NWS county codes) are under **Configuration** — see [Geo hazards](#geo-hazards-dashboard) below. All three default to **off** until you enable them.
 
 The dashboard shows the **running version** so you can confirm what's live.
+
+## Position-based NWS alerts (forecast zones)
+
+By default, NWS weather alerts use **county codes** from **Configuration → Counties** (`TXC###`). Every alert issued for that county is eligible for voice and the dashboard.
+
+For **tighter geographic control**, monitor an NWS **forecast zone** (`TXZ###`) tied to a specific location instead of a whole county:
+
+1. **Geo Hazard Position** — set **Static latitude** and **Static longitude** (required for fixed sites; also used as fallback when gpsd is enabled). Optionally enable **gpsd** for mobile receivers.
+2. **Asterisk node** — enable **Position controlled** on the node that should use location-based zones. Enable **Position only** if you do not want the county list on that node to be used as a fallback when no position is available.
+
+SkywarnPlus-NG resolves your coordinates through the NWS `/points` API and polls `alerts/active?zone=TXZ…` for that forecast zone. Zones are usually **smaller than a full county**, so you hear alerts relevant to your site or current GPS fix rather than the entire county.
+
+| Setup | gpsd | Static lat/lon | Node flags | Result |
+|-------|------|----------------|------------|--------|
+| Fixed site | off | set | Position controlled + Position only | Forecast zone for pinned coordinates; no county list needed |
+| Mobile | on | optional fallback | Position controlled | Live GPS zone; falls back to static coordinates if the fix is stale or missing |
+| County (default) | — | — | Position controlled off | County codes from **Configuration → Counties** |
+
+**Note:** **Position controlled** and **Position only** apply to **NWS county weather alerts** (tornado, flood, heat advisory, etc.). They share **Geo Hazard Position** with earthquakes, wildfire, NHC, tsunami, and volcano monitoring, but those geo hazards are configured separately under their own **Configuration** sections.
 
 ## Geo hazards (dashboard)
 
@@ -92,7 +111,7 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 
 **Per-section settings (UI)** include, where applicable:
 
-- **Geo Hazard Position** (shared) — use **gpsd** when available; optional static lat/lon fallback for NHC, earthquakes, wildfires, tsunami, and volcano
+- **Geo Hazard Position** (shared) — use **gpsd** when available; optional static lat/lon fallback for NHC, earthquakes, wildfires, tsunami, volcano, and **NWS forecast zones** when a node is **Position controlled**
 - **Enable monitoring** and **Enable voice** — track on the dashboard without announcing, or both
 - **Poll interval**, **max distance** (miles), **max announcements per poll cycle**
 - **NHC:** feed (Atlantic/East Pacific/Central Pacific), max advisory age, hurricanes-only filter
@@ -174,7 +193,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 - Per-node counties, SkyDescribe DTMF (**841–849** by alert index), AlertScript
 - Web dashboard with live status, health, logs, and configuration (public read-only views; sign in for **Configuration**, **Logs**, **Database**)
 - **PushOver** (global) and **Discord webhooks** (per-subscriber filters) on new alerts — see [docs/notifications-overview.md](docs/notifications-overview.md)
-- Optional GPS mobile counties and quiet hours
+- Optional **position-based NWS forecast zones** (gpsd and/or static lat/lon; see [above](#position-based-nws-alerts-forecast-zones)) and quiet hours
 - **Geo hazards** (all off by default; enable per type under **Configuration**): [NHC tropical cyclones](#geo-hazards-dashboard), [USGS earthquakes](#geo-hazards-dashboard), [NIFC wildfire perimeters](#geo-hazards-dashboard) — see [docs/geo-hazards.md](docs/geo-hazards.md)
 
 ## DTMF
