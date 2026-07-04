@@ -15,6 +15,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _valid_gps_fix(fix: GpsFix, config: AppConfig) -> bool:
+    age_seconds = (datetime.now(timezone.utc) - fix.fix_time).total_seconds()
+    if age_seconds > config.gpsd.stale_seconds:
+        return False
+    if (
+        config.gpsd.min_accuracy_meters is not None
+        and fix.accuracy_m is not None
+        and fix.accuracy_m > config.gpsd.min_accuracy_meters
+    ):
+        return False
+    return True
+
+
 class MobileCountyService:
     """Resolve effective NWS zones for GPS-controlled nodes."""
 
@@ -29,6 +42,7 @@ class MobileCountyService:
         self._last_refresh_at: Optional[datetime] = None
         self._gps_active: bool = False
         self._inactive_reason: Optional[str] = None
+        self._position_source: Optional[str] = None
 
     @property
     def active_gps_county_code(self) -> Optional[str]:
@@ -43,19 +57,77 @@ class MobileCountyService:
         return self._gps_active
 
     def get_position(self) -> Optional[tuple[float, float]]:
-        """Return the current gpsd fix lat/lon when the fix is fresh and usable."""
+        """Return lat/lon from a fresh gpsd fix when available."""
         if not self._last_fix:
             return None
-        age_seconds = (datetime.now(timezone.utc) - self._last_fix.fix_time).total_seconds()
-        if age_seconds > self.config.gpsd.stale_seconds:
-            return None
-        if (
-            self.config.gpsd.min_accuracy_meters is not None
-            and self._last_fix.accuracy_m is not None
-            and self._last_fix.accuracy_m > self.config.gpsd.min_accuracy_meters
-        ):
+        if not _valid_gps_fix(self._last_fix, self.config):
             return None
         return self._last_fix.latitude, self._last_fix.longitude
+
+    def _static_position(self) -> Optional[tuple[float, float]]:
+        pos = self.config.geo_hazard_position
+        if pos.static_lat is not None and pos.static_lon is not None:
+            return float(pos.static_lat), float(pos.static_lon)
+        return None
+
+    def _position_monitoring_configured(self) -> bool:
+        """True when a GPS-controlled node can resolve an NWS forecast zone."""
+        if self.get_gps_controlled_node() is None:
+            return False
+        pos = self.config.geo_hazard_position
+        if self.config.gpsd.enabled and pos.use_gps_position:
+            return True
+        return self._static_position() is not None
+
+    def is_position_monitoring_configured(self) -> bool:
+        """Public check for whether position-based NWS zone monitoring is configured."""
+        return self._position_monitoring_configured()
+
+    async def _resolve_monitoring_coordinates(
+        self,
+    ) -> tuple[Optional[tuple[float, float, str]], Optional[str]]:
+        """
+        Resolve coordinates for NWS forecast zone lookup.
+
+        Prefers a fresh gpsd fix when enabled; falls back to Geo Hazard Position
+        static latitude/longitude. Returns (coords, inactive_reason).
+        """
+        pos_cfg = self.config.geo_hazard_position
+        if self.config.gpsd.enabled and pos_cfg.use_gps_position:
+            fix = await poll_gpsd_fix(
+                host=self.config.gpsd.host,
+                port=self.config.gpsd.port,
+                timeout=float(self.config.gpsd.connect_timeout_seconds),
+            )
+            if fix is None:
+                static = self._static_position()
+                if static:
+                    return (static[0], static[1], "static"), None
+                return None, "no_fix"
+
+            if (datetime.now(timezone.utc) - fix.fix_time).total_seconds() > self.config.gpsd.stale_seconds:
+                static = self._static_position()
+                if static:
+                    return (static[0], static[1], "static"), None
+                return None, "stale"
+
+            if (
+                self.config.gpsd.min_accuracy_meters is not None
+                and fix.accuracy_m is not None
+                and fix.accuracy_m > self.config.gpsd.min_accuracy_meters
+            ):
+                static = self._static_position()
+                if static:
+                    return (static[0], static[1], "static"), None
+                return None, "low_accuracy"
+
+            self._last_fix = fix
+            return (fix.latitude, fix.longitude, "gpsd"), None
+
+        static = self._static_position()
+        if static:
+            return (static[0], static[1], "static"), None
+        return None, "no_position"
 
     def _effective_gps_zone(self) -> Optional[str]:
         """Forecast zone used for polling; active zone, or candidate while switching."""
@@ -82,48 +154,32 @@ class MobileCountyService:
         return None
 
     async def refresh(self) -> None:
-        """Poll gpsd and update active GPS forecast zone state."""
+        """Update active NWS forecast zone from gpsd and/or static coordinates."""
         self._last_refresh_at = datetime.now(timezone.utc)
-
-        if not self.config.gpsd.enabled:
-            self._set_inactive("disabled")
-            return
 
         if self.get_gps_controlled_node() is None:
             self._set_inactive("no_gps_node")
             return
 
-        fix = await poll_gpsd_fix(
-            host=self.config.gpsd.host,
-            port=self.config.gpsd.port,
-            timeout=float(self.config.gpsd.connect_timeout_seconds),
+        if not self._position_monitoring_configured():
+            self._set_inactive("disabled")
+            return
+
+        resolved_coords, inactive_reason = await self._resolve_monitoring_coordinates()
+        if not resolved_coords:
+            self._set_inactive(inactive_reason or "no_position")
+            return
+
+        latitude, longitude, position_source = resolved_coords
+        self._position_source = position_source
+        zone_resolved = await self.nws_client.resolve_forecast_zone_from_coordinates(
+            latitude, longitude
         )
-        if fix is None:
-            self._set_inactive("no_fix")
-            return
-
-        age_seconds = (datetime.now(timezone.utc) - fix.fix_time).total_seconds()
-        if age_seconds > self.config.gpsd.stale_seconds:
-            self._set_inactive("stale")
-            return
-
-        if (
-            self.config.gpsd.min_accuracy_meters is not None
-            and fix.accuracy_m is not None
-            and fix.accuracy_m > self.config.gpsd.min_accuracy_meters
-        ):
-            self._set_inactive("low_accuracy")
-            return
-
-        self._last_fix = fix
-        resolved = await self.nws_client.resolve_forecast_zone_from_coordinates(
-            fix.latitude, fix.longitude
-        )
-        if not resolved:
+        if not zone_resolved:
             self._set_inactive("zone_unresolved")
             return
 
-        zone_code, zone_name = resolved
+        zone_code, zone_name = zone_resolved
         self._apply_hysteresis(zone_code, zone_name)
         effective = self._effective_gps_zone()
         if effective:
@@ -188,6 +244,7 @@ class MobileCountyService:
         self._active_gps_zone_name = None
         self._candidate_zone = None
         self._candidate_polls = 0
+        self._position_source = None
 
     def _enabled_county_codes(self) -> Set[str]:
         return {county.code for county in self.config.counties if county.enabled}
@@ -310,11 +367,12 @@ class MobileCountyService:
         node = self.get_gps_controlled_node()
         effective_zone = self._effective_gps_zone()
         status: Dict[str, Any] = {
-            "enabled": self.config.gpsd.enabled,
+            "enabled": self._position_monitoring_configured(),
             "poll_counties": self.get_fetch_counties(),
             "controlled_node": node,
             "active": self.is_gps_active(),
             "reason": self._inactive_reason,
+            "position_source": self._position_source,
             "zone_code": effective_zone,
             "zone_name": self._active_gps_zone_name,
             # Backward-compatible keys; values are forecast zones when GPS is active.
@@ -337,6 +395,10 @@ class MobileCountyService:
                     "mode": self._last_fix.mode,
                 }
             )
+        elif self._position_source == "static":
+            static = self._static_position()
+            if static:
+                status.update({"latitude": static[0], "longitude": static[1]})
         if node is not None:
             effective = self.get_effective_counties_for_node(node)
             status["gps_only"] = self._is_gps_only_node(node)

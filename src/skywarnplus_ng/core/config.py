@@ -361,7 +361,7 @@ def _migrate_legacy_geo_hazard_position(yaml_data: dict) -> None:
 
 
 class GeoHazardPositionConfig(BaseModel):
-    """Shared monitoring position for geo hazards (NHC, USGS, wildfire)."""
+    """Shared monitoring position for geo hazards and GPS-controlled NWS forecast zones."""
 
     use_gps_position: bool = Field(
         True,
@@ -1210,10 +1210,16 @@ class AppConfig(BaseSettings):
         if self.gpsd.enabled and not gps_controlled_nodes:
             warnings.append("gpsd is enabled but no node is marked gps_controlled")
         if gps_controlled_nodes and not self.gpsd.enabled:
-            warnings.append(
-                f"Node(s) {', '.join(str(n) for n in sorted(gps_controlled_nodes))} "
-                "are gps_controlled but gpsd.enabled is false"
+            has_static = (
+                self.geo_hazard_position.static_lat is not None
+                and self.geo_hazard_position.static_lon is not None
             )
+            if not has_static:
+                warnings.append(
+                    f"Node(s) {', '.join(str(n) for n in sorted(gps_controlled_nodes))} "
+                    "are gps_controlled but gpsd.enabled is false and no static lat/lon is set "
+                    "under geo_hazard_position"
+                )
 
         return warnings
 

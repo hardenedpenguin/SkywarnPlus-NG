@@ -277,10 +277,10 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mobile GPS (gpsd)</h3>
                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors the NWS forecast zone resolved from a local gpsd fix (more precise than whole-county monitoring).
-                        Static counties on that node are used when GPS is inactive or stale (default 15 minutes),
-                        unless <em>GPS only</em> is enabled (no static fallback; node is silent without a fix).
-                        Requires <code class="text-xs">gpsd</code> and a USB GPS receiver on the server.
+                        <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors the NWS forecast zone resolved from gpsd and/or the static latitude/longitude under <em>Geo Hazard Position</em> (more precise than whole-county monitoring).
+                        Static counties on that node are used when no position is available
+                        unless <em>GPS only</em> is enabled (no static county fallback; node is silent without a position).
+                        gpsd requires a USB GPS receiver; static coordinates alone are enough for a fixed location.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -327,7 +327,7 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Geo Hazard Position</h3>
                 <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Shared position:</strong> Used by NHC tropical cyclones, USGS earthquakes, wildfire, tsunami, and volcano monitoring. When gpsd is slow or unavailable, static latitude/longitude are used as a fallback for all enabled geo hazards.
+                        <strong>Shared position:</strong> Used by NHC tropical cyclones, USGS earthquakes, wildfire, tsunami, volcano monitoring, and NWS forecast zones on GPS-controlled nodes. When gpsd is slow or unavailable, static latitude/longitude are used as a fallback.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
