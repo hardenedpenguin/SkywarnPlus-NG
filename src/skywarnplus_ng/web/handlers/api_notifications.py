@@ -35,7 +35,13 @@ class NotificationsApiMixin:
             # Import notification modules
             from ...notifications.email import EmailNotifier, EmailConfig, EmailProvider
 
-            # Create email config
+            # Password is redacted in the config UI; blank means use the saved value.
+            password = data.get("password") or ""
+            if isinstance(password, str):
+                password = password.strip()
+            if not password:
+                password = self.config.notifications.email.password or ""
+
             provider = EmailProvider(data.get("provider", "gmail"))
             email_config = EmailConfig(
                 provider=provider,
@@ -44,7 +50,7 @@ class NotificationsApiMixin:
                 use_tls=data.get("use_tls", True),
                 use_ssl=data.get("use_ssl", False),
                 username=data.get("username", ""),
-                password=data.get("password", ""),
+                password=password,
                 from_name=data.get("from_name", "SkywarnPlus-NG"),
             )
 
@@ -109,6 +115,10 @@ class NotificationsApiMixin:
                 if auth_token is not None and str(auth_token).strip()
                 else None
             )
+            # Auth token is redacted in the config UI; blank means use the saved value.
+            if not auth_clean:
+                saved = self.config.notifications.sms.auth_token
+                auth_clean = str(saved).strip() if saved else None
             if not auth_clean:
                 return web.json_response(
                     {"success": False, "error": "Twilio Auth Token is required"},

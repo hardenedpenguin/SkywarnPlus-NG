@@ -18,6 +18,7 @@ from ..setup_status import is_dashboard_configured
 from ..config_merge import (
     deep_merge_dict,
     model_dump_for_merge,
+    preserve_blank_notification_secrets,
     redact_config_for_api,
     resolve_config_path,
 )
@@ -363,6 +364,9 @@ class ConfigApiMixin:
                     ):
                         data["pushover"]["user_key"] = self.config.pushover.user_key
                         logger.info("Keeping current PushOver user key (new key was empty)")
+
+                # Email / FCM / SMS secrets are redacted in GET /api/config; blank means keep.
+                preserve_blank_notification_secrets(data, self.config)
 
                 # Handle empty optional Path/string fields - convert empty strings to None
                 if "alerts" in data:

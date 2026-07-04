@@ -1896,6 +1896,9 @@
                                 Password/App Password
                             </label>
                             <input type="password" name="notifications.email.password" class="form-input" placeholder="Your password or app password">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Leave blank to keep the current password. Required for Yahoo/Gmail app passwords on first save.
+                            </p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1956,6 +1959,7 @@
                                 Firebase FCM Server Key
                             </label>
                             <input type="password" name="notifications.push.fcm_server_key" class="form-input" placeholder="Your FCM server key">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep the current key.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1990,6 +1994,7 @@
                                     Auth Token
                                 </label>
                                 <input type="password" name="notifications.sms.auth_token" class="form-input" placeholder="Your Twilio auth token">
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to keep the current token.</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -4382,10 +4387,6 @@
             }
             if (!smsConfig.from_number) {
                 showNotification('Twilio From number is required', 'error');
-                return;
-            }
-            if (!smsConfig.auth_token) {
-                showNotification('Twilio Auth Token is required for test send', 'error');
                 return;
             }
             if (!smsConfig.to) {

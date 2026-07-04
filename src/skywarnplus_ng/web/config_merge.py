@@ -45,6 +45,38 @@ def deep_merge_dict(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, 
     return result
 
 
+def is_blank_secret(value: Any) -> bool:
+    """True when a secret field is missing or empty (UI redaction / leave-blank)."""
+    return value is None or (isinstance(value, str) and value.strip() == "")
+
+
+def preserve_blank_notification_secrets(data: dict[str, Any], config: AppConfig) -> None:
+    """Keep stored notification secrets when the browser sends blank values.
+
+    Secrets are redacted to empty strings in GET /api/config. Without this,
+    a save after load would wipe email/SMS/FCM credentials on disk.
+    """
+    notifications = data.get("notifications")
+    if not isinstance(notifications, dict):
+        return
+
+    email = notifications.get("email")
+    if isinstance(email, dict) and "password" in email and is_blank_secret(email.get("password")):
+        email["password"] = config.notifications.email.password
+
+    push = notifications.get("push")
+    if (
+        isinstance(push, dict)
+        and "fcm_server_key" in push
+        and is_blank_secret(push.get("fcm_server_key"))
+    ):
+        push["fcm_server_key"] = config.notifications.push.fcm_server_key
+
+    sms = notifications.get("sms")
+    if isinstance(sms, dict) and "auth_token" in sms and is_blank_secret(sms.get("auth_token")):
+        sms["auth_token"] = config.notifications.sms.auth_token
+
+
 def redact_config_for_api(config_dict: dict[str, Any]) -> dict[str, Any]:
     """Remove secrets from config dict returned to the browser."""
     out = copy.deepcopy(config_dict)
