@@ -277,10 +277,10 @@
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mobile GPS (gpsd)</h3>
                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <strong>Mobile repeater:</strong> When enabled, a node marked <em>GPS controlled</em> monitors the NWS forecast zone resolved from gpsd and/or the static latitude/longitude under <em>Geo Hazard Position</em> (more precise than whole-county monitoring).
-                        Static counties on that node are used when no position is available
-                        unless <em>GPS only</em> is enabled (no static county fallback; node is silent without a position).
-                        gpsd requires a USB GPS receiver; static coordinates alone are enough for a fixed location.
+                        <strong>Position-based NWS alerts:</strong> Check <em>Position controlled</em> on a node to monitor the NWS forecast zone for its location — from gpsd when available, or from the static latitude/longitude under <em>Geo Hazard Position</em> (fixed sites do not need gpsd).
+                        The county list on that node is a fallback when no position is available,
+                        unless <em>Position only</em> is enabled (no county fallback; node is silent without gpsd or static coordinates).
+                        Enable gpsd below for mobile receivers; static coordinates alone are sufficient for a pinned location.
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3525,20 +3525,21 @@
                         ${countiesOptions}
                     </select>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Hold Ctrl/Cmd to select multiple. Leave empty to monitor all enabled counties.
+                        Hold Ctrl/Cmd to select multiple. Leave empty to monitor all enabled counties
+                        (fallback only when <em>Position controlled</em> is off, or when it is on but no gpsd/static position is available and <em>Position only</em> is off).
                     </p>
                     <div class="mt-3 flex items-center">
                         <input type="checkbox" name="asterisk.nodes[${index}].gps_controlled" ${gpsControlled ? 'checked' : ''}
                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded node-gps-controlled">
                         <label class="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                            GPS controlled (uses gpsd forecast zone when active)
+                            Position controlled (NWS forecast zone from gpsd or Geo Hazard static lat/lon)
                         </label>
                     </div>
                     <div class="mt-2 flex items-center">
                         <input type="checkbox" name="asterisk.nodes[${index}].gps_only" ${gpsOnly ? 'checked' : ''}
                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded node-gps-only">
                         <label class="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                            GPS only (no static fallback when fix unavailable)
+                            Position only (no county-list fallback; requires gpsd fix or static coordinates)
                         </label>
                     </div>
                 </div>
