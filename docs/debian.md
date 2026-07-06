@@ -28,14 +28,16 @@ Runtime libraries are declared in the package (`libpython3.11` or `libpython3.13
 
 ## APT repository
 
-Published packages are in the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`stable`, **amd64** / **arm64**). New releases are published there automatically when a `v*` tag is pushed.
+Published packages are in the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) with suites **`bookworm`**, **`trixie`**, and **`stable`** (`amd64` / `arm64`). New releases are published there automatically when a `v*` tag is pushed.
+
+The **`hardenedpenguin-archive-keyring`** package (v1.1+) configures apt sources for your Debian release: Bookworm nodes use the **`bookworm`** suite (`.deb12` packages such as SkywarnPlus-NG), Trixie nodes use **`trixie`** (`.deb13`), and all nodes also enable **`stable`** for shared packages.
 
 One-time setup:
 
 ```bash
 cd /tmp
-curl -fsSLO https://hardenedpenguin.github.io/hardenedpenguin-apt/pool/main/h/hardenedpenguin-archive-keyring/hardenedpenguin-archive-keyring_1.0_all.deb
-sudo apt install ./hardenedpenguin-archive-keyring_1.0_all.deb
+curl -fsSLO https://hardenedpenguin.github.io/hardenedpenguin-apt/pool/main/h/hardenedpenguin-archive-keyring/hardenedpenguin-archive-keyring_1.1_all.deb
+sudo apt install ./hardenedpenguin-archive-keyring_1.1_all.deb
 sudo apt update
 ```
 

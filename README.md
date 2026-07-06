@@ -25,8 +25,8 @@ One-time setup adds the signing key and `sources.list` entry ([hardenedpenguin-a
 
 ```bash
 cd /tmp
-curl -fsSLO https://hardenedpenguin.github.io/hardenedpenguin-apt/pool/main/h/hardenedpenguin-archive-keyring/hardenedpenguin-archive-keyring_1.0_all.deb
-sudo apt install ./hardenedpenguin-archive-keyring_1.0_all.deb
+curl -fsSLO https://hardenedpenguin.github.io/hardenedpenguin-apt/pool/main/h/hardenedpenguin-archive-keyring/hardenedpenguin-archive-keyring_1.1_all.deb
+sudo apt install ./hardenedpenguin-archive-keyring_1.1_all.deb
 sudo apt update
 sudo apt install skywarnplus-ng
 sudo systemctl enable --now skywarnplus-ng
