@@ -11,7 +11,20 @@ New installs and upgrades should use the **hardenedpenguin APT repository** or a
 - Piper voice models under **`/var/lib/piper-tts`** (installed by asl3-tts, supermon-ng, or the dashboard voice catalog)
 - Outbound Internet for NWS API
 
-Runtime libraries are declared in the package (`libpython3.13`, `libsndfile1`, `ffmpeg`, `sox`, `wget`, etc.). The bundled venv uses a copied Python 3.13 binary that requires the system **`libpython3.13`** shared library (normally pulled in with ASL3 / `python3.13`).
+### Debian suite packages (Bookworm vs Trixie)
+
+AllStar Link 3 supports **Debian 12 Bookworm** and **Debian 13 Trixie**. Each release ships **two `.deb` variants** per architecture (ASL3-style revision tags):
+
+| Package revision | Debian | Python runtime | Install when |
+|------------------|--------|----------------|--------------|
+| `*.deb12_*` | Bookworm (12) | 3.11 / `libpython3.11` | Raspberry Pi / nodes on Bookworm |
+| `*.deb13_*` | Trixie (13) | 3.13 / `libpython3.13` | Nodes on Trixie |
+
+Example filenames: `skywarnplus-ng_1.6.0-1.deb12_arm64.deb`, `skywarnplus-ng_1.6.0-1.deb13_amd64.deb`.
+
+Install the variant that matches your OS. Bookworm nodes **cannot** install the `.deb13` package (apt requires `libpython3.13`, which is not in Bookworm). Trixie nodes should use `.deb13`.
+
+Runtime libraries are declared in the package (`libpython3.11` or `libpython3.13`, `libsndfile1`, `ffmpeg`, `sox`, `wget`, etc.). The bundled venv uses a copied Python binary that requires the matching system **`libpython`** shared library.
 
 ## APT repository
 
@@ -37,14 +50,19 @@ sudo systemctl enable --now skywarnplus-ng
 
 ## Install from GitHub Releases
 
-Download `skywarnplus-ng_*_<arch>.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases):
+Download the `.deb` that matches your **Debian suite** and architecture from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases):
+
+- **Bookworm (Debian 12):** `skywarnplus-ng_*_deb12_<arch>.deb`
+- **Trixie (Debian 13):** `skywarnplus-ng_*_deb13_<arch>.deb`
 
 ```bash
-sudo apt install ./skywarnplus-ng_*_amd64.deb
+# Bookworm example (arm64 Pi):
+sudo apt install ./skywarnplus-ng_*_deb12_arm64.deb
+
+# Trixie example (amd64):
+sudo apt install ./skywarnplus-ng_*_deb13_amd64.deb
 sudo systemctl status skywarnplus-ng
 ```
-
-Replace `amd64` with `arm64` on ARM nodes.
 
 ## Migrating from tarball (`install.sh`) to apt
 
@@ -123,7 +141,8 @@ sudo apt remove skywarnplus-ng
 
 | Symptom | Fix |
 |---------|-----|
-| `libpython3.13.so.1.0: cannot open shared object file` | Install the runtime library: `sudo apt install libpython3.13`, then `sudo systemctl restart skywarnplus-ng`. Newer packages declare this dependency automatically. |
+| `Depends: libpython3.13` but Bookworm has only 3.11 | Install the **`.deb12`** package (Bookworm build), not `.deb13`. See [Debian suite packages](#debian-suite-packages-bookworm-vs-trixie). |
+| `libpython3.13.so.1.0: cannot open shared object file` | Wrong package variant for your OS, or missing runtime: `sudo apt install libpython3.13` (Trixie) / `libpython3.11` (Bookworm), then restart. |
 | `skywarnplus-ng: bad interpreter` (CI path in shebang) | Upgrade to a package built with `fix-venv-paths.sh`, or use `venv/bin/python -m skywarnplus_ng.cli` (same as systemd). |
 
 ## vs tarball + install.sh
@@ -141,13 +160,23 @@ Tarball `install.sh` remains in the repo for developers and non-Debian systems o
 
 ## Build (maintainers)
 
-Native **amd64** or **arm64** host:
+Native **amd64** or **arm64** host. Build one suite or both:
 
 ```bash
 sudo apt install devscripts debhelper build-essential python3 python3-pip python3-venv curl
-./scripts/build_deb.sh
+
+# Bookworm package (Python 3.11, revision .deb12):
+SKYWARN_DEB_SUITE=bookworm ./scripts/build_deb.sh bookworm
+
+# Trixie package (Python 3.13, revision .deb13):
+./scripts/build_deb.sh trixie
+
+# Both suites:
+./scripts/build_debs_all.sh
 ```
 
-Output: `dist/debs/skywarnplus-ng_*_<arch>.deb` (one package per architecture).
+Requires **python3.11** on the builder for Bookworm packages and **python3.13** for Trixie (CI uses `actions/setup-python`).
 
-Release tags build both architectures in CI and attach `.deb` files to GitHub Releases.
+Output: `dist/debs/skywarnplus-ng_*_deb12_<arch>.deb` and/or `*_deb13_<arch>.deb`.
+
+Release tags build all four combinations in CI (amd64/arm64 × bookworm/trixie) and attach `.deb` files to GitHub Releases.

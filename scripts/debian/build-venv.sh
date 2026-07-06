@@ -5,16 +5,22 @@ set -euo pipefail
 VENV_DIR="${1:?usage: build-venv.sh <venv-output-dir>}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-# Target ASL3 nodes (Python 3.13). Prefer setup-python on CI, then distro 3.13.
+# shellcheck source=/dev/null
+source "${PROJECT_ROOT}/scripts/debian/suite-vars.sh"
+
+PY_MINOR="${SKYWARN_PYTHON_MINOR}"
+PY_BIN="python${PY_MINOR}"
+
+# Target ASL3 nodes: Python 3.11 on Debian 12 Bookworm, 3.13 on Debian 13 Trixie.
 if [[ -z "${PYTHON:-}" ]]; then
-  if command -v python3.13 >/dev/null 2>&1; then
-    PYTHON="$(command -v python3.13)"
+  if command -v "${PY_BIN}" >/dev/null 2>&1; then
+    PYTHON="$(command -v "${PY_BIN}")"
   elif [[ -n "${pythonLocation:-}" && -x "${pythonLocation}/bin/python3" ]]; then
     PYTHON="${pythonLocation}/bin/python3"
-  elif [[ -x /usr/bin/python3.13 ]]; then
-    PYTHON=/usr/bin/python3.13
+  elif [[ -x "/usr/bin/${PY_BIN}" ]]; then
+    PYTHON="/usr/bin/${PY_BIN}"
   else
-    echo "python3.13 is required to build the Debian venv (ASL3 target)" >&2
+    echo "${PY_BIN} is required to build the Debian venv (${SKYWARN_DEB_SUITE})" >&2
     exit 1
   fi
 fi

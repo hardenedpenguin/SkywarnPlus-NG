@@ -7,6 +7,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 	dh $@
 
 override_dh_auto_configure:
+	./scripts/debian/prepare-suite.sh "$${SKYWARN_DEB_SUITE:-trixie}"
 
 override_dh_auto_build:
 	chmod +x scripts/debian/*.sh

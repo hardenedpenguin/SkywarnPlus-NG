@@ -32,12 +32,14 @@ sudo apt install skywarnplus-ng
 sudo systemctl enable --now skywarnplus-ng
 ```
 
-**Or** download `skywarnplus-ng_*_<arch>.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) and install locally — see **[docs/debian.md](docs/debian.md)** for details.
+**Or** download a `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) and install locally — see **[docs/debian.md](docs/debian.md)** for details. Use the **`.deb12`** build on Debian 12 Bookworm and **`.deb13`** on Debian 13 Trixie.
 
 ```bash
-sudo apt install ./skywarnplus-ng_*_amd64.deb
-# or: sudo dpkg -i skywarnplus-ng_*_amd64.deb && sudo apt-get install -f
-sudo systemctl enable --now skywarnplus-ng
+# Bookworm (Debian 12) — e.g. Raspberry Pi on ASL3 Bookworm:
+sudo apt install ./skywarnplus-ng_*_deb12_amd64.deb
+
+# Trixie (Debian 13):
+sudo apt install ./skywarnplus-ng_*_deb13_amd64.deb
 ```
 
 Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatically on Apache nodes when present.
@@ -134,10 +136,10 @@ sudo apt update
 sudo apt install skywarnplus-ng
 ```
 
-**Or** install a newer `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases):
+**Or** install a newer `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) matching your Debian suite (`.deb12` Bookworm, `.deb13` Trixie):
 
 ```bash
-sudo apt install ./skywarnplus-ng_*_amd64.deb
+sudo apt install ./skywarnplus-ng_*_deb12_amd64.deb   # Bookworm example
 sudo systemctl restart skywarnplus-ng
 ```
 

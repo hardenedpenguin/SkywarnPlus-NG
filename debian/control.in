@@ -1,0 +1,37 @@
+Source: skywarnplus-ng
+Section: hamradio
+Priority: optional
+Maintainer: Jory A. Pratt <geekypenguin@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               build-essential,
+               python3 (>= 3.11),
+               python3-pip,
+               python3-venv,
+               curl,
+               ca-certificates
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/hardenedpenguin/SkywarnPlus-NG
+Vcs-Browser: https://github.com/hardenedpenguin/SkywarnPlus-NG
+Vcs-Git: https://github.com/hardenedpenguin/SkywarnPlus-NG.git
+
+Package: skywarnplus-ng
+Architecture: amd64 arm64
+Depends: asl3-asterisk,
+         asl3-tts,
+         @LIBPYTHON_DEP@,
+         ${misc:Depends},
+         libsndfile1,
+         ffmpeg,
+         sox,
+         curl,
+         ca-certificates,
+         wget
+Recommends: apache2
+Description: Weather alert system for Asterisk/app_rpt nodes
+ SkywarnPlus-NG polls NWS alerts, drives voice announcements on Asterisk
+ nodes, and provides a web dashboard. This package ships a prebuilt Python
+ virtualenv so nodes do not download dependencies with pip at install time.
+ .
+ Target systems are AllStar Link 3 nodes with asl3-asterisk and asl3-tts.
+ Voice synthesis uses the asl-tts CLI with Piper models in /var/lib/piper-tts.

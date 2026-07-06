@@ -1,4 +1,4 @@
-# Build amd64/arm64 .deb packages on release tags (see release.yml).
+# Build amd64/arm64 .deb packages for Bookworm and Trixie (see release.yml).
 # Optional manual run to validate packaging on amd64.
 name: Debian package
 
@@ -9,6 +9,7 @@ on:
       - 'debian/**'
       - 'scripts/debian/**'
       - 'scripts/build_deb.sh'
+      - 'scripts/build_debs_all.sh'
       - 'pyproject.toml'
 
 env:
@@ -17,30 +18,48 @@ env:
 jobs:
   build-deb-amd64:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: bookworm
+            python: '3.11'
+            deb_tag: deb12
+          - suite: trixie
+            python: '3.13'
+            deb_tag: deb13
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Python 3.13
+      - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: ${{ matrix.python }}
 
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y devscripts debhelper build-essential curl ca-certificates
 
-      - name: Build Debian packages
+      - name: Build Debian package (${{ matrix.suite }})
         run: |
-          chmod +x scripts/build_deb.sh scripts/debian/*.sh debian/rules
-          ./scripts/build_deb.sh
+          chmod +x scripts/build_deb.sh scripts/build_debs_all.sh scripts/debian/*.sh debian/rules
+          ./scripts/build_deb.sh "${{ matrix.suite }}"
 
-      - name: Verify packages
+      - name: Verify package (${{ matrix.suite }})
         run: |
           ls -lh dist/debs/
-          test "$(ls -1 dist/debs/*.deb | wc -l)" -eq 1
-          dpkg-deb -I dist/debs/skywarnplus-ng_*_amd64.deb | grep -E 'Depends|Package' | head -5
-          dpkg-deb -x dist/debs/skywarnplus-ng_*_amd64.deb /tmp/swp-deb-check
+          test "$(ls -1 dist/debs/*_${{ matrix.deb_tag }}_amd64.deb | wc -l)" -eq 1
+          dpkg-deb -I dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb | grep -E 'Depends|Package' | head -5
+          dpkg-deb -I dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb | grep -q "libpython${{ matrix.python }}"
+          dpkg-deb -x dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
-          grep -q '^version = 3.13' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
+          grep -q '^version = ${{ matrix.python }}' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
           /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
+
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs-amd64-${{ matrix.suite }}
+          path: dist/debs/*.deb
+          if-no-files-found: error
