@@ -20,7 +20,7 @@ AllStar Link 3 supports **Debian 12 Bookworm** and **Debian 13 Trixie**. Each re
 | `*.deb12_*` | Bookworm (12) | 3.11 / `libpython3.11` | Raspberry Pi / nodes on Bookworm |
 | `*.deb13_*` | Trixie (13) | 3.13 / `libpython3.13` | Nodes on Trixie |
 
-Example filenames: `skywarnplus-ng_1.6.0-1.deb12_arm64.deb`, `skywarnplus-ng_1.6.0-1.deb13_amd64.deb`.
+Example filenames: `skywarnplus-ng_1.6.1-1.deb12_arm64.deb`, `skywarnplus-ng_1.6.1-1.deb13_amd64.deb`.
 
 Install the variant that matches your OS. Bookworm nodes **cannot** install the `.deb13` package (apt requires `libpython3.13`, which is not in Bookworm). Trixie nodes should use `.deb13`.
 

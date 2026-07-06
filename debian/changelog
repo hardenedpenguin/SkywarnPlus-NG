@@ -1,3 +1,13 @@
+skywarnplus-ng (1.6.1-1) unstable; urgency=medium
+
+  * Resolve NWS forecast zones (TXZ etc.) for GPS and static geo-hazard
+    coordinates instead of whole counties.
+  * Build separate Bookworm (.deb12 / Python 3.11) and Trixie (.deb13 /
+    Python 3.13) Debian packages so apt install works on Debian 12 (fixes #11).
+  * Clarify Configuration UI labels for position-controlled nodes.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Mon, 06 Jul 2026 17:40:00 -0500
+
 skywarnplus-ng (1.6.0-1) unstable; urgency=medium
 
   * Add tsunami (NWS point), space weather (NOAA SWPC), and volcano (USGS VONA)
