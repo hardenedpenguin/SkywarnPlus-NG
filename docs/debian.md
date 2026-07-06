@@ -54,15 +54,15 @@ sudo systemctl enable --now skywarnplus-ng
 
 Download the `.deb` that matches your **Debian suite** and architecture from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases):
 
-- **Bookworm (Debian 12):** `skywarnplus-ng_*_deb12_<arch>.deb`
-- **Trixie (Debian 13):** `skywarnplus-ng_*_deb13_<arch>.deb`
+- **Bookworm (Debian 12):** `skywarnplus-ng_*.deb12_<arch>.deb`
+- **Trixie (Debian 13):** `skywarnplus-ng_*.deb13_<arch>.deb`
 
 ```bash
 # Bookworm example (arm64 Pi):
-sudo apt install ./skywarnplus-ng_*_deb12_arm64.deb
+sudo apt install ./skywarnplus-ng_*.deb12_arm64.deb
 
 # Trixie example (amd64):
-sudo apt install ./skywarnplus-ng_*_deb13_amd64.deb
+sudo apt install ./skywarnplus-ng_*.deb13_amd64.deb
 sudo systemctl status skywarnplus-ng
 ```
 
@@ -179,6 +179,6 @@ SKYWARN_DEB_SUITE=bookworm ./scripts/build_deb.sh bookworm
 
 Requires **python3.11** on the builder for Bookworm packages and **python3.13** for Trixie (CI uses `actions/setup-python`).
 
-Output: `dist/debs/skywarnplus-ng_*_deb12_<arch>.deb` and/or `*_deb13_<arch>.deb`.
+Output: `dist/debs/skywarnplus-ng_*.deb12_<arch>.deb` and/or `*.deb13_<arch>.deb`.
 
 Release tags build all four combinations in CI (amd64/arm64 × bookworm/trixie) and attach `.deb` files to GitHub Releases.

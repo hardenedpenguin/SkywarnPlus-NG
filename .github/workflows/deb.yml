@@ -49,10 +49,10 @@ jobs:
       - name: Verify package (${{ matrix.suite }})
         run: |
           ls -lh dist/debs/
-          test "$(ls -1 dist/debs/*_${{ matrix.deb_tag }}_amd64.deb | wc -l)" -eq 1
-          dpkg-deb -I dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb | grep -E 'Depends|Package' | head -5
-          dpkg-deb -I dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb | grep -q "libpython${{ matrix.python }}"
-          dpkg-deb -x dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb /tmp/swp-deb-check
+          test "$(ls -1 dist/debs/*.${{ matrix.deb_tag }}_amd64.deb | wc -l)" -eq 1
+          dpkg-deb -I dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_amd64.deb | grep -E 'Depends|Package' | head -5
+          dpkg-deb -I dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_amd64.deb | grep -q "libpython${{ matrix.python }}"
+          dpkg-deb -x dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_amd64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           grep -q '^version = ${{ matrix.python }}' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
           /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'

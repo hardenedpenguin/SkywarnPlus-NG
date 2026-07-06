@@ -81,4 +81,4 @@ echo "Debian package (${SKYWARN_DEB_SUITE}):"
 ls -lh "${OUT_DIR}/"*"${SKYWARN_DEB_TAG}"*.deb 2>/dev/null || ls -lh "${OUT_DIR}/"*.deb
 echo ""
 echo "Install on ${SKYWARN_DEB_SUITE} node (${ARCH}):"
-echo "  sudo apt install ./dist/debs/skywarnplus-ng_*_${SKYWARN_DEB_TAG}_${ARCH}.deb"
+echo "  sudo apt install ./dist/debs/skywarnplus-ng_*.${SKYWARN_DEB_TAG}_${ARCH}.deb"

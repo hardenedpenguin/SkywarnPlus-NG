@@ -54,13 +54,13 @@ jobs:
 
       - name: Verify bundled venv (${{ matrix.suite }})
         run: |
-          dpkg-deb -x dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb /tmp/swp-deb-check
+          dpkg-deb -x dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_amd64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
           ! grep -q '/home/runner/' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng
           head -1 /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng | grep -q '/var/lib/skywarnplus-ng/venv/bin/python'
           grep -q '^version = ${{ matrix.python }}' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
-          dpkg-deb -I dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_amd64.deb | grep -q "libpython${{ matrix.python }}"
+          dpkg-deb -I dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_amd64.deb | grep -q "libpython${{ matrix.python }}"
           /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
 
       - name: Upload Debian packages
@@ -104,13 +104,13 @@ jobs:
 
       - name: Verify bundled venv (${{ matrix.suite }})
         run: |
-          dpkg-deb -x dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_arm64.deb /tmp/swp-deb-check
+          dpkg-deb -x dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_arm64.deb /tmp/swp-deb-check
           file /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python3 | grep -q ELF
           ! grep -q hostedtoolcache /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
           ! grep -q '/home/runner/' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng
           head -1 /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng | grep -q '/var/lib/skywarnplus-ng/venv/bin/python'
           grep -q '^version = ${{ matrix.python }}' /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/pyvenv.cfg
-          dpkg-deb -I dist/debs/skywarnplus-ng_*_${{ matrix.deb_tag }}_arm64.deb | grep -q "libpython${{ matrix.python }}"
+          dpkg-deb -I dist/debs/skywarnplus-ng_*.${{ matrix.deb_tag }}_arm64.deb | grep -q "libpython${{ matrix.python }}"
           /tmp/swp-deb-check/var/lib/skywarnplus-ng/venv/bin/python -c 'import skywarnplus_ng.cli'
 
       - name: Upload Debian packages
