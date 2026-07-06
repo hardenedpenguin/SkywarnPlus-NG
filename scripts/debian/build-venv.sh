@@ -6,7 +6,7 @@ VENV_DIR="${1:?usage: build-venv.sh <venv-output-dir>}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # shellcheck source=/dev/null
-source "${PROJECT_ROOT}/scripts/debian/suite-vars.sh"
+source "${PROJECT_ROOT}/scripts/debian/suite-vars.sh" "${SKYWARN_DEB_SUITE:-trixie}"
 
 PY_MINOR="${SKYWARN_PYTHON_MINOR}"
 PY_BIN="python${PY_MINOR}"
