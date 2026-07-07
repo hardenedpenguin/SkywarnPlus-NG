@@ -114,6 +114,8 @@ You do **not** need to remove the old tarball tree under `$HOME` or wipe `/var/l
 
 On first install, `config.yaml` is created from the shipped example. On upgrade, existing `config.yaml` is kept; check `.example` for new options.
 
+If you migrated from a tarball install and the dashboard at `/skywarnplus-ng/` loads unstyled with 404s for `/static/` and `/api/`, `monitoring.http_server.base_path` is probably empty. Upgrading to **1.6.2+** sets it automatically when the packaged Apache proxy is present; otherwise set `base_path: "/skywarnplus-ng"` manually and restart the service.
+
 ## Upgrade
 
 **APT repository:**
@@ -146,6 +148,7 @@ sudo apt remove skywarnplus-ng
 | `Depends: libpython3.13` but Bookworm has only 3.11 | Install the **`.deb12`** package (Bookworm build), not `.deb13`. See [Debian suite packages](#debian-suite-packages-bookworm-vs-trixie). |
 | `libpython3.13.so.1.0: cannot open shared object file` | Wrong package variant for your OS, or missing runtime: `sudo apt install libpython3.13` (Trixie) / `libpython3.11` (Bookworm), then restart. |
 | `skywarnplus-ng: bad interpreter` (CI path in shebang) | Upgrade to a package built with `fix-venv-paths.sh`, or use `venv/bin/python -m skywarnplus_ng.cli` (same as systemd). |
+| Dashboard at `/skywarnplus-ng/` unstyled; browser 404 on `/static/tailwind.css`, `/api/status`, `/ws` | Empty `monitoring.http_server.base_path` while using the Apache proxy. Upgrade to **1.6.2+** or set `base_path: "/skywarnplus-ng"` in `/etc/skywarnplus-ng/config.yaml` and `sudo systemctl restart skywarnplus-ng`. |
 
 ## vs tarball + install.sh
 

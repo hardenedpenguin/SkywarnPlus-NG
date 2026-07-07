@@ -1,3 +1,11 @@
+skywarnplus-ng (1.6.2-1) unstable; urgency=medium
+
+  * Debian postinst: set monitoring.http_server.base_path to /skywarnplus-ng
+    on upgrade when Apache proxy is installed and base_path is missing or empty
+    (fixes broken dashboard behind Apache after tarball migration; issue #12).
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Tue, 07 Jul 2026 14:30:00 -0500
+
 skywarnplus-ng (1.6.1-1) unstable; urgency=medium
 
   * Resolve NWS forecast zones (TXZ etc.) for GPS and static geo-hazard

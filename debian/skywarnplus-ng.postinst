@@ -41,6 +41,25 @@ setup_config() {
     fi
 }
 
+migrate_base_path() {
+    config="${CONFIG_DIR}/config.yaml"
+    migrate_script="${INSTALL_ROOT}/scripts/debian/migrate_config_base_path.py"
+
+    if [ ! -f "${config}" ] || [ ! -f "${migrate_script}" ] || [ ! -x "${VENV_PYTHON}" ]; then
+        return 0
+    fi
+
+    if out=$("${VENV_PYTHON}" "${migrate_script}" "${config}" 2>&1); then
+        if [ -n "${out}" ]; then
+            warn "${out}"
+            warn "Restart skywarnplus-ng after upgrade if the dashboard was broken behind Apache."
+        fi
+    else
+        warn "Could not migrate base_path in ${config}."
+        warn "Set monitoring.http_server.base_path to \"/skywarnplus-ng\" manually (fixes #12)."
+    fi
+}
+
 fix_ownership() {
     chown -R "${APP_USER}:${APP_GROUP}" "${INSTALL_ROOT}" "${LOG_DIR}" "${TMP_AUDIO_DIR}" 2>/dev/null || true
     chown -R "${APP_USER}:${APP_GROUP}" "${CONFIG_DIR}" 2>/dev/null || true
@@ -123,6 +142,7 @@ case "$1" in
         ensure_asterisk_user
         setup_directories
         setup_config
+        migrate_base_path
         fix_ownership
         check_web_port
         generate_dtmf

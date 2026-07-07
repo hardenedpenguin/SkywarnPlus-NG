@@ -11,7 +11,7 @@ Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDes
 
 Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Mason Nelson (N5LSN/WRKF394). Release notes: [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases).
 
-**Current release:** [v1.6.1](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.1)
+**Current release:** [v1.6.2](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.2)
 
 > **Install and upgrades:** SkywarnPlus-NG is moving to the **Debian `.deb` package** for new installs and updates. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — it remains for legacy sites but is no longer supported. Tarball installs do not reliably deploy package-managed files (for example voice-install sudoers, systemd units, and Apache snippets). See **[docs/debian.md](docs/debian.md)**. Existing tarball installs should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) rather than re-run `install.sh`.
 
