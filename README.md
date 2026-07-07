@@ -54,9 +54,9 @@ Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatica
 Not recommended for new deployments. May miss package-managed files (sudoers for voice install, systemd, Apache conf).
 
 ```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.1/skywarnplus-ng-1.6.1.tar.gz
-tar -xzf skywarnplus-ng-1.6.1.tar.gz
-cd skywarnplus-ng-1.6.1
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.2/skywarnplus-ng-1.6.2.tar.gz
+tar -xzf skywarnplus-ng-1.6.2.tar.gz
+cd skywarnplus-ng-1.6.2
 ./install.sh
 sudo systemctl enable --now skywarnplus-ng
 ```
@@ -151,9 +151,9 @@ Tarball sites should [migrate to apt](docs/debian.md#migrating-from-tarball-inst
 Do not use on sites that can move to the `.deb`. Re-running `install.sh` runs `pip install` on the node and may skip new privileged scripts (for example `install-tts-voice.sh` and sudoers).
 
 ```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.1/skywarnplus-ng-1.6.1.tar.gz
-tar -xzf skywarnplus-ng-1.6.1.tar.gz
-cd skywarnplus-ng-1.6.1
+wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.2/skywarnplus-ng-1.6.2.tar.gz
+tar -xzf skywarnplus-ng-1.6.2.tar.gz
+cd skywarnplus-ng-1.6.2
 ./install.sh
 sudo systemctl restart skywarnplus-ng
 ```
