@@ -11,9 +11,13 @@ from urllib.parse import urlparse
 
 
 def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return bool(
-        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
-    )
+    # Unwrap IPv4-mapped IPv6 (::ffff:10.0.0.1) so private IPv4 cannot hide behind it
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    # is_global covers private, loopback, link-local, reserved, CGNAT (100.64/10),
+    # unspecified, and multicast ranges
+    return not ip.is_global
 
 
 def validate_public_https_webhook_url(url: str) -> Tuple[bool, str]:

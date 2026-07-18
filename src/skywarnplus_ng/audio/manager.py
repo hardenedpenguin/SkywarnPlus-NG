@@ -275,16 +275,15 @@ class AudioManager:
 
             # Ensure file is flushed to disk and verify it exists
             try:
-                import time
-
-                # Force filesystem sync
+                # Flush just this file to disk (os.sync would flush every filesystem)
                 try:
-                    os.sync()  # Sync filesystem buffers
-                except (OSError, AttributeError):
-                    pass  # os.sync may raise OSError or be missing on some systems
-
-                # Small delay to ensure filesystem has the file
-                time.sleep(0.1)
+                    fd = os.open(audio_path, os.O_RDONLY)
+                    try:
+                        os.fsync(fd)
+                    finally:
+                        os.close(fd)
+                except OSError:
+                    pass
 
                 # Verify file exists and has content
                 if not audio_path.exists():
@@ -595,37 +594,32 @@ class AudioManager:
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                     temp_wav_path = Path(temp_wav.name)
 
-                # Convert ulaw to WAV using ffmpeg
-                subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-f",
-                        "mulaw",  # Input format: mulaw
-                        "-ar",
-                        "8000",  # Sample rate: 8kHz (standard for ulaw)
-                        "-ac",
-                        "1",  # Channels: mono
-                        "-i",
-                        str(audio_path),
-                        str(temp_wav_path),
-                    ],
-                    check=True,
-                    capture_output=True,
-                    timeout=30,
-                    text=True,
-                )
-
-                # Load the converted WAV file
-                audio = AudioSegment.from_wav(str(temp_wav_path))
-
-                # Clean up temporary file
                 try:
-                    temp_wav_path.unlink()
-                except Exception:
-                    pass
+                    # Convert ulaw to WAV using ffmpeg
+                    subprocess.run(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-f",
+                            "mulaw",  # Input format: mulaw
+                            "-ar",
+                            "8000",  # Sample rate: 8kHz (standard for ulaw)
+                            "-ac",
+                            "1",  # Channels: mono
+                            "-i",
+                            str(audio_path),
+                            str(temp_wav_path),
+                        ],
+                        check=True,
+                        capture_output=True,
+                        timeout=30,
+                        text=True,
+                    )
 
-                return audio
+                    # Load the converted WAV file
+                    return AudioSegment.from_wav(str(temp_wav_path))
+                finally:
+                    temp_wav_path.unlink(missing_ok=True)
             else:
                 # For other formats, use AudioSegment's auto-detection
                 return AudioSegment.from_file(str(audio_path))

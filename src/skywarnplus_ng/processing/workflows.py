@@ -357,8 +357,13 @@ class WorkflowEngine:
                         }
                     )
 
-                    # Continue with next step unless step is critical
-                    if step.parameters.get("critical", False):
+                    # Continue with next step unless any step action is critical
+                    # (WorkflowStep has no parameters field; criticality lives on actions)
+                    if any(
+                        action.parameters.get("critical", False)
+                        for action in step.actions
+                        if action.enabled and action.parameters
+                    ):
                         execution.status = WorkflowStatus.FAILED
                         break
 

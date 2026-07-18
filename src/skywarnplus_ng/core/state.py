@@ -92,6 +92,9 @@ class ApplicationState:
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump(state_copy, f, indent=2, ensure_ascii=False, default=str)
+                    f.flush()
+                    # fsync before rename: a crash must not leave an empty/truncated state file
+                    os.fsync(f.fileno())
                 os.replace(tmp_path, self.state_file)
             except Exception:
                 try:

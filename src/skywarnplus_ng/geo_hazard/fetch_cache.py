@@ -39,7 +39,19 @@ class GeoFetchCache:
         return value
 
     def set(self, key: str, value: Any) -> None:
+        self._evict_expired()
         self._entries[key] = (datetime.now(timezone.utc), value)
+
+    def _evict_expired(self) -> None:
+        """Drop stale entries so the process-wide cache cannot grow unbounded."""
+        now = datetime.now(timezone.utc)
+        expired = [
+            key
+            for key, (stored_at, _) in self._entries.items()
+            if (now - stored_at).total_seconds() > self.ttl_seconds
+        ]
+        for key in expired:
+            del self._entries[key]
 
     async def get_or_fetch(
         self,

@@ -90,37 +90,42 @@ class GeographicFilter(AlertFilter):
         self.bounding_box = bounding_box
         self.polygon_coordinates = polygon_coordinates
 
+    @staticmethod
+    def _normalize_counties(counties: List[str]) -> set:
+        """Case/whitespace-insensitive county code set (matches dedup normalization)."""
+        return {str(c).strip().upper() for c in counties if c and str(c).strip()}
+
     def _apply_filter(self, alert: WeatherAlert) -> FilterResult:
         """Apply geographic filtering."""
         metadata = {}
 
         # Check county-based filtering
         if self.allowed_counties or self.blocked_counties:
-            alert_counties = alert.county_codes or []
+            alert_counties = self._normalize_counties(alert.county_codes or [])
 
             # Check if any alert counties are in blocked list
             if self.blocked_counties:
-                blocked_matches = set(alert_counties) & set(self.blocked_counties)
+                blocked_matches = alert_counties & self._normalize_counties(self.blocked_counties)
                 if blocked_matches:
                     return FilterResult(
                         passed=False,
-                        reason=f"Alert counties blocked: {list(blocked_matches)}",
-                        metadata={"blocked_counties": list(blocked_matches)},
+                        reason=f"Alert counties blocked: {sorted(blocked_matches)}",
+                        metadata={"blocked_counties": sorted(blocked_matches)},
                     )
 
             # Check if any alert counties are in allowed list
             if self.allowed_counties:
-                allowed_matches = set(alert_counties) & set(self.allowed_counties)
+                allowed_matches = alert_counties & self._normalize_counties(self.allowed_counties)
                 if not allowed_matches:
                     return FilterResult(
                         passed=False,
-                        reason=f"No alert counties in allowed list: {alert_counties}",
+                        reason=f"No alert counties in allowed list: {sorted(alert_counties)}",
                         metadata={
-                            "alert_counties": alert_counties,
+                            "alert_counties": sorted(alert_counties),
                             "allowed_counties": self.allowed_counties,
                         },
                     )
-                metadata["allowed_counties"] = list(allowed_matches)
+                metadata["allowed_counties"] = sorted(allowed_matches)
 
         # Check bounding box filtering
         if self.bounding_box:
@@ -197,9 +202,10 @@ class TimeFilter(AlertFilter):
 
         metadata = {"alert_time": alert_time.isoformat()}
 
-        # Check business hours
+        # Check business hours (compare in the node's local timezone; the
+        # configured 9-5 window means local wall-clock, not UTC)
         if self.business_hours_only:
-            alert_local_time = alert_time.time()
+            alert_local_time = alert_time.astimezone().time()
             if not (self.business_start <= alert_local_time <= self.business_end):
                 return FilterResult(
                     passed=False,

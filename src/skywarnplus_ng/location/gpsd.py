@@ -23,7 +23,8 @@ class GpsFix:
     fix_time: datetime
 
 
-def _parse_gpsd_time(raw: Any) -> datetime:
+def _parse_gpsd_time(raw: Any) -> Optional[datetime]:
+    """Parse a gpsd timestamp; None when missing/unparseable (never fake freshness)."""
     if isinstance(raw, (int, float)):
         return datetime.fromtimestamp(float(raw), tz=timezone.utc)
     if isinstance(raw, str) and raw.strip():
@@ -34,7 +35,7 @@ def _parse_gpsd_time(raw: Any) -> datetime:
             return datetime.fromisoformat(text)
         except ValueError:
             pass
-    return datetime.now(timezone.utc)
+    return None
 
 
 async def poll_gpsd_fix(
@@ -80,7 +81,17 @@ async def poll_gpsd_fix(
             except json.JSONDecodeError:
                 continue
             msg_class = payload.get("class")
-            if msg_class not in ("POLL", "TPV"):
+            if msg_class == "POLL":
+                # POLL responses nest TPV objects under the "tpv" key
+                tpv_list = payload.get("tpv")
+                if isinstance(tpv_list, list):
+                    for tpv in tpv_list:
+                        if isinstance(tpv, dict):
+                            fix = _fix_from_gpsd_message(tpv)
+                            if fix is not None:
+                                return fix
+                continue
+            if msg_class != "TPV":
                 continue
             fix = _fix_from_gpsd_message(payload)
             if fix is not None:
@@ -108,13 +119,20 @@ def _fix_from_gpsd_message(payload: dict[str, Any]) -> Optional[GpsFix]:
     if accuracy is None:
         accuracy = payload.get("epy")
 
+    fix_time = _parse_gpsd_time(payload.get("time"))
+    if fix_time is None:
+        # A fix without a parseable timestamp cannot be checked for staleness;
+        # treating it as fresh would defeat the stale-position safety check.
+        logger.debug("Discarding gpsd fix without parseable timestamp")
+        return None
+
     try:
         return GpsFix(
             latitude=float(lat),
             longitude=float(lon),
             mode=mode,
             accuracy_m=float(accuracy) if accuracy is not None else None,
-            fix_time=_parse_gpsd_time(payload.get("time")),
+            fix_time=fix_time,
         )
     except (TypeError, ValueError):
         return None

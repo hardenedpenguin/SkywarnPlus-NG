@@ -116,6 +116,7 @@ class TailMessageManager:
                 return AudioSegment.from_mp3(str(file_path))
             elif ext in [".ulaw", ".ul"]:
                 # For ulaw files, convert to WAV using ffmpeg first, then load
+                temp_wav_path: Optional[Path] = None
                 try:
                     # Create temporary WAV file
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -143,15 +144,7 @@ class TailMessageManager:
                     )
 
                     # Load the converted WAV file
-                    audio = AudioSegment.from_wav(str(temp_wav_path))
-
-                    # Clean up temporary file
-                    try:
-                        temp_wav_path.unlink()
-                    except OSError as e:
-                        logger.debug(f"Failed to cleanup temp file {temp_wav_path}: {e}")
-
-                    return audio
+                    return AudioSegment.from_wav(str(temp_wav_path))
                 except subprocess.CalledProcessError as e:
                     error_msg = (
                         e.stderr
@@ -169,6 +162,9 @@ class TailMessageManager:
                         "Please install ffmpeg: sudo apt-get install ffmpeg (Debian/Ubuntu)"
                     )
                     return None
+                finally:
+                    if temp_wav_path is not None:
+                        temp_wav_path.unlink(missing_ok=True)
             else:
                 # Try to auto-detect
                 try:

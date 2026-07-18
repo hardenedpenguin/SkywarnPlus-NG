@@ -4,7 +4,7 @@ Comprehensive API documentation generator for SkywarnPlus-NG.
 
 from pathlib import Path
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .openapi import OpenAPIGenerator
 from .interactive_docs import InteractiveDocsGenerator
@@ -176,7 +176,7 @@ This directory contains code examples for the SkywarnPlus-NG API in multiple pro
 
 ---
 
-**Generated on:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}
+**Generated on:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
 """
 
     def _generate_documentation_index(self, output_dir: Path) -> None:
@@ -310,7 +310,7 @@ curl {self.base_url}/api/alerts
 
 ---
 
-**Generated on:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}  
+**Generated on:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}  
 **API Version:** {self.version}  
 **Base URL:** {self.base_url}
 """
@@ -469,7 +469,7 @@ curl {self.base_url}/api/alerts
             
             <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="color: #6b7280; margin: 0;">
-                    Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")} | 
+                    Generated on {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")} | 
                     <a href="https://github.com/skywarnplus-ng/skywarnplus-ng" style="color: #3b82f6;">GitHub Repository</a>
                 </p>
             </div>

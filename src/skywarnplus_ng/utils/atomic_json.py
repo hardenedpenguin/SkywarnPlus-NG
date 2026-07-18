@@ -15,6 +15,9 @@ def atomic_write_json(path: Path, data: Any, *, indent: int = 2) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=indent, ensure_ascii=False, default=str)
+            handle.flush()
+            # fsync before rename: a crash must not leave an empty/truncated file
+            os.fsync(handle.fileno())
         os.replace(tmp_path, path)
     except Exception:
         try:

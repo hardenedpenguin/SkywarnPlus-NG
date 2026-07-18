@@ -102,13 +102,24 @@ class PerformanceMetrics:
             self.calculated_at = datetime.now(timezone.utc)
 
 
+def _aware_alert_time(alert: WeatherAlert) -> datetime:
+    """Alert timestamp as tz-aware UTC (naive values would crash period comparisons)."""
+    when = alert.sent or alert.effective
+    if when is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if when.tzinfo is None:
+        return when.replace(tzinfo=timezone.utc)
+    return when
+
+
 class AlertAnalytics:
     """Analytics engine for weather alerts."""
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self._alert_history: List[WeatherAlert] = []
-        self._processing_times: List[float] = []
+        # (recorded_at, duration_ms) so durations can be filtered by time period
+        self._processing_times: List[tuple] = []
         self._error_counts: Dict[str, int] = defaultdict(int)
 
     def add_alert(self, alert: WeatherAlert, processing_time_ms: Optional[float] = None) -> None:
@@ -116,7 +127,7 @@ class AlertAnalytics:
         self._alert_history.append(alert)
 
         if processing_time_ms is not None:
-            self._processing_times.append(processing_time_ms)
+            self._processing_times.append((datetime.now(timezone.utc), processing_time_ms))
 
         # Keep only last 10000 alerts to prevent memory issues
         if len(self._alert_history) > 10000:
@@ -151,9 +162,7 @@ class AlertAnalytics:
         period_alerts = [
             alert
             for alert in self._alert_history
-            if start_time
-            <= (alert.sent or alert.effective or datetime.min.replace(tzinfo=timezone.utc))
-            <= end_time
+            if start_time <= _aware_alert_time(alert) <= end_time
         ]
 
         if not period_alerts:
@@ -186,13 +195,11 @@ class AlertAnalytics:
                 hourly_dist[alert_time.hour] += 1
                 daily_dist[alert_time.weekday()] += 1
 
-        # Processing time statistics
+        # Processing time statistics (filter by when the measurement was recorded)
         processing_times = [
-            time_ms
-            for time_ms in self._processing_times
-            if start_time
-            <= datetime.now(timezone.utc) - timedelta(milliseconds=time_ms)
-            <= end_time
+            duration_ms
+            for recorded_at, duration_ms in self._processing_times
+            if start_time <= recorded_at <= end_time
         ]
 
         avg_processing_time = statistics.mean(processing_times) if processing_times else 0.0
@@ -302,16 +309,13 @@ class AlertAnalytics:
 
         # Filter data for the period
         period_alerts = [
-            alert
-            for alert in self._alert_history
-            if (alert.sent or alert.effective or datetime.min.replace(tzinfo=timezone.utc))
-            >= cutoff_time
+            alert for alert in self._alert_history if _aware_alert_time(alert) >= cutoff_time
         ]
 
         period_processing_times = [
-            time_ms
-            for time_ms in self._processing_times
-            if datetime.now(timezone.utc) - timedelta(milliseconds=time_ms) >= cutoff_time
+            duration_ms
+            for recorded_at, duration_ms in self._processing_times
+            if recorded_at >= cutoff_time
         ]
 
         total_processed = len(period_alerts)
@@ -507,7 +511,8 @@ class AlertAnalytics:
             return [len(self._alert_history)] * data_points
         elif metric_name == "average_processing_time":
             if self._processing_times:
-                return [statistics.mean(self._processing_times)] * data_points
+                durations = [duration_ms for _, duration_ms in self._processing_times]
+                return [statistics.mean(durations)] * data_points
             return [0.0] * data_points
         elif metric_name == "error_rate":
             total_errors = sum(self._error_counts.values())

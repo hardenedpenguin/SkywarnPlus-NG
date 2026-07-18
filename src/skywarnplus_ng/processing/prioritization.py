@@ -340,14 +340,26 @@ class AlertPrioritizer:
         return (certainty_score + urgency_score) / 2.0
 
     def _determine_priority_level(self, total_score: float) -> PriorityLevel:
-        """Determine priority level based on total score."""
-        if total_score >= 6.0:
+        """
+        Determine priority level based on total score.
+
+        Thresholds are scaled to the reachable score range: with default
+        weights the maximum weighted total is about 3.95 (Extreme severity,
+        Immediate urgency, Observed certainty, fresh alert, max geographic
+        and population factors), and a typical Severe/Expected alert lands
+        near 1.9. Thresholds above the reachable maximum would make HIGH and
+        CRITICAL unreachable.
+        """
+        if total_score >= 3.0:
+            # e.g. Tornado Warning: Extreme/Immediate/Observed, fresh ~= 3.35
             return PriorityLevel.CRITICAL
-        elif total_score >= 4.0:
+        elif total_score >= 2.1:
+            # e.g. Severe Tstorm Warning: Severe/Immediate/Observed, fresh ~= 2.15
             return PriorityLevel.HIGH
-        elif total_score >= 2.0:
+        elif total_score >= 1.25:
+            # e.g. Severe watch (Severe/Expected/Likely ~= 1.87) or Moderate advisory
             return PriorityLevel.MEDIUM
-        elif total_score >= 1.0:
+        elif total_score >= 0.8:
             return PriorityLevel.LOW
         else:
             return PriorityLevel.INFO

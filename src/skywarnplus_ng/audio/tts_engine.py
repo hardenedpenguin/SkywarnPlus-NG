@@ -295,9 +295,11 @@ class GTTSEngine:
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_mp3:
                 temp_mp3_path = Path(temp_mp3.name)
 
-            tts.save(str(temp_mp3_path))
-            final_path = self._convert_audio(temp_mp3_path, output_path)
-            temp_mp3_path.unlink(missing_ok=True)
+            try:
+                tts.save(str(temp_mp3_path))
+                final_path = self._convert_audio(temp_mp3_path, output_path)
+            finally:
+                temp_mp3_path.unlink(missing_ok=True)
             logger.info("Successfully synthesized audio: %s", final_path)
             return final_path
 

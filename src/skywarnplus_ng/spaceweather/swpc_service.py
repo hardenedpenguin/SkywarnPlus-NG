@@ -138,7 +138,10 @@ class SwpcSpaceWeatherService:
         sw = self.config.space_weather
         seeded = 0
         if not sw.announce_history_on_enable:
-            for alert in alerts[:DISPLAY_TRACKED_LIMIT]:
+            # Seed every filter-passing alert in the feed, not only the ones shown
+            # on the dashboard; otherwise older history would be announced on the
+            # first poll after enabling.
+            for alert in alerts:
                 if self._passes_filters(alert):
                     self.mark_announced(alert.announcement_key, state)
                     seeded += 1
