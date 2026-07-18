@@ -1,3 +1,23 @@
+skywarnplus-ng (1.6.3-1) unstable; urgency=medium
+
+  * NWS fetch: a failing zone no longer discards alerts from successful zones;
+    last known alerts for failed zones are carried forward instead of expired.
+  * Deduplication: counties listed only on superseded older products are folded
+    into the kept alert; alias chains resolve to the final canonical id.
+  * Run TTS/ffmpeg audio generation, tail message/courtesy tone/ID updates,
+    and SMTP sends in worker threads (event loop no longer blocks); SMTP
+    timeout; per-recipient To header fix; escape CAP text in email HTML.
+  * Web hardening: trust X-Forwarded-For only from loopback proxies, reject
+    backslash open redirects, serialize config saves, honor public_status_api
+    on /ws, cap websocket clients, survive invalid auth.secret_key.
+  * Correctness: reachable priority thresholds, workflow step criticality,
+    county filter normalization, local-time business hours, full SWPC history
+    seeding, gpsd POLL parsing and timestamp safety, geo fetch cache eviction,
+    analytics period math, fsync on atomic state writes, temp file cleanup,
+    stricter SSRF validation.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Sat, 18 Jul 2026 10:30:00 -0500
+
 skywarnplus-ng (1.6.2-1) unstable; urgency=medium
 
   * Debian postinst: set monitoring.http_server.base_path to /skywarnplus-ng
