@@ -1,6 +1,13 @@
 # SkywarnPlus-NG
 
-![GitHub total downloads](https://img.shields.io/github/downloads/hardenedpenguin/SkywarnPlus-NG/total?style=flat-square)
+[![Latest release](https://img.shields.io/github/v/release/hardenedpenguin/SkywarnPlus-NG?style=flat-square&label=release)](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/hardenedpenguin/SkywarnPlus-NG/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/hardenedpenguin/SkywarnPlus-NG/actions/workflows/ci.yml)
+[![License: GPL v3](https://img.shields.io/github/license/hardenedpenguin/SkywarnPlus-NG?style=flat-square)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue?style=flat-square&logo=python&logoColor=white)
+![Debian](https://img.shields.io/badge/Debian-12%20Bookworm%20%7C%2013%20Trixie-A81D33?style=flat-square&logo=debian&logoColor=white)
+![Architecture](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-blue?style=flat-square)
+[![Downloads](https://img.shields.io/github/downloads/hardenedpenguin/SkywarnPlus-NG/total?style=flat-square)](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000?style=flat-square&logo=ruff&logoColor=white)](https://github.com/astral-sh/ruff)
 
 Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDescribe, and a web dashboard.
 
