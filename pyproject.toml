@@ -34,6 +34,8 @@ dependencies = [
     "ruamel.yaml>=0.18.0",
     "python-dateutil>=2.8.0",
     "structlog>=23.2.0",
+    # click is capped <8.2 by gtts; PYSEC-2026-2132 (click.edit() injection) is
+    # ignored in CI's pip-audit because click.edit() is never used here.
     "click>=8.1.0",
     "rich>=13.7.0",
     "gtts>=2.4.0",

@@ -49,4 +49,7 @@ jobs:
       - name: Dependency audit
         run: |
           python -m pip install pip-audit
-          pip-audit .
+          # PYSEC-2026-2132: click.edit() command injection. Not exploitable here
+          # (click.edit is never called) and click cannot be upgraded to 8.3.3
+          # because gtts pins click<8.2.
+          pip-audit . --ignore-vuln PYSEC-2026-2132
