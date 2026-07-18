@@ -694,10 +694,7 @@ class SkywarnPlusApplication:
                     await self.web_dashboard.broadcast_update("status_update", self.get_status())
                 return
 
-            self.state["nws_last_error_at"] = None
-            self.state["nws_last_error_message"] = None
-
-            # Process alerts
+            # Process alerts (partial-failure detail, if any, was set by _fetch_alerts)
             await self._process_alerts(current_alerts)
             poll_state_dirty = True
 
@@ -714,24 +711,28 @@ class SkywarnPlusApplication:
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
 
-            # Update tail message if enabled
+            # Update tail message if enabled (worker thread; TTS/ffmpeg/file copies block)
             if self.tail_message_manager:
                 try:
-                    self.tail_message_manager.update_tail_message(current_alerts)
+                    await asyncio.to_thread(
+                        self.tail_message_manager.update_tail_message, current_alerts
+                    )
                 except Exception as e:
                     logger.error(f"Error updating tail message: {e}")
 
             # Update courtesy tones if enabled
             if self.courtesy_tone_manager:
                 try:
-                    self.courtesy_tone_manager.update_courtesy_tones(current_alerts)
+                    await asyncio.to_thread(
+                        self.courtesy_tone_manager.update_courtesy_tones, current_alerts
+                    )
                 except Exception as e:
                     logger.error(f"Error updating courtesy tones: {e}")
 
             # Update ID if enabled
             if self.id_change_manager:
                 try:
-                    self.id_change_manager.update_id(current_alerts)
+                    await asyncio.to_thread(self.id_change_manager.update_id, current_alerts)
                 except Exception as e:
                     logger.error(f"Error updating ID: {e}")
 
@@ -745,9 +746,9 @@ class SkywarnPlusApplication:
                 except Exception as e:
                     logger.error(f"Error processing AlertScript mappings: {e}")
 
-            # Clean up old audio files
+            # Clean up old audio files (worker thread; scans/deletes files)
             if self.audio_manager:
-                self.audio_manager.cleanup_old_audio()
+                await asyncio.to_thread(self.audio_manager.cleanup_old_audio)
 
             # Save state
             self.state_manager.save_state(self.state)
@@ -807,7 +808,23 @@ class SkywarnPlusApplication:
                     return []  # Success with zero alerts
 
             # Fetch alerts for all counties concurrently
-            alerts = await self.nws_client.fetch_alerts_for_zones(county_codes)
+            alerts, failed_zones = await self.nws_client.fetch_alerts_for_zones(county_codes)
+            if failed_zones:
+                # Keep last known alerts for failed zones so they are not wrongly expired
+                alerts.extend(
+                    self._previously_active_alerts_for_zones(
+                        failed_zones, {alert.id for alert in alerts}
+                    )
+                )
+                self.state["nws_last_error_at"] = datetime.now(timezone.utc).isoformat()
+                self.state["nws_last_error_message"] = (
+                    f"NWS API fetch failed for {len(failed_zones)} of "
+                    f"{len(county_codes)} zone(s): {', '.join(failed_zones)}. "
+                    "Alerts for those zones may be stale until the next successful poll."
+                )
+            else:
+                self.state["nws_last_error_at"] = None
+                self.state["nws_last_error_message"] = None
 
             # Filter to only active alerts
             active_alerts = self.nws_client.filter_active_alerts(
@@ -835,6 +852,48 @@ class SkywarnPlusApplication:
         except Exception as e:
             logger.error(f"Unexpected error fetching alerts: {e}", exc_info=True)
             return None
+
+    def _previously_active_alerts_for_zones(
+        self, failed_zones: List[str], exclude_ids: Set[str]
+    ) -> List[WeatherAlert]:
+        """
+        Rebuild last known active alerts touching the given zones from state snapshots.
+
+        Used when some NWS zone fetches fail: alerts for those zones are carried
+        forward so a transient per-zone error does not expire them.
+        """
+        carried: List[WeatherAlert] = []
+        failed = {zone.strip().upper() for zone in failed_zones}
+        active_ids = set(self.state.get("active_alerts", []) or [])
+        last_alerts = self.state.get("last_alerts", {})
+        if not isinstance(last_alerts, dict):
+            return carried
+
+        for alert_id in active_ids:
+            if alert_id in exclude_ids:
+                continue
+            snapshot = last_alerts.get(alert_id)
+            if not isinstance(snapshot, dict):
+                continue
+            codes = {
+                str(code).strip().upper()
+                for code in (snapshot.get("county_codes") or [])
+                if isinstance(code, str)
+            }
+            if not codes & failed:
+                continue
+            try:
+                carried.append(WeatherAlert(**snapshot))
+            except Exception as e:
+                logger.debug("Could not carry forward alert %s: %s", alert_id, e)
+
+        if carried:
+            logger.info(
+                "Carried forward %s active alert(s) for %s failed zone(s)",
+                len(carried),
+                len(failed),
+            )
+        return carried
 
     async def _process_alerts(self, current_alerts: List[WeatherAlert]) -> None:
         """
@@ -1762,8 +1821,9 @@ class SkywarnPlusApplication:
                     expires = {a["expires"] for a in same_event}
                     with_multiples = len(descriptions) > 1 or len(expires) > 1
 
-            # Generate TTS audio for the alert
-            audio_path = self.audio_manager.generate_alert_audio(
+            # Generate TTS audio for the alert (in a worker thread; TTS/ffmpeg block)
+            audio_path = await asyncio.to_thread(
+                self.audio_manager.generate_alert_audio,
                 alert,
                 suffix_file=self.config.alerts.say_alert_suffix,
                 county_audio_files=county_audio_files,
@@ -2089,7 +2149,8 @@ class SkywarnPlusApplication:
             return False
 
         try:
-            audio_path = self.audio_manager.generate_spoken_audio(
+            audio_path = await asyncio.to_thread(
+                self.audio_manager.generate_spoken_audio,
                 tts_text,
                 prefix=audio_prefix,
             )
@@ -2178,9 +2239,10 @@ class SkywarnPlusApplication:
             return
 
         try:
-            # Generate TTS audio for all-clear message
-            audio_path = self.audio_manager.generate_all_clear_audio(
-                suffix_file=self.config.alerts.say_all_clear_suffix
+            # Generate TTS audio for all-clear message (worker thread; TTS/ffmpeg block)
+            audio_path = await asyncio.to_thread(
+                self.audio_manager.generate_all_clear_audio,
+                suffix_file=self.config.alerts.say_all_clear_suffix,
             )
             if not audio_path:
                 logger.error("Failed to generate all-clear audio")

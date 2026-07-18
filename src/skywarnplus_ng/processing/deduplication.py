@@ -136,6 +136,8 @@ def collapse_superseded_nws_alerts(
     update or re-issuance is published. For each event name, keep the newest
     alert and drop older products that still list any of the same county codes
     (so one monitored county does not show several flood advisories at once).
+    Counties listed only on a dropped older product are unioned into the kept
+    alert so no still-affected county loses coverage.
     """
     if len(alerts) < 2:
         return alerts, {}
@@ -147,6 +149,7 @@ def collapse_superseded_nws_alerts(
     keep_ids: set[str] = set()
     removed = 0
     aliases: Dict[str, str] = {}
+    updated: Dict[str, WeatherAlert] = {}
 
     for event_alerts in by_event.values():
         if len(event_alerts) < 2:
@@ -172,9 +175,25 @@ def collapse_superseded_nws_alerts(
                 kept.append(alert)
                 continue
 
-            overlapping = [other for other in kept if _alerts_share_county(alert, other)]
-            if overlapping:
-                aliases[alert.id] = overlapping[0].id
+            overlapping_idx = [
+                i for i, other in enumerate(kept) if _alerts_share_county(alert, other)
+            ]
+            if overlapping_idx:
+                target_idx = overlapping_idx[0]
+                target = kept[target_idx]
+                aliases[alert.id] = target.id
+                # Counties only the dropped (older) product listed stay covered by
+                # folding them into the kept alert; NWS still reports the older
+                # product active for those counties.
+                covered: set[str] = set()
+                for other in kept:
+                    covered |= _county_codes_set(other)
+                missing = codes - covered
+                if missing:
+                    merged_codes = list(target.county_codes or []) + sorted(missing)
+                    target = target.model_copy(update={"county_codes": merged_codes})
+                    kept[target_idx] = target
+                    updated[target.id] = target
                 continue
             kept.append(alert)
 
@@ -191,7 +210,20 @@ def collapse_superseded_nws_alerts(
             len(keep_ids),
         )
 
-    return [alert for alert in alerts if alert.id in keep_ids], aliases
+    return [updated.get(alert.id, alert) for alert in alerts if alert.id in keep_ids], aliases
+
+
+def _resolve_alias_chains(aliases: Dict[str, str]) -> Dict[str, str]:
+    """Flatten alias chains (A->B, B->C becomes A->C, B->C)."""
+    resolved: Dict[str, str] = {}
+    for old_id in aliases:
+        target = aliases[old_id]
+        seen = {old_id}
+        while target in aliases and target not in seen:
+            seen.add(target)
+            target = aliases[target]
+        resolved[old_id] = target
+    return resolved
 
 
 def deduplicate_nws_active_alerts(
@@ -200,7 +232,7 @@ def deduplicate_nws_active_alerts(
     """Collapse superseded products and merge zone splits; return alias map (old_id -> canonical_id)."""
     collapsed, collapse_aliases = collapse_superseded_nws_alerts(alerts)
     merged, merge_aliases = merge_same_issuance_zone_splits(collapsed)
-    aliases = {**collapse_aliases, **merge_aliases}
+    aliases = _resolve_alias_chains({**collapse_aliases, **merge_aliases})
     return merged, aliases
 
 

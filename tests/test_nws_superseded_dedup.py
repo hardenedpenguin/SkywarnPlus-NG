@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from skywarnplus_ng.core.models import AlertSeverity, AlertUrgency, WeatherAlert
 from skywarnplus_ng.processing.deduplication import (
     collapse_superseded_nws_alerts,
+    deduplicate_nws_active_alerts,
     merge_same_issuance_zone_splits,
 )
 
@@ -145,3 +146,28 @@ def test_different_issuance_minutes_same_event_not_merged() -> None:
     b = _flood("fb", "2026-05-20T08:05:00-05:00", ["TXC201"])
     out = merge_same_issuance_zone_splits([a, b])[0]
     assert {x.id for x in out} == {"fa", "fb"}
+
+
+def test_collapse_keeps_counties_only_on_older_product() -> None:
+    """Older product covering extra counties must not lose them when collapsed."""
+    older = _flood("f-old", "2026-05-20T06:33:00-05:00", ["TXC039", "TXC201", "TXC167"])
+    newer = _flood("f-new", "2026-05-20T07:24:00-05:00", ["TXC039"])
+    out, aliases = collapse_superseded_nws_alerts([older, newer])
+    assert [a.id for a in out] == ["f-new"]
+    assert aliases == {"f-old": "f-new"}
+    # Counties only the older product listed remain covered by the kept alert
+    assert set(out[0].county_codes) == {"TXC039", "TXC201", "TXC167"}
+
+
+def test_alias_chains_resolve_to_final_canonical_id() -> None:
+    """Collapse then merge must not leave A->B->C chains in the alias map."""
+    sent = "2026-06-16T10:38:00-05:00"
+    old = _flood("f-old", "2026-05-20T06:33:00-05:00", ["TXC039"])
+    split_a = _flood("f-split-a", sent, ["TXC039"])
+    split_b = _flood("f-split-b", sent, ["TXC167"])
+    out, aliases = deduplicate_nws_active_alerts([old, split_a, split_b])
+    assert len(out) == 1
+    surviving = out[0].id
+    # Every alias must point directly at the surviving alert id
+    for target in aliases.values():
+        assert target == surviving

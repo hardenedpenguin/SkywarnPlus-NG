@@ -411,16 +411,22 @@ class NWSClient:
 
     async def fetch_alerts_for_zones(
         self, zone_codes: List[str], deduplicate: bool = True
-    ) -> List[WeatherAlert]:
+    ) -> Tuple[List[WeatherAlert], List[str]]:
         """
         Fetch active alerts for multiple zones concurrently.
+
+        A transient failure on one zone must not discard alerts already fetched
+        from the other zones, so partial failures are reported instead of raised.
 
         Args:
             zone_codes: List of zone/county codes
             deduplicate: Whether to deduplicate alerts by ID
 
         Returns:
-            List of active weather alerts from all zones
+            Tuple of (alerts from successful zones, zone codes that failed).
+
+        Raises:
+            NWSClientError: Only when every zone fetch failed.
         """
         logger.debug(f"Fetching alerts for {len(zone_codes)} zones")
 
@@ -432,16 +438,24 @@ class NWSClient:
         all_alerts = []
         failed_zones: List[str] = []
         for zone_code, result in zip(zone_codes, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error("Error fetching alerts for zone %s: %s", zone_code, result)
                 failed_zones.append(zone_code)
                 continue
             all_alerts.extend(result)
 
-        if failed_zones:
+        if failed_zones and len(failed_zones) == len(zone_codes):
             raise NWSClientError(
-                f"Failed to fetch alerts for {len(failed_zones)} zone(s): "
+                f"Failed to fetch alerts for all {len(failed_zones)} zone(s): "
                 + ", ".join(failed_zones)
+            )
+        if failed_zones:
+            logger.warning(
+                "Partial NWS fetch failure: %s of %s zone(s) failed (%s); "
+                "continuing with alerts from successful zones",
+                len(failed_zones),
+                len(zone_codes),
+                ", ".join(failed_zones),
             )
 
         # Deduplicate by alert ID if requested
@@ -455,7 +469,7 @@ class NWSClient:
             all_alerts = unique_alerts
 
         logger.debug(f"Retrieved {len(all_alerts)} total alerts from {len(zone_codes)} zones")
-        return all_alerts
+        return all_alerts, failed_zones
 
     async def fetch_all_alerts(self) -> List[WeatherAlert]:
         """

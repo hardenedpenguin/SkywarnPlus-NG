@@ -3,6 +3,8 @@ Email notification system for SkywarnPlus-NG.
 Supports Gmail and other major email providers with user credentials.
 """
 
+import asyncio
+import html
 import smtplib
 import ssl
 import logging
@@ -271,13 +273,19 @@ This alert was sent by SkywarnPlus-NG.
 For more information, visit your local National Weather Service office.
         """.strip()
 
-        # HTML version
+        # HTML version (escape external CAP feed text; it is untrusted input)
+        esc_event = html.escape(alert.event or "")
+        esc_area = html.escape(alert.area_desc or "")
+        esc_headline = html.escape(alert.headline) if alert.headline else ""
+        esc_description = html.escape(alert.description or "No description available")
+        esc_instruction = html.escape(alert.instruction) if alert.instruction else ""
+        esc_id = html.escape(alert.id or "")
         html_body = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Weather Alert - {alert.event}</title>
+    <title>Weather Alert - {esc_event}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
         .container {{ max-width: 600px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
@@ -297,8 +305,8 @@ For more information, visit your local National Weather Service office.
 <body>
     <div class="container">
         <div class="header">
-            <h1 class="alert-title">⚠️ {alert.event.upper()}</h1>
-            <p class="alert-subtitle">{alert.area_desc}</p>
+            <h1 class="alert-title">⚠️ {esc_event.upper()}</h1>
+            <p class="alert-subtitle">{esc_area}</p>
         </div>
         
         <div class="alert-details">
@@ -316,7 +324,7 @@ For more information, visit your local National Weather Service office.
             </div>
             <div class="detail-row">
                 <span class="detail-label">Alert ID:</span>
-                <span class="detail-value">{alert.id}</span>
+                <span class="detail-value">{esc_id}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Effective:</span>
@@ -328,14 +336,14 @@ For more information, visit your local National Weather Service office.
             </div>
         </div>
         
-        {f"<h3>Headline</h3><p>{alert.headline}</p>" if alert.headline else ""}
+        {f"<h3>Headline</h3><p>{esc_headline}</p>" if esc_headline else ""}
         
         <div class="description">
             <h3>Description</h3>
-            <p>{alert.description or "No description available"}</p>
+            <p>{esc_description}</p>
         </div>
         
-        {f'<div class="instructions"><h3>Instructions</h3><p>{alert.instruction}</p></div>' if alert.instruction else ""}
+        {f'<div class="instructions"><h3>Instructions</h3><p>{esc_instruction}</p></div>' if esc_instruction else ""}
         
         <div class="footer">
             <p>This alert was sent by SkywarnPlus-NG</p>
@@ -367,8 +375,14 @@ For more information, visit your local National Weather Service office.
             part.add_header("Content-Disposition", f"attachment; filename= {filename}")
             message.attach(part)
 
+    SMTP_TIMEOUT_SECONDS = 30.0
+
     async def _send_message(self, message: MIMEMultipart, recipients: List[str]) -> int:
-        """Send email message via SMTP."""
+        """Send email message via SMTP (in a worker thread; smtplib blocks)."""
+        return await asyncio.to_thread(self._send_message_blocking, message, recipients)
+
+    def _send_message_blocking(self, message: MIMEMultipart, recipients: List[str]) -> int:
+        """Blocking SMTP send. Must not run on the event loop."""
         success_count = 0
 
         try:
@@ -376,10 +390,17 @@ For more information, visit your local National Weather Service office.
             if self.config.use_ssl:
                 context = ssl.create_default_context()
                 server = smtplib.SMTP_SSL(
-                    self.config.smtp_server, self.config.smtp_port, context=context
+                    self.config.smtp_server,
+                    self.config.smtp_port,
+                    context=context,
+                    timeout=self.SMTP_TIMEOUT_SECONDS,
                 )
             else:
-                server = smtplib.SMTP(self.config.smtp_server, self.config.smtp_port)
+                server = smtplib.SMTP(
+                    self.config.smtp_server,
+                    self.config.smtp_port,
+                    timeout=self.SMTP_TIMEOUT_SECONDS,
+                )
 
             # Enable TLS if configured
             if self.config.use_tls and not self.config.use_ssl:
@@ -391,7 +412,8 @@ For more information, visit your local National Weather Service office.
             # Send email
             for recipient in recipients:
                 try:
-                    # Update recipient for each send
+                    # Replace (not append) the To header for each send; __setitem__ appends
+                    del message["To"]
                     message["To"] = recipient
                     server.send_message(message, to_addrs=[recipient])
                     success_count += 1
@@ -408,15 +430,22 @@ For more information, visit your local National Weather Service office.
         return success_count
 
     def test_connection(self) -> bool:
-        """Test SMTP connection."""
+        """Test SMTP connection (blocking; call via asyncio.to_thread from async code)."""
         try:
             if self.config.use_ssl:
                 context = ssl.create_default_context()
                 server = smtplib.SMTP_SSL(
-                    self.config.smtp_server, self.config.smtp_port, context=context
+                    self.config.smtp_server,
+                    self.config.smtp_port,
+                    context=context,
+                    timeout=self.SMTP_TIMEOUT_SECONDS,
                 )
             else:
-                server = smtplib.SMTP(self.config.smtp_server, self.config.smtp_port)
+                server = smtplib.SMTP(
+                    self.config.smtp_server,
+                    self.config.smtp_port,
+                    timeout=self.SMTP_TIMEOUT_SECONDS,
+                )
 
             if self.config.use_tls and not self.config.use_ssl:
                 server.starttls()

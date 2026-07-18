@@ -4,6 +4,7 @@ Notifications, subscribers, and templates API handlers mixin.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import TYPE_CHECKING
@@ -54,9 +55,9 @@ class NotificationsApiMixin:
                 from_name=data.get("from_name", "SkywarnPlus-NG"),
             )
 
-            # Test connection
+            # Test connection (worker thread; smtplib blocks the event loop)
             notifier = EmailNotifier(email_config)
-            success = notifier.test_connection()
+            success = await asyncio.to_thread(notifier.test_connection)
 
             if success:
                 return web.json_response(
