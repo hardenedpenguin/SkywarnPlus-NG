@@ -27,11 +27,10 @@ def generate_skydescribe_rpt() -> str:
     
     Output goes to /etc/asterisk/custom/rpt/skydescribe.conf
     
-    Uses the installation path from install.sh:
+    Uses the packaged installation paths:
     - Installation: /var/lib/skywarnplus-ng
     - Command: /var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng
     """
-    # Use the installation path from install.sh
     cmd_path = "/var/lib/skywarnplus-ng/venv/bin/skywarnplus-ng"
     config_path = "/etc/skywarnplus-ng/config.yaml"
     
@@ -109,7 +108,7 @@ Examples:
                 gid = grp.getgrnam('asterisk').gr_gid
                 os.chown(output_path, uid, gid)
                 print(f"Configuration written to: {output_path}")
-                print(f"Set permissions to 644 and ownership to asterisk:asterisk")
+                print("Set permissions to 644 and ownership to asterisk:asterisk")
             except (KeyError, PermissionError, OSError) as e:
                 # If asterisk user/group doesn't exist or we don't have permission,
                 # just print a warning but don't fail

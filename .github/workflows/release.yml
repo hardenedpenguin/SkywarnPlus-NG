@@ -1,14 +1,13 @@
-# Build release tarball and attach to GitHub Release when a version tag is pushed.
+# Build .deb packages and attach to a GitHub Release when a version tag is pushed.
 #
 # Before tagging:
 #   1. Bump version in pyproject.toml and src/skywarnplus_ng/__init__.py to match the tag.
 #   2. Update debian/changelog (or run scripts/debian/sync-changelog-version.py).
 #   3. Commit, then: git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push && git push origin vX.Y.Z
-# This workflow: verifies pyproject.toml version matches tag, updates README.md download URLs
-# for this release, runs create_release.py (tarball includes updated README), builds amd64/arm64
-# .deb packages for Bookworm (.deb12) and Trixie (.deb13), creates the GitHub Release with
-# generate_release_notes, and uploads assets.
-# amd64 debs + tarball publish as soon as amd64 build finishes; arm64 debs upload when available.
+# This workflow: verifies pyproject.toml version matches tag, builds amd64/arm64 .deb packages
+# for Bookworm (.deb12) and Trixie (.deb13), creates the GitHub Release with
+# generate_release_notes, and uploads the .deb assets.
+# amd64 debs publish as soon as the amd64 build finishes; arm64 debs upload when available.
 
 name: Release
 
@@ -147,15 +146,6 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "TAG=${TAG}" >> $GITHUB_ENV
 
-      - name: Update README.md download URLs to this release
-        run: |
-          sed -i "s|releases/download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|releases/download/${TAG}/skywarnplus-ng-${VERSION}.tar.gz|g" README.md
-          sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
-          sed -i "s|cd skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|cd skywarnplus-ng-${VERSION}|g" README.md
-
-      - name: Create release tarball
-        run: python3 scripts/create_release.py
-
       - name: Download amd64 Debian packages
         uses: actions/download-artifact@v4
         with:
@@ -171,27 +161,9 @@ jobs:
           draft: false
           generate_release_notes: true
           files: |
-            skywarnplus-ng-${{ env.VERSION }}.tar.gz
             dist/debs/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Sync README.md on main branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout -B main origin/main
-          sed -i "s|releases/download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|releases/download/${TAG}/skywarnplus-ng-${VERSION}.tar.gz|g" README.md
-          sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
-          sed -i "s|cd skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|cd skywarnplus-ng-${VERSION}|g" README.md
-          if git diff --quiet README.md; then
-            echo "README.md already matches ${TAG}; nothing to push."
-          else
-            git add README.md
-            git commit -m "docs: sync README download URLs for ${TAG}"
-            git push origin main
-          fi
 
   publish-arm64-debs:
     needs: [release, build-deb-arm64]

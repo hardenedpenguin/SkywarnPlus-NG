@@ -13,7 +13,7 @@ Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Ma
 
 **Current release:** [v1.6.3](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.3)
 
-> **Install and upgrades:** SkywarnPlus-NG is moving to the **Debian `.deb` package** for new installs and updates. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — it remains for legacy sites but is no longer supported. Tarball installs do not reliably deploy package-managed files (for example voice-install sudoers, systemd units, and Apache snippets). See **[docs/debian.md](docs/debian.md)**. Existing tarball installs should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) rather than re-run `install.sh`.
+> **Install and upgrades:** SkywarnPlus-NG installs as a **Debian `.deb` package**. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). See **[docs/debian.md](docs/debian.md)**. Sites still running the old release-tarball installer should [migrate to apt](docs/debian.md#migrating-from-a-tarball-install-to-apt).
 
 ## Install
 
@@ -47,23 +47,6 @@ Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatica
 **Dashboard:** `http://<host>/skywarnplus-ng/` (default login **`admin`** / **`skywarn123`** — change under **Configuration** immediately).
 
 **Config file:** `/etc/skywarnplus-ng/config.yaml` (UI saves here; restart after manual edits).
-
-<details>
-<summary><strong>Deprecated: release tarball + install.sh</strong></summary>
-
-Not recommended for new deployments. May miss package-managed files (sudoers for voice install, systemd, Apache conf).
-
-```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.3/skywarnplus-ng-1.6.3.tar.gz
-tar -xzf skywarnplus-ng-1.6.3.tar.gz
-cd skywarnplus-ng-1.6.3
-./install.sh
-sudo systemctl enable --now skywarnplus-ng
-```
-
-> **Low disk on `/tmp`?** The installer uses **`/var/tmp`** for pip (override with **`SKYWARN_TMPDIR`** if needed).
-
-</details>
 
 ## After install
 
@@ -143,22 +126,7 @@ sudo apt install ./skywarnplus-ng_*.deb12_amd64.deb   # Bookworm example
 sudo systemctl restart skywarnplus-ng
 ```
 
-Tarball sites should [migrate to apt](docs/debian.md#migrating-from-tarball-installsh-to-apt) instead of re-running `install.sh`.
-
-<details>
-<summary><strong>Deprecated: release tarball + install.sh</strong></summary>
-
-Do not use on sites that can move to the `.deb`. Re-running `install.sh` runs `pip install` on the node and may skip new privileged scripts (for example `install-tts-voice.sh` and sudoers).
-
-```bash
-wget https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/download/v1.6.3/skywarnplus-ng-1.6.3.tar.gz
-tar -xzf skywarnplus-ng-1.6.3.tar.gz
-cd skywarnplus-ng-1.6.3
-./install.sh
-sudo systemctl restart skywarnplus-ng
-```
-
-</details>
+Sites still on the old release-tarball installer should [migrate to apt](docs/debian.md#migrating-from-a-tarball-install-to-apt).
 
 ## Paths & CLI
 
@@ -183,7 +151,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 
 | Topic | Guide |
 |-------|--------|
-| Debian / APT install, migrate from tarball | **[docs/debian.md](docs/debian.md)** |
+| Debian / APT install, upgrade, migrate from tarball | **[docs/debian.md](docs/debian.md)** |
 | Push alerts, email, Discord, subscribers | **[docs/](docs/README.md)** |
 | Earthquakes, wildfires, NHC by position | **[docs/geo-hazards.md](docs/geo-hazards.md)** |
 | NWS county codes | [CountyCodes.md](CountyCodes.md) |
@@ -211,7 +179,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 | 404 / broken UI behind nginx | Check **`base_path`** and proxy prefix stripping — [guide](nginx-proxy-manager-guide.md) |
 | WebSocket reconnect loop | Long proxy timeouts + correct **`base_path`** |
 | pip: no space left on device | Check **`df -h /var/tmp`** or set **`SKYWARN_TMPDIR`** |
-| Stylesheet missing on install | Use a release tarball, or run `npm install && npm run build:css` |
+| Stylesheet missing on install | Rebuild CSS with `npm install && npm run build:css` (the `.deb` ships prebuilt CSS) |
 
 ## Development
 

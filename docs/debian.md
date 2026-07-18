@@ -2,7 +2,7 @@
 
 Prebuilt `.deb` packages for **AllStar Link 3** nodes. Supported architectures: **amd64** and **arm64** only. Install skips `pip` on the node.
 
-New installs and upgrades should use the **hardenedpenguin APT repository** or a `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). The release tarball **`install.sh`** flow is **deprecated** — see [Migrating from tarball](#migrating-from-tarball-installsh-to-apt).
+New installs and upgrades use the **hardenedpenguin APT repository** or a `.deb` from [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). Sites still running the retired release-tarball installer should [migrate to apt](#migrating-from-a-tarball-install-to-apt).
 
 ## Prerequisites
 
@@ -66,9 +66,9 @@ sudo apt install ./skywarnplus-ng_*.deb13_amd64.deb
 sudo systemctl status skywarnplus-ng
 ```
 
-## Migrating from tarball (`install.sh`) to apt
+## Migrating from a tarball install to apt
 
-Do **not** mix re-running `install.sh` and `dpkg` upgrades on the same tree. To move from a tarball install:
+The old release-tarball installer (`install.sh`) has been retired. If a node was set up that way, move it onto the package:
 
 1. **Back up** config and data (optional but recommended):
 
@@ -150,18 +150,18 @@ sudo apt remove skywarnplus-ng
 | `skywarnplus-ng: bad interpreter` (CI path in shebang) | Upgrade to a package built with `fix-venv-paths.sh`, or use `venv/bin/python -m skywarnplus_ng.cli` (same as systemd). |
 | Dashboard at `/skywarnplus-ng/` unstyled; browser 404 on `/static/tailwind.css`, `/api/status`, `/ws` | Empty `monitoring.http_server.base_path` while using the Apache proxy. Upgrade to **1.6.2+** or set `base_path: "/skywarnplus-ng"` in `/etc/skywarnplus-ng/config.yaml` and `sudo systemctl restart skywarnplus-ng`. |
 
-## vs tarball + install.sh
+## vs the retired tarball installer
 
-| | Tarball `install.sh` (deprecated) | `.deb` |
-|--|-----------------------------------|--------|
+For reference, the `.deb` improves on the old `install.sh` flow in every area that used to cause trouble:
+
+| | Retired tarball `install.sh` | `.deb` |
+|--|------------------------------|--------|
 | pip on node | Yes | No |
 | TTS | asl3-tts + `/var/lib/piper-tts` | `Depends: asl3-tts` |
 | Voice install sudoers | Not reliably updated | Shipped in package |
 | Port 8100 check | Fails install if busy | Same (postinst) |
 | Apache setup | With warnings | Same |
 | ASL3 | Manual asterisk check | `Depends: asl3-asterisk` |
-
-Tarball `install.sh` remains in the repo for developers and non-Debian systems only.
 
 ## Build (maintainers)
 

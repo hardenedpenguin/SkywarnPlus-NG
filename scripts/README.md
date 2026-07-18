@@ -32,19 +32,6 @@ python3 scripts/test_asterisk_integration.py
 - Sound file availability
 - DTMF command processing
 
-### `create_release.py`
-Creates a production-ready tarball for deployment.
-
-**Usage:**
-```bash
-python3 scripts/create_release.py
-```
-
-**Creates:**
-- `skywarnplus-ng-1.0.0.tar.gz` - Production tarball
-- Includes all necessary files for deployment
-- Sets proper permissions on scripts
-
 **Note:** Service management is handled via systemd. Use `sudo systemctl restart skywarnplus-ng` to restart the service.
 
 ### `test_pushover.py`
