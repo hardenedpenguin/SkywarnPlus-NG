@@ -4,6 +4,7 @@ Professional web dashboard server for SkywarnPlus-NG.
 
 import asyncio
 import hashlib
+import ipaddress
 import logging
 import secrets
 from urllib.parse import quote
@@ -140,17 +141,31 @@ class WebDashboard(
         self._update_check_lock = asyncio.Lock()
         self._update_check_task: Optional[asyncio.Task] = None
         self._github_http_session: Optional[aiohttp.ClientSession] = None
+        # Serializes config YAML read-modify-write cycles (save/reset/restore/login
+        # password persist); concurrent writers would clobber each other's changes.
+        self._config_write_lock = asyncio.Lock()
 
         # Setup template environment
         self._setup_templates()
 
     @staticmethod
     def _client_ip(request: Request) -> str:
-        """Best-effort client IP (first X-Forwarded-For hop if present)."""
+        """
+        Client IP for rate limiting.
+
+        X-Forwarded-For is only honored when the direct peer is the local
+        reverse proxy (loopback); otherwise any client could spoof the header
+        and rotate rate-limit keys to bypass login brute-force protection.
+        """
+        remote = request.remote or ""
         xff = request.headers.get("X-Forwarded-For")
-        if xff:
-            return xff.split(",")[0].strip()[:200] or "unknown"
-        return (request.remote or "unknown")[:200]
+        if xff and remote:
+            try:
+                if ipaddress.ip_address(remote).is_loopback:
+                    return xff.split(",")[0].strip()[:200] or "unknown"
+            except ValueError:
+                pass
+        return (remote or "unknown")[:200]
 
     @staticmethod
     def _subscriber_webhook_validation_error(url) -> Optional[str]:
@@ -524,7 +539,20 @@ class WebDashboard(
         app["base_path"] = base_path
         app["mount_prefix"] = mount_prefix
 
-        secret_key = bytes.fromhex(self.config.monitoring.http_server.auth.secret_key)
+        configured_key = self.config.monitoring.http_server.auth.secret_key
+        try:
+            secret_key = bytes.fromhex(configured_key)
+            if len(secret_key) != 32:
+                raise ValueError(f"secret_key must be 32 bytes, got {len(secret_key)}")
+        except ValueError as e:
+            # Invalid user-supplied key must not crash startup; sessions reset instead.
+            logger.warning(
+                "Invalid auth.secret_key (%s); generating a session key for this run. "
+                "Set a 64-character hex value to keep sessions across restarts.",
+                e,
+            )
+            self.config.monitoring.http_server.auth.secret_key = secrets.token_hex(32)
+            secret_key = bytes.fromhex(self.config.monitoring.http_server.auth.secret_key)
         setup(app, EncryptedCookieStorage(secret_key))
 
         app.middlewares.append(self._auth_middleware)

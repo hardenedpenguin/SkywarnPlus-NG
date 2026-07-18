@@ -99,7 +99,9 @@ def path_requires_auth(
     if path == "/login" or path.startswith("/api/auth/"):
         return False
     if path == "/ws":
-        return False
+        # The websocket streams the same payload as GET /api/status; keep the
+        # two consistent when the operator makes the status API private.
+        return not public_status_api
 
     if path.startswith(_SENSITIVE_PAGE_PREFIXES):
         return True

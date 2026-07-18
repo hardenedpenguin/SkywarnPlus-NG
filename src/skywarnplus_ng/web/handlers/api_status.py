@@ -301,7 +301,7 @@ class StatusApiMixin:
             return web.json_response(status)
         except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Error building status response: {e}", exc_info=True)
-            return web.json_response({"error": str(e)}, status=500)
+            return web.json_response({"error": "Failed to build status response"}, status=500)
         except Exception as e:
             logger.error(f"Error getting status: {e}", exc_info=True)
-            return web.json_response({"error": str(e)}, status=500)
+            return web.json_response({"error": "Failed to get status"}, status=500)

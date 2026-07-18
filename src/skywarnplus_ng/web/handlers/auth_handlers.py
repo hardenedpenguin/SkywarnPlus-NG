@@ -30,7 +30,14 @@ class AuthHandlersMixin:
             if base_path and not base_path.startswith("/"):
                 base_path = "/" + base_path
             next_path = request.query.get("next", "").strip()
-            if next_path and next_path.startswith("/") and not next_path.startswith("//"):
+            # Reject //host and /\host: browsers normalize backslash to slash,
+            # turning /\evil.com into a scheme-relative external redirect.
+            if (
+                next_path
+                and next_path.startswith("/")
+                and not next_path.startswith("//")
+                and "\\" not in next_path
+            ):
                 loc = f"{base_path}{next_path}" if base_path else next_path
             else:
                 loc = f"{base_path}/" if base_path else "/"
@@ -58,8 +65,13 @@ class AuthHandlersMixin:
             data = await request.json()
             if not isinstance(data, dict):
                 return web.json_response({"error": "JSON body must be an object"}, status=400)
-            username = data.get("username", "").strip()
+            username = data.get("username", "")
             password = data.get("password", "")
+            if not isinstance(username, str) or not isinstance(password, str):
+                return web.json_response(
+                    {"error": "Username and password must be strings"}, status=400
+                )
+            username = username.strip()
             remember = data.get("remember", False)
 
             if not username or not password:
@@ -71,7 +83,9 @@ class AuthHandlersMixin:
                 password, auth_config.password
             ):
                 if not self._is_bcrypt_hash(auth_config.password):
-                    self._persist_dashboard_auth_password(self._hash_password(password))
+                    # Serialize with config saves so the YAML write cannot interleave
+                    async with self._config_write_lock:
+                        self._persist_dashboard_auth_password(self._hash_password(password))
 
                 must_change = self._uses_default_dashboard_password()
 

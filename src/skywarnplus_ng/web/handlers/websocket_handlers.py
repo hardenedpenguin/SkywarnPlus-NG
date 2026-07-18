@@ -23,8 +23,18 @@ logger = logging.getLogger(__name__)
 
 
 class WebsocketHandlersMixin:
+    # Cap concurrent websocket clients (dashboard tabs); prevents connection exhaustion
+    MAX_WEBSOCKET_CLIENTS = 50
+
     async def websocket_handler(self, request: Request) -> Response:
         """Handle WebSocket connections."""
+        if len(self.websocket_clients) >= self.MAX_WEBSOCKET_CLIENTS:
+            logger.warning(
+                "Rejecting WebSocket connection: %s clients already connected",
+                len(self.websocket_clients),
+            )
+            return web.Response(status=503, text="Too many WebSocket connections")
+
         # Protocol-level PING/PONG (browser answers automatically) so reverse proxies
         # (nginx default read timeouts, etc.) see regular upstream traffic. JSON app pings
         # from the client can be throttled when the tab is backgrounded.

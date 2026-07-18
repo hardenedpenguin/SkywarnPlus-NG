@@ -4,6 +4,7 @@ Config and county restore API handlers mixin.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 from pathlib import Path
@@ -256,10 +257,14 @@ class ConfigApiMixin:
             )
         except Exception as e:
             logger.error(f"Error getting config: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web.json_response({"error": "Failed to load configuration"}, status=500)
 
     async def api_config_update_handler(self, request: Request) -> Response:
-        """Handle API config update endpoint."""
+        """Handle API config update endpoint (serialized: saves must not interleave)."""
+        async with self._config_write_lock:
+            return await self._api_config_update_impl(request)
+
+    async def _api_config_update_impl(self, request: Request) -> Response:
         try:
             client_ip = self._client_ip(request)
             allowed, retry_after = await self._config_rate_limit.check(client_ip)
@@ -351,19 +356,17 @@ class ConfigApiMixin:
                     logger.warning("Could not process password update: %s", e)
 
                 # Handle PushOver credentials - keep current values if empty
-                if "pushover" in data:
-                    if "api_token" in data["pushover"] and (
-                        not data["pushover"]["api_token"]
-                        or data["pushover"]["api_token"].strip() == ""
+                if "pushover" in data and isinstance(data["pushover"], dict):
+                    for key, current in (
+                        ("api_token", self.config.pushover.api_token),
+                        ("user_key", self.config.pushover.user_key),
                     ):
-                        data["pushover"]["api_token"] = self.config.pushover.api_token
-                        logger.info("Keeping current PushOver API token (new token was empty)")
-                    if "user_key" in data["pushover"] and (
-                        not data["pushover"]["user_key"]
-                        or data["pushover"]["user_key"].strip() == ""
-                    ):
-                        data["pushover"]["user_key"] = self.config.pushover.user_key
-                        logger.info("Keeping current PushOver user key (new key was empty)")
+                        if key not in data["pushover"]:
+                            continue
+                        value = data["pushover"][key]
+                        if not value or (isinstance(value, str) and value.strip() == ""):
+                            data["pushover"][key] = current
+                            logger.info("Keeping current PushOver %s (new value was empty)", key)
 
                 # Email / FCM / SMS secrets are redacted in GET /api/config; blank means keep.
                 preserve_blank_notification_secrets(data, self.config)
@@ -563,7 +566,11 @@ class ConfigApiMixin:
             return web.json_response({"error": "Failed to update configuration"}, status=500)
 
     async def api_config_reset_handler(self, request: Request) -> Response:
-        """Handle API config reset endpoint."""
+        """Handle API config reset endpoint (serialized with other config writers)."""
+        async with self._config_write_lock:
+            return await self._api_config_reset_impl(request)
+
+    async def _api_config_reset_impl(self, request: Request) -> Response:
         try:
             from shutil import copy2
 
@@ -641,8 +648,10 @@ class ConfigApiMixin:
             if not self.app.audio_manager:
                 return web.json_response({"error": "Audio manager not available"}, status=503)
 
-            # Generate audio file
-            filename = self.app.audio_manager.generate_county_audio(county.name)
+            # Generate audio file (worker thread; TTS/ffmpeg block the event loop)
+            filename = await asyncio.to_thread(
+                self.app.audio_manager.generate_county_audio, county.name
+            )
 
             if not filename:
                 return web.json_response(
@@ -652,29 +661,30 @@ class ConfigApiMixin:
             # Update county config with generated filename
             county.audio_file = filename
 
-            # Save config
+            # Save config (serialized with other config writers)
             try:
-                from ruamel.yaml import YAML
+                async with self._config_write_lock:
+                    from ruamel.yaml import YAML
 
-                yaml = YAML()
-                yaml.preserve_quotes = True
-                config_path = resolve_config_path(self.config)
+                    yaml = YAML()
+                    yaml.preserve_quotes = True
+                    config_path = resolve_config_path(self.config)
 
-                with open(config_path, "r") as f:
-                    config_data = yaml.load(f)
+                    with open(config_path, "r") as f:
+                        config_data = yaml.load(f)
 
-                # Update the county in config
-                if "counties" in config_data:
-                    for i, c in enumerate(config_data["counties"]):
-                        if c.get("code") == county_code:
-                            config_data["counties"][i]["audio_file"] = filename
-                            break
+                    # Update the county in config
+                    if "counties" in config_data:
+                        for i, c in enumerate(config_data["counties"]):
+                            if c.get("code") == county_code:
+                                config_data["counties"][i]["audio_file"] = filename
+                                break
 
-                # Never write plaintext dashboard auth password to disk
-                self._ensure_auth_password_hashed_in_dict(config_data)
+                    # Never write plaintext dashboard auth password to disk
+                    self._ensure_auth_password_hashed_in_dict(config_data)
 
-                with open(config_path, "w") as f:
-                    yaml.dump(config_data, f)
+                    with open(config_path, "w") as f:
+                        yaml.dump(config_data, f)
 
                 logger.info(
                     f"Updated config with generated audio file for {county_code}: {filename}"
@@ -705,7 +715,11 @@ class ConfigApiMixin:
             return web.json_response({"success": False, "error": error_msg}, status=500)
 
     async def api_config_restore_handler(self, request: Request) -> Response:
-        """Handle API config restore endpoint."""
+        """Handle API config restore endpoint (serialized with other config writers)."""
+        async with self._config_write_lock:
+            return await self._api_config_restore_impl(request)
+
+    async def _api_config_restore_impl(self, request: Request) -> Response:
         try:
             from shutil import copy2
 
