@@ -368,6 +368,7 @@
                         <label for="nhc_feed_path_select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">NHC Feed</label>
                         <select id="nhc_feed_path_select" onchange="onConfigPresetChange('nhc_feed_path')"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                            <option value="all">All basins (Atlantic + East Pacific + Central Pacific)</option>
                             <option value="/gis-at.xml">Atlantic — /gis-at.xml</option>
                             <option value="/gis-ep.xml">East Pacific — /gis-ep.xml</option>
                             <option value="/gis-cp.xml">Central Pacific — /gis-cp.xml</option>
@@ -375,9 +376,10 @@
                         </select>
                         <input type="text" id="nhc_feed_path_custom"
                                class="hidden mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
-                               placeholder="/gis-at.xml"
+                               placeholder="all or /gis-at.xml,/gis-ep.xml"
                                oninput="onConfigPresetCustomInput('nhc_feed_path')">
                         <input type="hidden" id="nhc_feed_path" name="nhc.feed_path">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">“All basins” polls every NHC GIS feed so Atlantic and Pacific storms appear together.</p>
                     </div>
                     <div>
                         <label for="nhc_poll_interval_minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Poll Interval (minutes)</label>
@@ -390,9 +392,10 @@
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
                     </div>
                     <div>
-                        <label for="nhc_max_advisory_age_hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Advisory Age (hours)</label>
-                        <input type="number" id="nhc_max_advisory_age_hours" name="nhc.max_advisory_age_hours" min="1" max="48" value="4"
+                        <label for="nhc_max_advisory_age_hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Advisory Age for Voice (hours)</label>
+                        <input type="number" id="nhc_max_advisory_age_hours" name="nhc.max_advisory_age_hours" min="1" max="48" value="8"
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Only affects voice announcements. Active storms stay on the dashboard even if the advisory is older (NHC intermediates are usually every 6 hours).</p>
                     </div>
                     <div>
                         <label for="nhc_max_announcements_per_cycle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Announcements Per Poll</label>
@@ -2996,10 +2999,10 @@
         document.getElementById('alerts_announcement_hold_minutes').value = config.alerts?.announcement_hold_minutes ?? 0;
 
         document.getElementById('nhc_enabled').checked = config.nhc?.enabled || false;
-        setConfigPresetField('nhc_feed_path', config.nhc?.feed_path || '/gis-at.xml');
+        setConfigPresetField('nhc_feed_path', config.nhc?.feed_path || 'all');
         document.getElementById('nhc_poll_interval_minutes').value = config.nhc?.poll_interval_minutes ?? 60;
         document.getElementById('nhc_max_distance_miles').value = config.nhc?.max_distance_miles ?? 1000;
-        document.getElementById('nhc_max_advisory_age_hours').value = config.nhc?.max_advisory_age_hours ?? 4;
+        document.getElementById('nhc_max_advisory_age_hours').value = config.nhc?.max_advisory_age_hours ?? 8;
         document.getElementById('nhc_max_announcements_per_cycle').value = config.nhc?.max_announcements_per_cycle ?? 3;
         document.getElementById('nhc_hurricanes_only').checked = config.nhc?.hurricanes_only || false;
 

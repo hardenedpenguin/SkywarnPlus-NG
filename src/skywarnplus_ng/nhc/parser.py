@@ -248,14 +248,46 @@ def clean_cyclone_headline(headline: str) -> str:
     return text
 
 
+def normalize_cyclone_movement(movement: str, headline: str = "") -> str:
+    """
+    Clean NHC movement strings.
+
+    When a storm is nearly stationary, NHC often publishes `` at  mph``
+    (empty direction/speed). Treat that as missing and fall back to
+    meandering/stationary cues from the headline when available.
+    """
+    text = re.sub(r"\s+", " ", (movement or "").strip())
+    if not text:
+        text = ""
+    elif re.fullmatch(r"at\s*mph", text, re.IGNORECASE):
+        text = ""
+    elif not (re.search(r"\d+", text) and re.search(r"[A-Za-z]", text)):
+        if not re.search(r"stationar", text, re.IGNORECASE):
+            text = ""
+
+    if text:
+        return text
+
+    headline_u = (headline or "").upper()
+    if "MEANDERING" in headline_u:
+        return "Meandering"
+    if "STATIONARY" in headline_u or "LITTLE MOVEMENT" in headline_u:
+        return "Nearly stationary"
+    return ""
+
+
 def build_storm_summary(cyclone: ParsedCyclone) -> str:
     parts: List[str] = []
     if cyclone.center:
         parts.append(f"Located near {cyclone.center}.")
     if cyclone.wind:
         parts.append(f"Wind speed {cyclone.wind}.")
-    if cyclone.movement:
-        parts.append(f"Moving {cyclone.movement}.")
+    movement = normalize_cyclone_movement(cyclone.movement, cyclone.headline)
+    if movement:
+        if movement.lower() in {"meandering", "nearly stationary"}:
+            parts.append(f"{movement}.")
+        else:
+            parts.append(f"Moving {movement}.")
     return " ".join(parts)
 
 

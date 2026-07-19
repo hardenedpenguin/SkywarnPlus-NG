@@ -385,8 +385,11 @@ class NhcConfig(BaseModel):
 
     enabled: bool = Field(False, description="Enable NHC tropical cyclone voice advisories")
     feed_path: str = Field(
-        "/gis-at.xml",
-        description="NHC GIS RSS path (e.g. /gis-at.xml Atlantic, /gis-ep.xml East Pacific, /gis-cp.xml Central Pacific)",
+        "all",
+        description=(
+            "NHC GIS RSS path: all (Atlantic+East Pacific+Central Pacific), "
+            "/gis-at.xml, /gis-ep.xml, /gis-cp.xml, or comma-separated paths"
+        ),
     )
     poll_interval_minutes: int = Field(
         60,
@@ -401,10 +404,14 @@ class NhcConfig(BaseModel):
         description="Only announce storms within this distance of your position",
     )
     max_advisory_age_hours: int = Field(
-        4,
+        8,
         ge=1,
         le=48,
-        description="Ignore advisories older than this",
+        description=(
+            "Only announce advisories newer than this many hours "
+            "(NHC intermediate advisories are typically every 6 hours; "
+            "tracked storms remain on the dashboard regardless of age)"
+        ),
     )
     hurricanes_only: bool = Field(
         False,

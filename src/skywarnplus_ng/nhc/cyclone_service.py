@@ -19,6 +19,7 @@ from .parser import (
     haversine_miles,
     is_cyclone_current,
     is_hurricane,
+    normalize_cyclone_movement,
     parse_coordinates,
     parse_nhc_cyclone_xml,
 )
@@ -30,8 +31,32 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 NHC_BASE_URL = "https://www.nhc.noaa.gov"
+NHC_BASIN_FEEDS = ("/gis-at.xml", "/gis-ep.xml", "/gis-cp.xml")
 # Throttle dashboard/status refreshes separately from voice-announcement polls
 DISPLAY_REFRESH_MINUTES = 5
+
+
+def resolve_nhc_feed_paths(feed_path: str) -> List[str]:
+    """Resolve configured feed path into one or more NHC GIS RSS paths."""
+    raw = (feed_path or "").strip()
+    if not raw:
+        return ["/gis-at.xml"]
+    lowered = raw.lower()
+    if lowered in {"all", "*", "/gis-all", "/gis-all.xml", "gis-all.xml"}:
+        return list(NHC_BASIN_FEEDS)
+    if "," in raw:
+        paths: List[str] = []
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if not part.startswith("/"):
+                part = f"/{part}"
+            paths.append(part)
+        return paths or ["/gis-at.xml"]
+    if not raw.startswith("/"):
+        raw = f"/{raw}"
+    return [raw]
 
 
 @dataclass(frozen=True)
@@ -75,8 +100,11 @@ class NhcCycloneService:
     def sync_http_client_user_agent(self) -> None:
         self._client.headers["User-Agent"] = self.config.nws.user_agent
 
-    def _feed_cache_key(self) -> str:
-        return f"nhc:{self.config.nhc.feed_path.lstrip('/')}"
+    def _feed_cache_key(self, path: str) -> str:
+        return f"nhc:{path.lstrip('/')}"
+
+    def feed_paths(self) -> List[str]:
+        return resolve_nhc_feed_paths(self.config.nhc.feed_path)
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -99,26 +127,64 @@ class NhcCycloneService:
             mobile_service=self.mobile_service,
         )
 
-    async def fetch_feed_xml(self) -> Optional[str]:
-        cache_key = self._feed_cache_key()
+    async def fetch_feed_xml(self, path: Optional[str] = None) -> Optional[str]:
+        feed_path = path or self.feed_paths()[0]
+        cache_key = self._feed_cache_key(feed_path)
 
         async def _fetch() -> Optional[str]:
-            return await self._fetch_feed_xml_uncached()
+            return await self._fetch_feed_xml_uncached(feed_path)
 
         return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
 
-    async def _fetch_feed_xml_uncached(self) -> Optional[str]:
-        path = self.config.nhc.feed_path.lstrip("/")
-        url = f"{NHC_BASE_URL}/{path}"
+    async def _fetch_feed_xml_uncached(self, path: str) -> Optional[str]:
+        url = f"{NHC_BASE_URL}/{path.lstrip('/')}"
         try:
             response = await self._client.get(url)
             response.raise_for_status()
             self._last_error_message = None
             return response.text
         except httpx.HTTPError as exc:
-            logger.warning("NHC feed fetch failed: %s", exc)
-            self._last_error_message = f"NHC feed fetch failed: {exc}"
+            logger.warning("NHC feed fetch failed (%s): %s", path, exc)
+            self._last_error_message = f"NHC feed fetch failed ({path}): {exc}"
             return None
+
+    async def fetch_cyclones(self) -> Optional[List[ParsedCyclone]]:
+        """
+        Fetch and parse configured NHC basin feed(s).
+
+        Returns ``None`` when every configured feed fails. Returns an empty
+        list when feeds are reachable but report no active cyclones.
+        """
+        storms: List[ParsedCyclone] = []
+        any_success = False
+        last_error: Optional[str] = None
+
+        for path in self.feed_paths():
+            xml_text = await self.fetch_feed_xml(path)
+            if xml_text is None:
+                last_error = self._last_error_message
+                continue
+            any_success = True
+            if "no tropical cyclones" in xml_text.lower():
+                continue
+            storms.extend(parse_nhc_cyclone_xml(xml_text))
+
+        if not any_success:
+            if last_error:
+                self._last_error_message = last_error
+            return None
+
+        self._last_error_message = None
+        # Deduplicate by ATCF + advisory datetime if feeds overlap.
+        seen: set[str] = set()
+        unique: List[ParsedCyclone] = []
+        for cyclone in storms:
+            key = cyclone.advisory_key
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(cyclone)
+        return unique
 
     def _position_source(self) -> str:
         pos = self.config.geo_hazard_position
@@ -150,6 +216,7 @@ class NhcCycloneService:
         state = state or {}
         details: Dict[str, Any] = {
             "feed_path": self.config.nhc.feed_path,
+            "feed_paths": self.feed_paths(),
             "use_gps_position": self.config.geo_hazard_position.use_gps_position,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "last_fetch_ok_at": (
@@ -189,21 +256,19 @@ class NhcCycloneService:
                 "details": details,
             }
 
-        xml_text = await self.fetch_feed_xml()
-        if not xml_text:
+        cyclones = await self.fetch_cyclones()
+        if cyclones is None:
             msg = self._last_error_message or "NHC feed fetch failed"
             if state.get("nhc_last_error_message"):
                 msg = str(state["nhc_last_error_message"])
             return {"ok": False, "message": msg, "details": details}
 
         details["feed_reachable"] = True
-        if "no tropical cyclones" in xml_text.lower():
-            details["active_storms"] = 0
+        active = filter_active_cyclones(cyclones)
+        details["active_storms"] = len(active)
+        if not active:
             message = "NHC feed OK (no active tropical cyclones)"
         else:
-            storms = parse_nhc_cyclone_xml(xml_text)
-            active = filter_active_cyclones(storms)
-            details["active_storms"] = len(active)
             message = f"NHC feed OK ({len(active)} active storm(s) in feed)"
 
         return {"ok": True, "message": message, "details": details}
@@ -235,16 +300,14 @@ class NhcCycloneService:
         tracked: List[Dict[str, Any]] = []
 
         for cyclone in filter_active_cyclones(cyclones):
-            if not is_cyclone_current(cyclone, nhc.max_advisory_age_hours):
-                continue
-            if nhc.hurricanes_only and not is_hurricane(cyclone.type):
-                continue
             coords = parse_coordinates(cyclone.center)
             if not coords:
                 continue
             distance = haversine_miles(lat, lon, coords[0], coords[1])
             within_range = distance <= nhc.max_distance_miles
             announced = self._already_announced(cyclone.advisory_key, state)
+            current = is_cyclone_current(cyclone, nhc.max_advisory_age_hours)
+            movement = normalize_cyclone_movement(cyclone.movement, cyclone.headline)
             tracked.append(
                 {
                     "name": cyclone.name,
@@ -253,15 +316,24 @@ class NhcCycloneService:
                     "distance_miles": distance,
                     "advisory_key": cyclone.advisory_key,
                     "wind": cyclone.wind,
-                    "movement": cyclone.movement,
+                    "movement": movement,
+                    "pressure": cyclone.pressure,
+                    "headline": cyclone.headline,
+                    "datetime": cyclone.datetime_raw,
                     "center": cyclone.center,
                     "within_range": within_range,
                     "announced": announced,
+                    "advisory_current": current,
                 }
             )
+            # Age / hurricane filters apply to voice only — keep dashboard complete.
+            if not current:
+                continue
+            if nhc.hurricanes_only and not is_hurricane(cyclone.type):
+                continue
             if not within_range:
                 continue
-            if self._already_announced(cyclone.advisory_key, state):
+            if announced:
                 continue
 
             selected.append(
@@ -275,10 +347,11 @@ class NhcCycloneService:
                     headline=cyclone.headline,
                     center=cyclone.center,
                     wind=cyclone.wind,
-                    movement=cyclone.movement,
+                    movement=movement,
                 )
             )
 
+        tracked.sort(key=lambda item: item.get("distance_miles") or 0)
         self._tracked_storms = tracked
         return selected
 
@@ -298,16 +371,11 @@ class NhcCycloneService:
         if position is None:
             return
 
-        xml_text = await self.fetch_feed_xml()
+        cyclones = await self.fetch_cyclones()
         self._last_display_refresh_at = datetime.now(timezone.utc)
-        if not xml_text:
+        if cyclones is None:
             return
 
-        if "no tropical cyclones" in xml_text.lower():
-            self._tracked_storms = []
-            return
-
-        cyclones = parse_nhc_cyclone_xml(xml_text)
         self.select_new_advisories(cyclones, state, position)
 
     async def poll(self, state: Dict[str, Any]) -> List[CycloneAdvisory]:
@@ -322,26 +390,21 @@ class NhcCycloneService:
             self._record_poll_error(state, msg)
             return []
 
-        xml_text = await self.fetch_feed_xml()
-        if not xml_text:
+        cyclones = await self.fetch_cyclones()
+        if cyclones is None:
             self._record_poll_error(
                 state,
                 self._last_error_message or "NHC feed fetch failed",
             )
             return []
 
-        if "no tropical cyclones" in xml_text.lower():
-            self._tracked_storms = []
-            self._last_poll_at = datetime.now(timezone.utc)
-            self._record_poll_success(state)
-            logger.debug("NHC feed reports no active tropical cyclones")
-            return []
-
-        cyclones = parse_nhc_cyclone_xml(xml_text)
         advisories = self.select_new_advisories(cyclones, state, position)
         self._last_poll_at = datetime.now(timezone.utc)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
+        if not cyclones:
+            logger.debug("NHC feed reports no active tropical cyclones")
+            return []
         cap = self.config.nhc.max_announcements_per_cycle
         if len(advisories) > cap:
             logger.info(
@@ -364,6 +427,7 @@ class NhcCycloneService:
         return {
             "enabled": nhc.enabled,
             "feed_path": nhc.feed_path,
+            "feed_paths": self.feed_paths(),
             "poll_interval_minutes": nhc.poll_interval_minutes,
             "max_distance_miles": nhc.max_distance_miles,
             "max_announcements_per_cycle": nhc.max_announcements_per_cycle,

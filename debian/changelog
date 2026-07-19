@@ -1,3 +1,15 @@
+skywarnplus-ng (1.6.4-1) unstable; urgency=medium
+
+  * NHC: poll all basins by default (Atlantic + East/Central Pacific); sanitize
+    empty movement strings (e.g. meandering storms); show headline, pressure,
+    and advisory time on the dashboard; apply advisory-age and hurricanes-only
+    filters to voice announcements only so active storms stay visible.
+  * Retire install.sh and stop shipping the release tarball (APT/.deb only).
+  * Docs: expand README badges; use canonical GPL-3.0 LICENSE text so GitHub
+    license detection works.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Sun, 19 Jul 2026 18:04:00 -0500
+
 skywarnplus-ng (1.6.3-1) unstable; urgency=medium
 
   * NWS fetch: a failing zone no longer discards alerts from successful zones;

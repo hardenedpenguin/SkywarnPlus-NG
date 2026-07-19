@@ -7,12 +7,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from skywarnplus_ng.core.config import AppConfig, GeoHazardPositionConfig, NhcConfig, NWSApiConfig
-from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService
+from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService, resolve_nhc_feed_paths
 from skywarnplus_ng.nhc.parser import (
     build_cyclone_tts_text,
     filter_active_cyclones,
     haversine_miles,
     is_cyclone_current,
+    normalize_cyclone_movement,
     parse_cyclone_datetime,
     parse_nhc_cyclone_xml,
 )
@@ -90,6 +91,84 @@ def test_is_cyclone_current_cdt_advisory_within_max_age():
     now = datetime(2026, 6, 16, 16, 12, tzinfo=timezone.utc)
     with frozen_time(now):
         assert is_cyclone_current(cyclone, max_age_hours=4) is True
+
+
+def test_normalize_cyclone_movement_empty_nhc_placeholder():
+    assert normalize_cyclone_movement(" at  mph") == ""
+    assert normalize_cyclone_movement("at mph") == ""
+    assert (
+        normalize_cyclone_movement(
+            " at  mph",
+            "...TROPICAL DEPRESSION MEANDERING OFF THE WEST COAST...",
+        )
+        == "Meandering"
+    )
+    assert normalize_cyclone_movement("NW at 12 mph") == "NW at 12 mph"
+
+
+def test_build_cyclone_tts_skips_broken_movement():
+    cyclone = replace(
+        parse_nhc_cyclone_xml(FIXTURE.read_text())[0],
+        movement=" at  mph",
+        headline="...TROPICAL DEPRESSION MEANDERING OFFSHORE...",
+    )
+    text = build_cyclone_tts_text(cyclone)
+    assert "Moving  at" not in text
+    assert "Meandering" in text
+
+
+def test_resolve_nhc_feed_paths_all_basins():
+    assert resolve_nhc_feed_paths("all") == [
+        "/gis-at.xml",
+        "/gis-ep.xml",
+        "/gis-cp.xml",
+    ]
+    assert resolve_nhc_feed_paths("/gis-at.xml") == ["/gis-at.xml"]
+    assert resolve_nhc_feed_paths("/gis-at.xml,/gis-ep.xml") == [
+        "/gis-at.xml",
+        "/gis-ep.xml",
+    ]
+
+
+def test_select_tracks_stale_advisory_but_does_not_announce():
+    """Dashboard keeps active storms; voice only announces current advisories."""
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        nhc=NhcConfig(
+            enabled=True,
+            max_distance_miles=1000,
+            max_advisory_age_hours=4,
+            hurricanes_only=False,
+        ),
+        geo_hazard_position=GeoHazardPositionConfig(
+            use_gps_position=False,
+            static_lat=29.42,
+            static_lon=-95.26,
+        ),
+    )
+    service = NhcCycloneService(config)
+    cyclone = replace(
+        parse_nhc_cyclone_xml(FIXTURE.read_text())[0],
+        datetime_raw="10:00 AM CDT Tue Jun 16 2026",
+        center="27.0,-98.0",
+        name="One",
+        type="Tropical Depression",
+        movement=" at  mph",
+        headline="...MEANDERING NEAR THE COAST...",
+        pressure="1010 mb",
+    )
+    # 6 hours after advisory — older than max_advisory_age_hours=4
+    now = datetime(2026, 6, 16, 21, 0, tzinfo=timezone.utc)
+    with frozen_time(now):
+        advisories = service.select_new_advisories([cyclone], {}, (29.42, -95.26))
+    assert advisories == []
+    assert len(service._tracked_storms) == 1
+    tracked = service._tracked_storms[0]
+    assert tracked["name"] == "One"
+    assert tracked["advisory_current"] is False
+    assert tracked["movement"] == "Meandering"
+    assert tracked["pressure"] == "1010 mb"
+    assert tracked["headline"].startswith("...")
 
 
 def test_select_new_advisories_cdt_advisory_within_four_hour_window():

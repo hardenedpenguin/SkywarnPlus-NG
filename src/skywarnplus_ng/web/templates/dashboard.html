@@ -368,7 +368,10 @@
         section.classList.remove('hidden');
 
         var metaParts = [];
-        if (nhc.feed_path) metaParts.push(escHtml(nhc.feed_path));
+        if (nhc.feed_path) {
+            var feedLabel = nhc.feed_path === 'all' ? 'All basins' : nhc.feed_path;
+            metaParts.push(escHtml(feedLabel));
+        }
         if (nhc.max_distance_miles) metaParts.push('Voice within ' + escHtml(nhc.max_distance_miles) + ' mi');
         if (nhc.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(nhc.last_poll_at)));
         if (meta) meta.innerHTML = metaParts.join(' · ');
@@ -403,11 +406,19 @@
             html += '<div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/50 dark:bg-gray-800/30">';
             html += '<div class="flex flex-wrap items-start justify-between gap-2">';
             html += '<div class="min-w-0">';
-            html += '<p class="text-base font-semibold text-gray-900 dark:text-white">' + escHtml(storm.name || 'Unknown') + '</p>';
-            html += '<p class="text-sm text-gray-600 dark:text-gray-400">' + escHtml(storm.type || '') + (storm.atcf ? ' · ' + escHtml(storm.atcf) : '') + '</p>';
+            html += '<p class="text-base font-semibold text-gray-900 dark:text-white">' + escHtml(storm.type || '') + ' ' + escHtml(storm.name || 'Unknown') + '</p>';
+            html += '<p class="text-sm text-gray-600 dark:text-gray-400">' + (storm.atcf ? escHtml(storm.atcf) : '');
+            if (storm.datetime) {
+                html += (storm.atcf ? ' · ' : '') + escHtml(storm.datetime);
+            }
+            html += '</p>';
             html += '</div>';
             html += '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium shrink-0 ' + badgeCls + '">' + escHtml(badgeLabel) + '</span>';
             html += '</div>';
+            if (storm.headline) {
+                var headline = String(storm.headline).replace(/\.\.\./g, ' ').replace(/\s+/g, ' ').trim();
+                html += '<p class="mt-2 text-sm text-gray-700 dark:text-gray-300">' + escHtml(headline) + '</p>';
+            }
             html += '<dl class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">';
             html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Distance</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.distance_miles) + ' mi</dd></div>';
             if (storm.wind) {
@@ -415,6 +426,9 @@
             }
             if (storm.movement) {
                 html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Movement</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.movement) + '</dd></div>';
+            }
+            if (storm.pressure) {
+                html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Pressure</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.pressure) + '</dd></div>';
             }
             if (storm.center) {
                 html += '<div><dt class="text-xs text-gray-500 dark:text-gray-400">Center</dt><dd class="font-medium text-gray-900 dark:text-white">' + escHtml(storm.center) + '</dd></div>';

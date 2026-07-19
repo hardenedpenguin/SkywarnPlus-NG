@@ -438,7 +438,7 @@ class ConfigApiMixin:
                     "nhc": {
                         "poll_interval_minutes": 60,
                         "max_distance_miles": 1000,
-                        "max_advisory_age_hours": 4,
+                        "max_advisory_age_hours": 8,
                         "max_announcements_per_cycle": 3,
                     },
                     "earthquake": {

@@ -128,10 +128,10 @@ geo_hazard_position:
 # National Hurricane Center tropical cyclone advisories
 nhc:
   enabled: false
-  feed_path: "/gis-at.xml"  # Atlantic; /gis-ep.xml East Pacific; /gis-cp.xml Central Pacific
+  feed_path: all  # all basins; or /gis-at.xml /gis-ep.xml /gis-cp.xml
   poll_interval_minutes: 60
   max_distance_miles: 1000
-  max_advisory_age_hours: 4
+  max_advisory_age_hours: 8
   hurricanes_only: false
   max_announcements_per_cycle: 3
 

@@ -18,7 +18,7 @@ Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDes
 
 Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Mason Nelson (N5LSN/WRKF394). Release notes: [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases).
 
-**Current release:** [v1.6.3](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.3)
+**Current release:** [v1.6.4](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.4)
 
 > **Install and upgrades:** SkywarnPlus-NG installs as a **Debian `.deb` package**. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). See **[docs/debian.md](docs/debian.md)**. Sites still running the old release-tarball installer should [migrate to apt](docs/debian.md#migrating-from-a-tarball-install-to-apt).
 
@@ -94,7 +94,7 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 
 | Dashboard section | What it monitors | Data source |
 |-------------------|------------------|-------------|
-| **NHC Tropical Cyclones** | Tropical cyclone advisories within range | NOAA NHC GIS RSS (`/gis-at.xml` Atlantic, `/gis-ep.xml` East Pacific, or `/gis-cp.xml` Central Pacific) |
+| **NHC Tropical Cyclones** | Tropical cyclone advisories within range | NOAA NHC GIS RSS (all basins by default: Atlantic + East/Central Pacific) |
 | **USGS Earthquakes** | Earthquakes above a magnitude threshold within range | USGS FDSN event API |
 | **Wildfire Incidents** | Active wildfire **perimeters** (not Red Flag Warnings) | NIFC WFIGS interagency perimeter feed |
 | **Tsunami Alerts** | Tsunami watch/advisory/warning at your position | NWS active alerts (point query) |
@@ -106,7 +106,7 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 - **Geo Hazard Position** (shared) — use **gpsd** when available; optional static lat/lon fallback for NHC, earthquakes, wildfires, tsunami, volcano, and **NWS forecast zones** when a node is **Position controlled**
 - **Enable monitoring** and **Enable voice** — track on the dashboard without announcing, or both
 - **Poll interval**, **max distance** (miles), **max announcements per poll cycle**
-- **NHC:** feed (Atlantic/East Pacific/Central Pacific), max advisory age, hurricanes-only filter
+- **NHC:** feed (all basins, or Atlantic/East Pacific/Central Pacific), max advisory age for voice, hurricanes-only filter
 - **Earthquakes:** minimum magnitude, lookback/age limits, optional ignore-below for automatic events, announce history on first enable
 - **Wildfires:** minimum acres, discovery age, exclude prescribed burns, announce history on first enable
 - **Tsunami:** minimum level (watch/advisory/warning), announce history on first enable
