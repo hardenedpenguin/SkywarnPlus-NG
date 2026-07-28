@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -13,7 +13,7 @@ from skywarnplus_ng.core.models import WeatherAlert
 
 
 def _alert(alert_id: str, county: str) -> WeatherAlert:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return WeatherAlert(
         id=alert_id,
         event="Flood Advisory",

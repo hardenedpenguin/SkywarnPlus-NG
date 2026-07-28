@@ -11,8 +11,8 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlencode
 
 import aiohttp
@@ -38,7 +38,7 @@ class SmsConfig:
     retry_delay_seconds: int = 5
     max_length: int = 160
     all_clear_enabled: bool = False
-    api_base_url: Optional[str] = None  # for tests only
+    api_base_url: str | None = None  # for tests only
 
     def __post_init__(self) -> None:
         if not str(self.account_sid or "").strip():
@@ -64,7 +64,7 @@ def format_short_alert_message(alert: WeatherAlert, max_length: int = 160) -> st
 
     expires = alert.expires
     if expires:
-        expire_label = expires.astimezone(timezone.utc).strftime("%m/%d %I:%M %p UTC")
+        expire_label = expires.astimezone(UTC).strftime("%m/%d %I:%M %p UTC")
         expire_label = expire_label.replace(" 0", " ").replace("/0", "/")
     else:
         expire_label = "see NWS"
@@ -102,9 +102,9 @@ class SmsNotifier:
     def __init__(self, config: SmsConfig):
         self.config = config
         self.logger = logging.getLogger(__name__)
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self) -> "SmsNotifier":
+    async def __aenter__(self) -> SmsNotifier:
         self.session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=self.config.timeout_seconds)
         )
@@ -125,9 +125,9 @@ class SmsNotifier:
         to: str,
         body: str,
         *,
-        alert_id: Optional[str] = None,
-        event: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        alert_id: str | None = None,
+        event: str | None = None,
+    ) -> dict[str, Any]:
         """Send an SMS via Twilio."""
         phone = normalize_phone_number(to)
         if not phone:
@@ -165,11 +165,11 @@ class SmsNotifier:
                 ) as response:
                     response_text = await response.text()
                     if 200 <= response.status < 300:
-                        result: Dict[str, Any] = {
+                        result: dict[str, Any] = {
                             "success": True,
                             "to": phone,
                             "status": response.status,
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                         }
                         if alert_id:
                             result["alert_id"] = alert_id
@@ -206,9 +206,9 @@ class SmsNotifier:
             "success": False,
             "error": last_error,
             "to": phone,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
-    async def send_alert_sms(self, alert: WeatherAlert, to: str) -> Dict[str, Any]:
+    async def send_alert_sms(self, alert: WeatherAlert, to: str) -> dict[str, Any]:
         body = format_short_alert_message(alert, self.config.max_length)
         return await self.send_sms(to, body, alert_id=alert.id, event=alert.event)

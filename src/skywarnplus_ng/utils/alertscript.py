@@ -14,9 +14,9 @@ import fnmatch
 import logging
 import re
 import shlex
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from ..core.models import (
     AlertCategory,
@@ -39,11 +39,11 @@ class AlertScriptMapping:
     def __init__(
         self,
         script_type: str,  # "BASH" or "DTMF"
-        commands: List[str],
-        triggers: List[str],
+        commands: list[str],
+        triggers: list[str],
         match_type: str = "ANY",  # "ANY" or "ALL"
-        nodes: Optional[List[int]] = None,
-        clear_commands: Optional[List[str]] = None,
+        nodes: list[int] | None = None,
+        clear_commands: list[str] | None = None,
     ):
         self.script_type = script_type.upper()
         self.commands = commands
@@ -67,7 +67,7 @@ class AlertScriptMapping:
                 return True
         return False
 
-    def matches_all_triggers(self, alert_events: Set[str]) -> bool:
+    def matches_all_triggers(self, alert_events: set[str]) -> bool:
         """
         Check if all triggers match (for Match: ALL).
 
@@ -84,7 +84,7 @@ class AlertScriptMapping:
                     matched_triggers.add(trigger)
         return len(matched_triggers) == len(self.triggers)
 
-    def matches_any_trigger(self, alert_events: Set[str]) -> bool:
+    def matches_any_trigger(self, alert_events: set[str]) -> bool:
         """
         Check if any trigger matches (for Match: ANY).
 
@@ -106,9 +106,9 @@ class AlertScriptManager:
     def __init__(
         self,
         enabled: bool,
-        mappings: List[Dict[str, Any]],
-        active_commands: Optional[List[Dict[str, Any]]] = None,
-        inactive_commands: Optional[List[Dict[str, Any]]] = None,
+        mappings: list[dict[str, Any]],
+        active_commands: list[dict[str, Any]] | None = None,
+        inactive_commands: list[dict[str, Any]] | None = None,
         asterisk_path: Path = Path("/usr/sbin/asterisk"),
     ):
         """
@@ -123,10 +123,10 @@ class AlertScriptManager:
         """
         self.enabled = enabled
         self.asterisk_path = asterisk_path
-        self.processed_alerts: Set[str] = set()  # Track processed alert events
+        self.processed_alerts: set[str] = set()  # Track processed alert events
 
         # Parse mappings
-        self.mappings: List[AlertScriptMapping] = []
+        self.mappings: list[AlertScriptMapping] = []
         for mapping_config in mappings:
             try:
                 mapping = AlertScriptMapping(
@@ -142,8 +142,8 @@ class AlertScriptManager:
                 logger.error(f"Failed to parse AlertScript mapping: {e}")
 
         # Parse active/inactive commands
-        self.active_commands: List[AlertScriptMapping] = []
-        self.inactive_commands: List[AlertScriptMapping] = []
+        self.active_commands: list[AlertScriptMapping] = []
+        self.inactive_commands: list[AlertScriptMapping] = []
 
         if active_commands:
             for cmd_config in active_commands:
@@ -178,7 +178,7 @@ class AlertScriptManager:
 
     @staticmethod
     def _substitute_placeholders(
-        command: str, alert: Optional[WeatherAlert] = None, *, shell_quoting: bool = True
+        command: str, alert: WeatherAlert | None = None, *, shell_quoting: bool = True
     ) -> str:
         """
         Substitute placeholders in command string.
@@ -233,7 +233,7 @@ class AlertScriptManager:
             )
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("AlertScript BASH command timed out after 30s: %s", command)
                 process.kill()
                 await process.wait()
@@ -300,7 +300,7 @@ class AlertScriptManager:
             return False
 
     async def _execute_mapping_commands(
-        self, mapping: AlertScriptMapping, alerts: List[WeatherAlert], is_clear: bool = False
+        self, mapping: AlertScriptMapping, alerts: list[WeatherAlert], is_clear: bool = False
     ) -> None:
         """
         Execute commands for a mapping.
@@ -312,7 +312,7 @@ class AlertScriptManager:
         """
         commands = mapping.clear_commands if is_clear else mapping.commands
         # Run once with no alert context when the list is empty (e.g. InactiveCommands).
-        alert_iter: List[Optional[WeatherAlert]] = list(alerts) if alerts else [None]
+        alert_iter: list[WeatherAlert | None] = list(alerts) if alerts else [None]
 
         for command_template in commands:
             for alert in alert_iter:
@@ -329,8 +329,8 @@ class AlertScriptManager:
                         await self._execute_dtmf_command(node, command)
 
     async def process_alerts(
-        self, current_alerts: List[WeatherAlert], previous_alert_events: Optional[Set[str]] = None
-    ) -> Set[str]:
+        self, current_alerts: list[WeatherAlert], previous_alert_events: set[str] | None = None
+    ) -> set[str]:
         """
         Process alerts and execute matching AlertScript mappings.
 
@@ -364,7 +364,7 @@ class AlertScriptManager:
 
         # Process mappings for new alerts
         new_alert_events = current_alert_events - self.processed_alerts
-        matched_alerts_by_mapping: Dict[AlertScriptMapping, List[WeatherAlert]] = {}
+        matched_alerts_by_mapping: dict[AlertScriptMapping, list[WeatherAlert]] = {}
 
         for mapping in self.mappings:
             # Check if mapping matches based on match type
@@ -424,7 +424,7 @@ class AlertScriptManager:
                         and mapping.matches_alert(alert.event)
                     ]
                     if not cleared_alerts:
-                        _now = datetime.now(timezone.utc)
+                        _now = datetime.now(UTC)
                         _ev = next(iter(cleared_alert_events))
                         dummy_alert = WeatherAlert(
                             id="cleared",

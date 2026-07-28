@@ -5,9 +5,10 @@ Uses PushOver API for cross-platform notifications.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
 import aiohttp
 
 from ..core.models import WeatherAlert
@@ -26,7 +27,7 @@ class PushOverConfig:
     retry_count: int = 3
     retry_delay_seconds: int = 5
     priority: int = 0  # -2 to 2, 0 is normal
-    sound: Optional[str] = None  # Use default sound if None
+    sound: str | None = None  # Use default sound if None
 
 
 class PushOverNotifier:
@@ -71,7 +72,7 @@ class PushOverNotifier:
     def __init__(self, config: PushOverConfig):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.PushOverNotifier")
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -125,10 +126,10 @@ class PushOverNotifier:
     async def send_alert_push(
         self,
         alert: WeatherAlert,
-        user_keys: Optional[List[str]] = None,
-        custom_title: Optional[str] = None,
-        custom_message: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_keys: list[str] | None = None,
+        custom_title: str | None = None,
+        custom_message: str | None = None,
+    ) -> dict[str, Any]:
         """
         Send weather alert push notification via PushOver.
 
@@ -191,7 +192,7 @@ class PushOverNotifier:
                     "url_title": url_title,
                     "timestamp": int(alert.effective.timestamp())
                     if alert.effective
-                    else int(datetime.now(timezone.utc).timestamp()),
+                    else int(datetime.now(UTC).timestamp()),
                 }
                 payload.update(additional_params)
 
@@ -211,7 +212,7 @@ class PushOverNotifier:
                 "alert_id": alert.id,
                 "priority": priority,
                 "sound": sound,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -220,19 +221,19 @@ class PushOverNotifier:
                 "success": False,
                 "error": str(e),
                 "alert_id": alert.id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def send_notification_push(
         self,
         title: str,
         message: str,
-        user_keys: Optional[List[str]] = None,
-        priority: Optional[int] = None,
-        sound: Optional[str] = None,
-        url: Optional[str] = None,
-        url_title: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_keys: list[str] | None = None,
+        priority: int | None = None,
+        sound: str | None = None,
+        url: str | None = None,
+        url_title: str | None = None,
+    ) -> dict[str, Any]:
         """
         Send general push notification via PushOver.
 
@@ -267,7 +268,7 @@ class PushOverNotifier:
                     "message": message,
                     "priority": str(priority_to_use),
                     "sound": sound_to_use,
-                    "timestamp": int(datetime.now(timezone.utc).timestamp()),
+                    "timestamp": int(datetime.now(UTC).timestamp()),
                 }
 
                 if url:
@@ -288,7 +289,7 @@ class PushOverNotifier:
                 "sent_count": success_count,
                 "failed_count": failed_count,
                 "results": results,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -296,10 +297,10 @@ class PushOverNotifier:
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
-    async def _send_pushover_message(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_pushover_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a message to PushOver API."""
         if not self.session:
             self.session = aiohttp.ClientSession(
@@ -349,7 +350,7 @@ class PushOverNotifier:
             f"PushOver notification failed after {self.config.retry_count + 1} attempts. Last error: {last_error}"
         )
 
-    async def send_all_clear(self, counties: List[str]) -> Dict[str, Any]:
+    async def send_all_clear(self, counties: list[str]) -> dict[str, Any]:
         """
         Send all-clear notification.
 
@@ -367,7 +368,7 @@ class PushOverNotifier:
             title=title, message=message, priority=self.PRIORITY_NORMAL, sound="magic"
         )
 
-    async def test_pushover(self, user_key: Optional[str] = None) -> bool:
+    async def test_pushover(self, user_key: str | None = None) -> bool:
         """
         Test PushOver notification delivery.
 
@@ -404,7 +405,7 @@ class PushOverNotifier:
         api_token: str,
         user_key: str,
         priority: int = 0,
-        sound: Optional[str] = None,
+        sound: str | None = None,
         enabled: bool = True,
     ) -> PushOverConfig:
         """Create PushOver configuration."""

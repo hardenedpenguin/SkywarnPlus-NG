@@ -5,7 +5,7 @@ Configuration management for SkywarnPlus-NG.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,8 +36,6 @@ def _empty_str_to_int(value: Any, default: int) -> int:
 class ConfigError(Exception):
     """Raised when configuration cannot be loaded or is invalid."""
 
-    pass
-
 
 class NWSApiConfig(BaseModel):
     """NWS API configuration."""
@@ -51,9 +49,9 @@ class CountyConfig(BaseModel):
     """County configuration."""
 
     code: str = Field(..., description="County code (e.g., TXC039)")
-    name: Optional[str] = Field(None, description="County name")
+    name: str | None = Field(None, description="County name")
     enabled: bool = Field(True, description="Enable alerts for this county")
-    audio_file: Optional[str] = Field(
+    audio_file: str | None = Field(
         None, description="Audio file for county name (e.g., 'Galveston.wav')"
     )
 
@@ -65,11 +63,11 @@ class CourtesyToneConfig(BaseModel):
     tone_dir: Path = Field(
         Path("SOUNDS/TONES"), description="Directory where tone files are stored"
     )
-    tones: Dict[str, Dict[str, str]] = Field(
+    tones: dict[str, dict[str, str]] = Field(
         default_factory=dict,
         description="Mapping of CT keys to Normal/WX tone files (e.g., {'ct1': {'Normal': 'Boop.ulaw', 'WX': 'Stardust.ulaw'}})",
     )
-    ct_alerts: List[str] = Field(
+    ct_alerts: list[str] = Field(
         default_factory=list,
         description="List of alert events that trigger WX mode (glob patterns supported)",
     )
@@ -83,7 +81,7 @@ class IDChangeConfig(BaseModel):
     normal_id: str = Field("NORMALID.ulaw", description="Audio file for normal mode ID")
     wx_id: str = Field("WXID.ulaw", description="Audio file for WX mode ID")
     rpt_id: str = Field("RPTID.ulaw", description="Audio file that Asterisk uses as ID")
-    id_alerts: List[str] = Field(
+    id_alerts: list[str] = Field(
         default_factory=list,
         description="List of alert events that trigger WX mode (glob patterns supported)",
     )
@@ -93,7 +91,7 @@ class NodeConfig(BaseModel):
     """Node configuration with optional per-node county monitoring."""
 
     number: int = Field(..., description="Node number")
-    counties: Optional[List[str]] = Field(
+    counties: list[str] | None = Field(
         None,
         description="County codes this node monitors (e.g., ['TXC039', 'TXC201']). If null/empty, node monitors all enabled counties.",
     )
@@ -119,7 +117,7 @@ class GpsdConfig(BaseModel):
         ge=60,
         description="Revert to static counties when no fresh fix within this many seconds",
     )
-    min_accuracy_meters: Optional[float] = Field(
+    min_accuracy_meters: float | None = Field(
         2000,
         description="Reject fixes with horizontal error above this value (null disables)",
     )
@@ -140,7 +138,7 @@ class AsteriskConfig(BaseModel):
     """Asterisk configuration."""
 
     enabled: bool = Field(True, description="Enable Asterisk integration")
-    nodes: List[int | NodeConfig] = Field(
+    nodes: list[int | NodeConfig] = Field(
         default_factory=list,
         description="Target node numbers or node configurations with per-node counties",
     )
@@ -155,7 +153,7 @@ class AsteriskConfig(BaseModel):
         default_factory=IDChangeConfig, description="ID change configuration"
     )
 
-    def get_nodes_list(self) -> List[int]:
+    def get_nodes_list(self) -> list[int]:
         """Get list of all node numbers regardless of format."""
         result = []
         for node in self.nodes:
@@ -167,7 +165,7 @@ class AsteriskConfig(BaseModel):
                 result.append(node.get("number", node.get("node", 0)))
         return result
 
-    def get_node_config(self, node_number: int) -> Optional[NodeConfig]:
+    def get_node_config(self, node_number: int) -> NodeConfig | None:
         """Get configuration for a specific node."""
         for node in self.nodes:
             if isinstance(node, NodeConfig) and node.number == node_number:
@@ -176,7 +174,7 @@ class AsteriskConfig(BaseModel):
                 return NodeConfig(**node)
         return None
 
-    def get_counties_for_node(self, node_number: int) -> Optional[List[str]]:
+    def get_counties_for_node(self, node_number: int) -> list[str] | None:
         """Get county codes for a specific node. Returns None if node monitors all counties."""
         node_config = self.get_node_config(node_number)
         if node_config and node_config.counties:
@@ -195,7 +193,7 @@ class TTSConfig(BaseModel):
     tld: str = Field("com", description="Top-level domain for gTTS")
     slow: bool = Field(False, description="Slow down speech (for gTTS)")
     # asl-tts settings (asl3-tts package; voices in /var/lib/piper-tts)
-    voice: Optional[str] = Field(
+    voice: str | None = Field(
         "en_US-amy-low.onnx",
         description="Piper voice filename for asl-tts -v (e.g. en_US-amy-low.onnx)",
     )
@@ -204,11 +202,11 @@ class TTSConfig(BaseModel):
         description="Directory containing Piper .onnx voice models (ASL3 convention)",
     )
     asl_tts_binary: str = Field("asl-tts", description="Path or name of the asl-tts CLI binary")
-    node_number: Optional[int] = Field(
+    node_number: int | None = Field(
         None,
         description="AllStar node number passed to asl-tts -n (defaults to first configured node or 1)",
     )
-    model_path: Optional[str] = Field(
+    model_path: str | None = Field(
         None,
         description="Legacy Piper path; migrated to voice filename when engine was piper",
     )
@@ -263,11 +261,11 @@ class FilteringConfig(BaseModel):
     """Alert filtering configuration."""
 
     max_alerts: int = Field(99, description="Maximum number of alerts to process")
-    blocked_events: List[str] = Field(default_factory=list, description="Globally blocked events")
-    say_alert_blocked: List[str] = Field(
+    blocked_events: list[str] = Field(default_factory=list, description="Globally blocked events")
+    say_alert_blocked: list[str] = Field(
         default_factory=list, description="Events blocked from voice announcement"
     )
-    tail_message_blocked: List[str] = Field(
+    tail_message_blocked: list[str] = Field(
         default_factory=list, description="Events blocked from tail message"
     )
 
@@ -278,7 +276,7 @@ class QuietHoursConfig(BaseModel):
     enabled: bool = Field(False, description="Enable quiet hours voice suppression")
     start: str = Field("01:00", description="Local start time (HH:MM)")
     end: str = Field("06:00", description="Local end time (HH:MM)")
-    timezone: Optional[str] = Field(
+    timezone: str | None = Field(
         None,
         description="IANA timezone (defaults to system local timezone)",
     )
@@ -299,20 +297,20 @@ class AlertConfig(BaseModel):
     say_alert: bool = Field(True, description="Enable voice announcements")
     say_all_clear: bool = Field(True, description="Enable all-clear announcements")
     tail_message: bool = Field(True, description="Enable tail messages")
-    tail_message_path: Optional[Path] = Field(
+    tail_message_path: Path | None = Field(
         None,
         description="Path for tail message file (default: /var/lib/skywarnplus-ng/data/wx-tail.wav)",
     )
-    tail_message_suffix: Optional[str] = Field(
+    tail_message_suffix: str | None = Field(
         None, description="Optional suffix audio file to append to tail message"
     )
     tail_message_counties: bool = Field(False, description="Include county names in tail message")
     with_county_names: bool = Field(False, description="Include county names in announcements")
     time_type: str = Field("onset", description="Time type: 'onset' or 'effective'")
-    say_alert_suffix: Optional[str] = Field(
+    say_alert_suffix: str | None = Field(
         None, description="Optional suffix audio file to append to alert announcements"
     )
-    say_all_clear_suffix: Optional[str] = Field(
+    say_all_clear_suffix: str | None = Field(
         None, description="Optional suffix audio file to append to all-clear announcements"
     )
     say_alerts_changed: bool = Field(True, description="Announce alerts when county list changes")
@@ -367,10 +365,10 @@ class GeoHazardPositionConfig(BaseModel):
         True,
         description="Use gpsd position when available; otherwise static_lat/static_lon",
     )
-    static_lat: Optional[float] = Field(
+    static_lat: float | None = Field(
         None, description="Fallback latitude when GPS is slow or unavailable"
     )
-    static_lon: Optional[float] = Field(
+    static_lon: float | None = Field(
         None, description="Fallback longitude when GPS is slow or unavailable"
     )
 
@@ -473,7 +471,7 @@ class EarthquakeConfig(BaseModel):
         le=20,
         description="Maximum earthquake voice announcements per poll cycle",
     )
-    ignore_automatic_below: Optional[float] = Field(
+    ignore_automatic_below: float | None = Field(
         None,
         ge=0.0,
         le=10.0,
@@ -655,7 +653,7 @@ class VolcanoConfig(BaseModel):
             raise ValueError(f"min_color_code must be one of: {', '.join(sorted(allowed))}")
         return normalized
 
-    observatories: List[str] = Field(
+    observatories: list[str] = Field(
         default_factory=list,
         description="Optional observatory filter (empty = all); USGS codes: AVO, CALVO, CVO, HVO, NMI, YVO",
     )
@@ -681,24 +679,24 @@ class ScriptConfig(BaseModel):
     """Script configuration for a specific alert type."""
 
     command: str = Field(..., description="Command to execute")
-    args: List[str] = Field(default_factory=list, description="Command arguments")
+    args: list[str] = Field(default_factory=list, description="Command arguments")
     timeout: int = Field(30, description="Script timeout in seconds")
     enabled: bool = Field(True, description="Enable this script")
-    working_dir: Optional[Path] = Field(None, description="Working directory for script")
-    env_vars: Dict[str, str] = Field(default_factory=dict, description="Environment variables")
+    working_dir: Path | None = Field(None, description="Working directory for script")
+    env_vars: dict[str, str] = Field(default_factory=dict, description="Environment variables")
 
 
 class AlertScriptMappingConfig(BaseModel):
     """AlertScript mapping configuration."""
 
     type: str = Field("BASH", description="Command type: BASH or DTMF")
-    commands: List[str] = Field(default_factory=list, description="Commands to execute")
-    triggers: List[str] = Field(
+    commands: list[str] = Field(default_factory=list, description="Commands to execute")
+    triggers: list[str] = Field(
         default_factory=list, description="Alert event patterns that trigger this mapping"
     )
     match: str = Field("ANY", description="Match type: ANY (default) or ALL")
-    nodes: List[int] = Field(default_factory=list, description="Node numbers for DTMF commands")
-    clear_commands: Optional[List[str]] = Field(
+    nodes: list[int] = Field(default_factory=list, description="Node numbers for DTMF commands")
+    clear_commands: list[str] | None = Field(
         None, description="Commands to execute when alerts clear"
     )
 
@@ -707,24 +705,22 @@ class ScriptsConfig(BaseModel):
     """Scripts configuration."""
 
     enabled: bool = Field(True, description="Enable script execution")
-    alert_scripts: Dict[str, ScriptConfig] = Field(
+    alert_scripts: dict[str, ScriptConfig] = Field(
         default_factory=dict, description="Scripts for specific alert types"
     )
-    all_clear_script: Optional[ScriptConfig] = Field(
-        None, description="Script for all-clear events"
-    )
+    all_clear_script: ScriptConfig | None = Field(None, description="Script for all-clear events")
     default_timeout: int = Field(30, description="Default script timeout in seconds")
     # Enhanced AlertScript configuration (mapping-based)
     alertscript_enabled: bool = Field(
         False, description="Enable enhanced AlertScript (mapping-based)"
     )
-    alertscript_mappings: List[AlertScriptMappingConfig] = Field(
+    alertscript_mappings: list[AlertScriptMappingConfig] = Field(
         default_factory=list, description="AlertScript mappings (alert patterns to commands)"
     )
-    alertscript_active_commands: Optional[List[AlertScriptMappingConfig]] = Field(
+    alertscript_active_commands: list[AlertScriptMappingConfig] | None = Field(
         None, description="Commands to execute when alerts go from 0 to non-zero"
     )
-    alertscript_inactive_commands: Optional[List[AlertScriptMappingConfig]] = Field(
+    alertscript_inactive_commands: list[AlertScriptMappingConfig] | None = Field(
         None, description="Commands to execute when alerts go from non-zero to 0"
     )
 
@@ -733,7 +729,7 @@ class LoggingConfig(BaseModel):
     """Logging configuration."""
 
     level: str = Field("INFO", description="Log level")
-    file: Optional[Path] = Field(None, description="Log file path")
+    file: Path | None = Field(None, description="Log file path")
     format: str = Field("json", description="Log format: 'json' or 'text'")
 
 
@@ -744,7 +740,7 @@ class AuthConfig(BaseModel):
     username: str = Field("admin", description="Admin username")
     password: str = Field("skywarn123", description="Admin password (change this!)")
     session_timeout_hours: int = Field(24, description="Session timeout in hours")
-    secret_key: Optional[str] = Field(
+    secret_key: str | None = Field(
         None, description="Secret key for session encryption (auto-generated if not set)"
     )
     secure_cookies: bool = Field(
@@ -801,7 +797,7 @@ class DatabaseConfig(BaseModel):
     """Database configuration."""
 
     enabled: bool = Field(True, description="Enable database storage")
-    url: Optional[str] = Field(None, description="Database URL (defaults to SQLite)")
+    url: str | None = Field(None, description="Database URL (defaults to SQLite)")
     cleanup_interval_hours: int = Field(24, description="Data cleanup interval in hours")
     retention_days: int = Field(30, description="Data retention period in days")
     backup_enabled: bool = Field(False, description="Enable automatic backups")
@@ -853,7 +849,7 @@ class NotificationEmailConfig(BaseModel):
     use_tls: bool = Field(True, description="Use STARTTLS")
     use_ssl: bool = Field(False, description="Use SSL/TLS from connect")
     username: str = Field("", description="SMTP username / from address")
-    password: Optional[str] = Field(None, description="SMTP password or app password")
+    password: str | None = Field(None, description="SMTP password or app password")
     from_name: str = Field("SkywarnPlus-NG", description="Display name for From header")
 
     @field_validator("smtp_port", mode="before")
@@ -870,9 +866,9 @@ class NotificationEmailConfig(BaseModel):
 class NotificationWebhookConfig(BaseModel):
     """Global webhook URLs (Slack, Teams, generic)."""
 
-    slack_url: Optional[str] = Field(None, description="Slack incoming webhook URL")
-    teams_url: Optional[str] = Field(None, description="Microsoft Teams webhook URL")
-    generic_url: Optional[str] = Field(None, description="Generic HTTPS webhook URL")
+    slack_url: str | None = Field(None, description="Slack incoming webhook URL")
+    teams_url: str | None = Field(None, description="Microsoft Teams webhook URL")
+    generic_url: str | None = Field(None, description="Generic HTTPS webhook URL")
 
     @field_validator("slack_url", "teams_url", "generic_url", mode="before")
     @classmethod
@@ -883,8 +879,8 @@ class NotificationWebhookConfig(BaseModel):
 class NotificationPushConfig(BaseModel):
     """FCM push notification settings."""
 
-    fcm_server_key: Optional[str] = Field(None, description="Firebase Cloud Messaging server key")
-    fcm_project_id: Optional[str] = Field(None, description="Firebase project ID")
+    fcm_server_key: str | None = Field(None, description="Firebase Cloud Messaging server key")
+    fcm_project_id: str | None = Field(None, description="Firebase project ID")
 
     @field_validator("fcm_server_key", "fcm_project_id", mode="before")
     @classmethod
@@ -896,9 +892,9 @@ class NotificationSmsConfig(BaseModel):
     """Twilio SMS settings for subscriber text alerts."""
 
     enabled: bool = Field(False, description="Enable subscriber SMS via Twilio")
-    account_sid: Optional[str] = Field(None, description="Twilio Account SID")
-    auth_token: Optional[str] = Field(None, description="Twilio Auth Token")
-    from_number: Optional[str] = Field(
+    account_sid: str | None = Field(None, description="Twilio Account SID")
+    auth_token: str | None = Field(None, description="Twilio Auth Token")
+    from_number: str | None = Field(
         None, description="Twilio sender phone number (E.164, e.g. +15551234567)"
     )
     max_length: int = Field(160, description="Maximum SMS body length")
@@ -951,10 +947,10 @@ class PushOverConfig(BaseModel):
     """PushOver notification configuration."""
 
     enabled: bool = Field(False, description="Enable PushOver notifications")
-    api_token: Optional[str] = Field(None, description="PushOver application API token")
-    user_key: Optional[str] = Field(None, description="PushOver user key")
+    api_token: str | None = Field(None, description="PushOver application API token")
+    user_key: str | None = Field(None, description="PushOver user key")
     priority: int = Field(0, description="Default priority (-2 to 2, 0 is normal)")
-    sound: Optional[str] = Field(None, description="Default sound (None uses device default)")
+    sound: str | None = Field(None, description="Default sound (None uses device default)")
     timeout_seconds: int = Field(30, description="Request timeout in seconds")
     retry_count: int = Field(3, description="Number of retry attempts")
     retry_delay_seconds: int = Field(5, description="Delay between retries in seconds")
@@ -964,7 +960,7 @@ class DevConfig(BaseModel):
     """Development and testing configuration."""
 
     inject_enabled: bool = Field(False, description="Enable test alert injection (for testing)")
-    inject_alerts: List[Dict[str, Any]] = Field(
+    inject_alerts: list[dict[str, Any]] = Field(
         default_factory=list, description="List of test alerts to inject"
     )
     cleanslate: bool = Field(False, description="Clear all cached state on startup")
@@ -993,7 +989,7 @@ class AppConfig(BaseSettings):
 
     # Component configurations
     nws: NWSApiConfig = Field(default_factory=NWSApiConfig)
-    counties: List[CountyConfig] = Field(default_factory=list)
+    counties: list[CountyConfig] = Field(default_factory=list)
     asterisk: AsteriskConfig = Field(default_factory=AsteriskConfig)
     audio: AudioConfig = Field(default_factory=AudioConfig)
     filtering: FilteringConfig = Field(default_factory=FilteringConfig)
@@ -1041,7 +1037,7 @@ class AppConfig(BaseSettings):
 
         try:
             yaml = YAML(typ="safe")
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 yaml_data = yaml.load(f)
         except OSError as e:
             raise ConfigError(f"Cannot read config file {config_path}: {e}") from e
@@ -1061,7 +1057,7 @@ class AppConfig(BaseSettings):
         config._normalize_paths(config_path.parent)
         return config
 
-    def get_nodes_for_counties(self, county_codes: List[str]) -> List[int]:
+    def get_nodes_for_counties(self, county_codes: list[str]) -> list[int]:
         """
         Get list of node numbers that should receive alerts for the given counties.
 
@@ -1100,7 +1096,7 @@ class AppConfig(BaseSettings):
 
         return list(set(result))  # Remove duplicates
 
-    def get_all_monitored_counties(self) -> List[str]:
+    def get_all_monitored_counties(self) -> list[str]:
         """
         Get list of all county codes that should be monitored based on node configurations.
 
@@ -1137,7 +1133,7 @@ class AppConfig(BaseSettings):
         enabled_codes = {c.code for c in self.counties if c.enabled}
         return list(monitored & enabled_codes)
 
-    def validate_node_county_mapping(self) -> List[str]:
+    def validate_node_county_mapping(self) -> list[str]:
         """
         Validate node-county configuration and return list of warnings/errors.
 
@@ -1163,7 +1159,7 @@ class AppConfig(BaseSettings):
             )
 
         # Check for node configurations referencing invalid counties
-        gps_controlled_nodes: List[int] = []
+        gps_controlled_nodes: list[int] = []
         for node in self.asterisk.nodes:
             node_number = None
             node_counties = None

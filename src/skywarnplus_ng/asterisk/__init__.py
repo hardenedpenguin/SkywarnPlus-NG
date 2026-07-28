@@ -2,15 +2,15 @@
 Asterisk integration for SkywarnPlus-NG.
 """
 
-from .manager import AsteriskManager, AsteriskError
-from .courtesy_tone import CourtesyToneManager, CourtesyToneError
-from .id_change import IDChangeManager, IDChangeError
+from .courtesy_tone import CourtesyToneError, CourtesyToneManager
+from .id_change import IDChangeError, IDChangeManager
+from .manager import AsteriskError, AsteriskManager
 
 __all__ = [
-    "AsteriskManager",
     "AsteriskError",
-    "CourtesyToneManager",
+    "AsteriskManager",
     "CourtesyToneError",
-    "IDChangeManager",
+    "CourtesyToneManager",
     "IDChangeError",
+    "IDChangeManager",
 ]

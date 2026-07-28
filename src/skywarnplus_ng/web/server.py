@@ -7,19 +7,19 @@ import hashlib
 import ipaddress
 import logging
 import secrets
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-import bcrypt as bcrypt_lib
 import aiohttp
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
-
+import bcrypt as bcrypt_lib
 from aiohttp import web
 from aiohttp.web import Request, Response
-from aiohttp_session import setup, get_session
+from aiohttp_cors import ResourceOptions
+from aiohttp_cors import setup as cors_setup
+from aiohttp_session import get_session, setup
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-from aiohttp_cors import setup as cors_setup, ResourceOptions
 from jinja2 import Environment, FileSystemLoader
 
 from .. import __version__ as _PACKAGE_VERSION
@@ -33,22 +33,21 @@ from ..notifications.subscriber import (
 from ..notifications.templates import TemplateEngine
 from ..utils.rate_limit import SlidingWindowRateLimiter
 from ..utils.url_security import validate_public_https_webhook_url
-
-from .handlers.api_alerts import AlertsApiMixin
-from .handlers.api_tts_voices import TtsVoicesApiMixin
-from .handlers.api_config import ConfigApiMixin
-from .handlers.api_database import DatabaseApiMixin
-from .handlers.api_health_logs import HealthLogsApiMixin
-from .handlers.api_notifications import NotificationsApiMixin
-from .handlers.api_status import StatusApiMixin
-from .handlers.api_updates_metrics import UpdatesMetricsApiMixin
-from .handlers.auth_handlers import AuthHandlersMixin
-from .handlers.page_handlers import PageHandlersMixin
 from .auth_security import (
     external_path_for_request,
     path_requires_auth,
     request_is_https,
 )
+from .handlers.api_alerts import AlertsApiMixin
+from .handlers.api_config import ConfigApiMixin
+from .handlers.api_database import DatabaseApiMixin
+from .handlers.api_health_logs import HealthLogsApiMixin
+from .handlers.api_notifications import NotificationsApiMixin
+from .handlers.api_status import StatusApiMixin
+from .handlers.api_tts_voices import TtsVoicesApiMixin
+from .handlers.api_updates_metrics import UpdatesMetricsApiMixin
+from .handlers.auth_handlers import AuthHandlersMixin
+from .handlers.page_handlers import PageHandlersMixin
 from .handlers.websocket_handlers import WebsocketHandlersMixin
 from .routes import register_dashboard_routes
 
@@ -60,8 +59,6 @@ logger = logging.getLogger(__name__)
 
 class WebDashboardError(Exception):
     """Web dashboard error."""
-
-    pass
 
 
 class WebDashboard(
@@ -130,17 +127,17 @@ class WebDashboard(
         """
         self.app = app_instance
         self.config = config
-        self.web_app: Optional[web.Application] = None
-        self.runner: Optional[web.AppRunner] = None
-        self.site: Optional[web.TCPSite] = None
+        self.web_app: web.Application | None = None
+        self.runner: web.AppRunner | None = None
+        self.site: web.TCPSite | None = None
         self.websocket_clients: set = set()
-        self.template_env: Optional[Environment] = None
+        self.template_env: Environment | None = None
         # Rate limits (per client IP): login attempts, authenticated config saves
         self._login_rate_limit = SlidingWindowRateLimiter(max_calls=20, window_seconds=900)
         self._config_rate_limit = SlidingWindowRateLimiter(max_calls=120, window_seconds=3600)
         self._update_check_lock = asyncio.Lock()
-        self._update_check_task: Optional[asyncio.Task] = None
-        self._github_http_session: Optional[aiohttp.ClientSession] = None
+        self._update_check_task: asyncio.Task | None = None
+        self._github_http_session: aiohttp.ClientSession | None = None
         # Serializes config YAML read-modify-write cycles (save/reset/restore/login
         # password persist); concurrent writers would clobber each other's changes.
         self._config_write_lock = asyncio.Lock()
@@ -168,7 +165,7 @@ class WebDashboard(
         return (remote or "unknown")[:200]
 
     @staticmethod
-    def _subscriber_webhook_validation_error(url) -> Optional[str]:
+    def _subscriber_webhook_validation_error(url) -> str | None:
         """Return error message if webhook URL is non-empty but not allowed; else None."""
         if url is None:
             return None
@@ -180,8 +177,8 @@ class WebDashboard(
 
     @staticmethod
     def _subscriber_phone_validation_error(
-        phone, enabled_methods: Optional[list] = None
-    ) -> Optional[str]:
+        phone, enabled_methods: list | None = None
+    ) -> str | None:
         """Return error message if SMS is enabled but phone is missing or invalid."""
         from ..notifications.phone import normalize_phone_number, validate_phone_number
 
@@ -235,7 +232,7 @@ class WebDashboard(
         return TemplateEngine(storage_path=data_dir / "templates.json")
 
     @staticmethod
-    def _normalize_list(value) -> List[str]:
+    def _normalize_list(value) -> list[str]:
         """Normalize incoming list-like data into a list of strings."""
         if value is None:
             return []
@@ -274,7 +271,7 @@ class WebDashboard(
         except (TypeError, ValueError):
             return default
 
-    def _parse_enum_list(self, values, enum_cls, default_values) -> Set:
+    def _parse_enum_list(self, values, enum_cls, default_values) -> set:
         """Convert incoming iterable into a set of enum members."""
         if values is None:
             return set(default_values)
@@ -294,7 +291,7 @@ class WebDashboard(
 
         return parsed or set(default_values)
 
-    def _build_preferences_state(self, prefs: Optional[SubscriptionPreferences]) -> Dict[str, Any]:
+    def _build_preferences_state(self, prefs: SubscriptionPreferences | None) -> dict[str, Any]:
         """Create a mutable dict of the current preference state."""
         if not prefs:
             return {
@@ -338,7 +335,7 @@ class WebDashboard(
         }
 
     def _parse_subscription_preferences(
-        self, payload: Dict[str, Any], existing: Optional[SubscriptionPreferences] = None
+        self, payload: dict[str, Any], existing: SubscriptionPreferences | None = None
     ) -> SubscriptionPreferences:
         """Parse incoming payload into a SubscriptionPreferences object."""
         prefs_payload = payload.get("preferences")
@@ -490,16 +487,14 @@ class WebDashboard(
 
         # Check session timeout
         timeout_hours = self.config.monitoring.http_server.auth.session_timeout_hours
-        if datetime.now(timezone.utc) - datetime.fromisoformat(login_time) > timedelta(
-            hours=timeout_hours
-        ):
+        if datetime.now(UTC) - datetime.fromisoformat(login_time) > timedelta(hours=timeout_hours):
             # Session expired
             session.clear()
             return False
 
         return True
 
-    async def _require_auth(self, request: Request) -> Optional[Response]:
+    async def _require_auth(self, request: Request) -> Response | None:
         """Middleware to require authentication."""
         if not await self._is_authenticated(request):
             # For API requests, return JSON error

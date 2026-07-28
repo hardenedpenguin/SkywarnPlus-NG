@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -41,7 +41,7 @@ def _fix(**overrides) -> GpsFix:
         "longitude": -95.3698,
         "mode": 3,
         "accuracy_m": 10.0,
-        "fix_time": datetime.now(timezone.utc),
+        "fix_time": datetime.now(UTC),
     }
     defaults.update(overrides)
     return GpsFix(**defaults)
@@ -72,7 +72,7 @@ async def test_stale_gps_reverts_to_static_counties():
     config = _mobile_config()
     nws = AsyncMock()
     service = MobileCountyService(config, nws)
-    stale_time = datetime.now(timezone.utc) - timedelta(seconds=1200)
+    stale_time = datetime.now(UTC) - timedelta(seconds=1200)
 
     with patch(
         "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix",
@@ -237,7 +237,7 @@ async def test_stale_gps_falls_back_to_static_lat_lon_for_zone():
         return_value=("TXZ237", "Inland Brazoria")
     )
     service = MobileCountyService(config, nws)
-    stale_time = datetime.now(timezone.utc) - timedelta(seconds=1200)
+    stale_time = datetime.now(UTC) - timedelta(seconds=1200)
 
     with patch(
         "skywarnplus_ng.location.mobile_counties.poll_gpsd_fix",

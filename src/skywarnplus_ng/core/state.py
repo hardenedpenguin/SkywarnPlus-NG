@@ -6,10 +6,10 @@ import json
 import logging
 import os
 import tempfile
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Set, Any
 from collections import OrderedDict
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 from .models import WeatherAlert
 
@@ -31,7 +31,7 @@ class ApplicationState:
         self.state_file = state_file
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
 
-    def load_state(self) -> Dict[str, Any]:
+    def load_state(self) -> dict[str, Any]:
         """
         Load state from file.
 
@@ -43,7 +43,7 @@ class ApplicationState:
             return self._get_default_state()
 
         try:
-            with open(self.state_file, "r", encoding="utf-8") as f:
+            with open(self.state_file, encoding="utf-8") as f:
                 state = json.load(f)
 
             # Ensure required keys exist
@@ -61,12 +61,12 @@ class ApplicationState:
             logger.debug(f"Loaded state from {self.state_file}")
             return state
 
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Failed to load state from {self.state_file}: {e}")
             logger.info("Using default state")
             return self._get_default_state()
 
-    def save_state(self, state: Dict[str, Any]) -> None:
+    def save_state(self, state: dict[str, Any]) -> None:
         """
         Save state to file atomically.
 
@@ -105,10 +105,10 @@ class ApplicationState:
 
             logger.debug(f"Saved state to {self.state_file}")
 
-        except (IOError, TypeError, OSError) as e:
+        except (TypeError, OSError) as e:
             logger.error(f"Failed to save state to {self.state_file}: {e}")
 
-    def _get_default_state(self) -> Dict[str, Any]:
+    def _get_default_state(self) -> dict[str, Any]:
         """Get default state values."""
         return {
             "last_alerts": OrderedDict(),  # Alert ID -> Alert data
@@ -138,7 +138,7 @@ class ApplicationState:
             "version": "1.0.4",  # State file version
         }
 
-    def update_alert_id_aliases(self, state: Dict[str, Any], aliases: Dict[str, str]) -> None:
+    def update_alert_id_aliases(self, state: dict[str, Any], aliases: dict[str, str]) -> None:
         """Merge NWS deduplication alias map (secondary alert id -> canonical id)."""
         if not aliases:
             return
@@ -151,7 +151,7 @@ class ApplicationState:
         state["alert_id_aliases"] = stored
 
     @staticmethod
-    def _migrate_alert_id_references(state: Dict[str, Any], old_id: str, new_id: str) -> None:
+    def _migrate_alert_id_references(state: dict[str, Any], old_id: str, new_id: str) -> None:
         last = state.get("last_alerts")
         if isinstance(last, dict) and old_id in last and new_id not in last:
             last[new_id] = last.pop(old_id)
@@ -165,7 +165,7 @@ class ApplicationState:
                 state[key] = [item for item in items if item != old_id]
 
     @staticmethod
-    def resolve_alert_id(state: Dict[str, Any], alert_id: str) -> str:
+    def resolve_alert_id(state: dict[str, Any], alert_id: str) -> str:
         aliases = state.get("alert_id_aliases") or {}
         seen: set[str] = set()
         current = alert_id
@@ -175,14 +175,14 @@ class ApplicationState:
         return current
 
     def _is_still_active_id(
-        self, state: Dict[str, Any], alert_id: str, current_ids: Set[str]
+        self, state: dict[str, Any], alert_id: str, current_ids: set[str]
     ) -> bool:
         if alert_id in current_ids:
             return True
         canonical = self.resolve_alert_id(state, alert_id)
         return canonical in current_ids
 
-    def prune_alert_tracking(self, state: Dict[str, Any], alert_id: str) -> None:
+    def prune_alert_tracking(self, state: dict[str, Any], alert_id: str) -> None:
         """Remove per-alert tracking entries when an alert expires."""
         for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts"):
             items = state.get(key)
@@ -196,12 +196,12 @@ class ApplicationState:
             }
 
     @staticmethod
-    def _trim_tracking_list(state: Dict[str, Any], key: str) -> None:
+    def _trim_tracking_list(state: dict[str, Any], key: str) -> None:
         items = state.get(key)
         if isinstance(items, list) and len(items) > TRACKING_LIST_MAX:
             state[key] = items[-TRACKING_LIST_MAX:]
 
-    def _bound_tracking_lists(self, state: Dict[str, Any]) -> None:
+    def _bound_tracking_lists(self, state: dict[str, Any]) -> None:
         for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts"):
             self._trim_tracking_list(state, key)
         cooldown = state.get("announcement_cooldown")
@@ -209,7 +209,7 @@ class ApplicationState:
             keys = list(cooldown.keys())[-TRACKING_LIST_MAX:]
             state["announcement_cooldown"] = {k: cooldown[k] for k in keys}
 
-    def get_alert_ids(self, state: Dict[str, Any]) -> Set[str]:
+    def get_alert_ids(self, state: dict[str, Any]) -> set[str]:
         """
         Get set of all alert IDs from state.
 
@@ -221,7 +221,7 @@ class ApplicationState:
         """
         return set(state.get("last_alerts", {}).keys())
 
-    def add_alert(self, state: Dict[str, Any], alert: WeatherAlert) -> None:
+    def add_alert(self, state: dict[str, Any], alert: WeatherAlert) -> None:
         """
         Add alert to state.
 
@@ -233,21 +233,21 @@ class ApplicationState:
 
     @staticmethod
     def weather_alert_to_state_dict(
-        alert: WeatherAlert, existing: Dict[str, Any] | None = None
-    ) -> Dict[str, Any]:
+        alert: WeatherAlert, existing: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Serialize a WeatherAlert for persistence in ``last_alerts``."""
         data = alert.model_dump(mode="json")
         data["added_at"] = (
             existing.get("added_at")
             if isinstance(existing, dict) and existing.get("added_at")
-            else datetime.now(timezone.utc).isoformat()
+            else datetime.now(UTC).isoformat()
         )
         if isinstance(existing, dict) and existing.get("updated_at"):
             data["updated_at"] = existing["updated_at"]
         return data
 
     @staticmethod
-    def _alert_snapshot_changed(old: Dict[str, Any], new: Dict[str, Any]) -> bool:
+    def _alert_snapshot_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
         compare_keys = (
             "event",
             "headline",
@@ -274,7 +274,7 @@ class ApplicationState:
                 return True
         return False
 
-    def upsert_alert(self, state: Dict[str, Any], alert: WeatherAlert) -> bool:
+    def upsert_alert(self, state: dict[str, Any], alert: WeatherAlert) -> bool:
         """
         Insert or refresh alert metadata in state.
 
@@ -295,7 +295,7 @@ class ApplicationState:
             existing, alert_data
         )
         if changed and isinstance(existing, dict):
-            alert_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            alert_data["updated_at"] = datetime.now(UTC).isoformat()
             logger.info(
                 "Alert %s updated from NWS poll (%s): expires=%s ends=%s",
                 alert.id,
@@ -308,7 +308,7 @@ class ApplicationState:
         logger.debug("Upserted alert %s in state (changed=%s)", alert.id, changed)
         return changed
 
-    def remove_alert(self, state: Dict[str, Any], alert_id: str) -> None:
+    def remove_alert(self, state: dict[str, Any], alert_id: str) -> None:
         """
         Remove alert from state.
 
@@ -321,7 +321,7 @@ class ApplicationState:
             logger.debug(f"Removed alert {alert_id} from state")
         self.prune_alert_tracking(state, alert_id)
 
-    def update_active_alerts(self, state: Dict[str, Any], active_alert_ids: List[str]) -> None:
+    def update_active_alerts(self, state: dict[str, Any], active_alert_ids: list[str]) -> None:
         """
         Update the list of currently active alerts.
 
@@ -333,8 +333,8 @@ class ApplicationState:
         logger.debug(f"Updated active alerts: {len(active_alert_ids)} alerts")
 
     def get_new_alerts(
-        self, state: Dict[str, Any], current_alerts: List[WeatherAlert]
-    ) -> List[WeatherAlert]:
+        self, state: dict[str, Any], current_alerts: list[WeatherAlert]
+    ) -> list[WeatherAlert]:
         """
         Get alerts that are new (not in state).
 
@@ -352,8 +352,8 @@ class ApplicationState:
         return new_alerts
 
     def get_expired_alerts(
-        self, state: Dict[str, Any], current_alerts: List[WeatherAlert]
-    ) -> List[str]:
+        self, state: dict[str, Any], current_alerts: list[WeatherAlert]
+    ) -> list[str]:
         """
         Get alert IDs that have expired (not in current alerts).
 
@@ -374,8 +374,8 @@ class ApplicationState:
         return expired_ids
 
     def detect_county_changes(
-        self, state: Dict[str, Any], current_alerts: List[WeatherAlert]
-    ) -> List[WeatherAlert]:
+        self, state: dict[str, Any], current_alerts: list[WeatherAlert]
+    ) -> list[WeatherAlert]:
         """
         Detect alerts where county lists have changed.
 
@@ -406,7 +406,7 @@ class ApplicationState:
 
         return alerts_with_changes
 
-    def cleanup_old_alerts(self, state: Dict[str, Any], max_age_hours: int = 24) -> None:
+    def cleanup_old_alerts(self, state: dict[str, Any], max_age_hours: int = 24) -> None:
         """
         Remove alerts older than specified age.
 
@@ -417,7 +417,7 @@ class ApplicationState:
         if not state.get("last_alerts"):
             return
 
-        cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
+        cutoff_time = datetime.now(UTC).timestamp() - (max_age_hours * 3600)
         alerts_to_remove = []
 
         for alert_id, alert_data in state["last_alerts"].items():
@@ -435,7 +435,7 @@ class ApplicationState:
         if alerts_to_remove:
             logger.info(f"Cleaned up {len(alerts_to_remove)} old alerts")
 
-    def mark_alert_announced(self, state: Dict[str, Any], alert_id: str) -> None:
+    def mark_alert_announced(self, state: dict[str, Any], alert_id: str) -> None:
         """
         Mark an alert as announced.
 
@@ -448,7 +448,7 @@ class ApplicationState:
             self._trim_tracking_list(state, "last_sayalert")
             logger.debug(f"Marked alert {alert_id} as announced")
 
-    def mark_alert_script_triggered(self, state: Dict[str, Any], alert_id: str) -> None:
+    def mark_alert_script_triggered(self, state: dict[str, Any], alert_id: str) -> None:
         """
         Mark an alert as having triggered a script.
 
@@ -461,7 +461,7 @@ class ApplicationState:
             self._trim_tracking_list(state, "alertscript_alerts")
             logger.debug(f"Marked alert {alert_id} as script-triggered")
 
-    def has_alert_webhook_sent(self, state: Dict[str, Any], alert_id: str) -> bool:
+    def has_alert_webhook_sent(self, state: dict[str, Any], alert_id: str) -> bool:
         """
         Check if a webhook has already been sent for an alert.
 
@@ -474,7 +474,7 @@ class ApplicationState:
         """
         return alert_id in state.get("webhook_sent_alerts", [])
 
-    def mark_alert_webhook_sent(self, state: Dict[str, Any], alert_id: str) -> None:
+    def mark_alert_webhook_sent(self, state: dict[str, Any], alert_id: str) -> None:
         """
         Mark an alert as having had a webhook sent.
 
@@ -487,24 +487,24 @@ class ApplicationState:
             self._trim_tracking_list(state, "webhook_sent_alerts")
             logger.debug(f"Marked alert {alert_id} as webhook-sent")
 
-    def update_poll_time(self, state: Dict[str, Any]) -> None:
+    def update_poll_time(self, state: dict[str, Any]) -> None:
         """
         Update the last poll timestamp.
 
         Args:
             state: Current state dictionary
         """
-        state["last_poll"] = datetime.now(timezone.utc).isoformat()
+        state["last_poll"] = datetime.now(UTC).isoformat()
         logger.debug("Updated last poll time")
 
-    def update_all_clear_time(self, state: Dict[str, Any]) -> None:
+    def update_all_clear_time(self, state: dict[str, Any]) -> None:
         """
         Update the last all-clear timestamp.
 
         Args:
             state: Current state dictionary
         """
-        state["last_all_clear"] = datetime.now(timezone.utc).isoformat()
+        state["last_all_clear"] = datetime.now(UTC).isoformat()
         logger.debug("Updated last all-clear time")
 
     def clear_state(self) -> None:

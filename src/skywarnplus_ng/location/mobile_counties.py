@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from .gpsd import GpsFix, poll_gpsd_fix
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _valid_gps_fix(fix: GpsFix, config: AppConfig) -> bool:
-    age_seconds = (datetime.now(timezone.utc) - fix.fix_time).total_seconds()
+    age_seconds = (datetime.now(UTC) - fix.fix_time).total_seconds()
     if age_seconds > config.gpsd.stale_seconds:
         return False
     if (
@@ -34,29 +34,29 @@ class MobileCountyService:
     def __init__(self, config: AppConfig, nws_client: NWSClient) -> None:
         self.config = config
         self.nws_client = nws_client
-        self._active_gps_zone: Optional[str] = None
-        self._active_gps_zone_name: Optional[str] = None
-        self._candidate_zone: Optional[str] = None
+        self._active_gps_zone: str | None = None
+        self._active_gps_zone_name: str | None = None
+        self._candidate_zone: str | None = None
         self._candidate_polls: int = 0
-        self._last_fix: Optional[GpsFix] = None
-        self._last_refresh_at: Optional[datetime] = None
+        self._last_fix: GpsFix | None = None
+        self._last_refresh_at: datetime | None = None
         self._gps_active: bool = False
-        self._inactive_reason: Optional[str] = None
-        self._position_source: Optional[str] = None
+        self._inactive_reason: str | None = None
+        self._position_source: str | None = None
 
     @property
-    def active_gps_county_code(self) -> Optional[str]:
+    def active_gps_county_code(self) -> str | None:
         """Active GPS zone code (forecast zone when GPS is in use)."""
         return self._active_gps_zone
 
     @property
-    def active_gps_county_name(self) -> Optional[str]:
+    def active_gps_county_name(self) -> str | None:
         return self._active_gps_zone_name
 
     def is_gps_active(self) -> bool:
         return self._gps_active
 
-    def get_position(self) -> Optional[tuple[float, float]]:
+    def get_position(self) -> tuple[float, float] | None:
         """Return lat/lon from a fresh gpsd fix when available."""
         if not self._last_fix:
             return None
@@ -64,7 +64,7 @@ class MobileCountyService:
             return None
         return self._last_fix.latitude, self._last_fix.longitude
 
-    def _static_position(self) -> Optional[tuple[float, float]]:
+    def _static_position(self) -> tuple[float, float] | None:
         pos = self.config.geo_hazard_position
         if pos.static_lat is not None and pos.static_lon is not None:
             return float(pos.static_lat), float(pos.static_lon)
@@ -85,7 +85,7 @@ class MobileCountyService:
 
     async def _resolve_monitoring_coordinates(
         self,
-    ) -> tuple[Optional[tuple[float, float, str]], Optional[str]]:
+    ) -> tuple[tuple[float, float, str] | None, str | None]:
         """
         Resolve coordinates for NWS forecast zone lookup.
 
@@ -105,9 +105,7 @@ class MobileCountyService:
                     return (static[0], static[1], "static"), None
                 return None, "no_fix"
 
-            if (
-                datetime.now(timezone.utc) - fix.fix_time
-            ).total_seconds() > self.config.gpsd.stale_seconds:
+            if (datetime.now(UTC) - fix.fix_time).total_seconds() > self.config.gpsd.stale_seconds:
                 static = self._static_position()
                 if static:
                     return (static[0], static[1], "static"), None
@@ -131,18 +129,18 @@ class MobileCountyService:
             return (static[0], static[1], "static"), None
         return None, "no_position"
 
-    def _effective_gps_zone(self) -> Optional[str]:
+    def _effective_gps_zone(self) -> str | None:
         """Forecast zone used for polling; active zone, or candidate while switching."""
         if self._active_gps_zone:
             return self._active_gps_zone
         return self._candidate_zone
 
-    def get_gps_controlled_node(self) -> Optional[int]:
+    def get_gps_controlled_node(self) -> int | None:
         """Return the node number marked gps_controlled, if any."""
         for node in self.config.asterisk.nodes:
             if isinstance(node, int):
                 continue
-            node_config: Optional[NodeConfig]
+            node_config: NodeConfig | None
             if hasattr(node, "gps_controlled"):
                 node_config = node
             elif isinstance(node, dict):
@@ -157,7 +155,7 @@ class MobileCountyService:
 
     async def refresh(self) -> None:
         """Update active NWS forecast zone from gpsd and/or static coordinates."""
-        self._last_refresh_at = datetime.now(timezone.utc)
+        self._last_refresh_at = datetime.now(UTC)
 
         if self.get_gps_controlled_node() is None:
             self._set_inactive("no_gps_node")
@@ -248,7 +246,7 @@ class MobileCountyService:
         self._candidate_polls = 0
         self._position_source = None
 
-    def _enabled_county_codes(self) -> Set[str]:
+    def _enabled_county_codes(self) -> set[str]:
         return {county.code for county in self.config.counties if county.enabled}
 
     def _node_is_gps_controlled(self, node_number: int) -> bool:
@@ -268,7 +266,7 @@ class MobileCountyService:
             return True
         return not node_config.counties
 
-    def _static_counties_for_node(self, node_number: int) -> Optional[Set[str]]:
+    def _static_counties_for_node(self, node_number: int) -> set[str] | None:
         """Static county set for a node. None means all enabled counties."""
         if self._is_gps_only_node(node_number):
             return set()
@@ -280,9 +278,9 @@ class MobileCountyService:
             return None
         return set()
 
-    def get_fetch_counties(self) -> List[str]:
+    def get_fetch_counties(self) -> list[str]:
         """Zone/county codes to poll from NWS this cycle."""
-        fetch: Set[str] = set()
+        fetch: set[str] = set()
         enabled = self._enabled_county_codes()
 
         for node_number in self.config.asterisk.get_nodes_list():
@@ -300,7 +298,7 @@ class MobileCountyService:
 
         return sorted(fetch)
 
-    def get_effective_counties_for_node(self, node_number: int) -> Optional[Set[str]]:
+    def get_effective_counties_for_node(self, node_number: int) -> set[str] | None:
         """
         Counties used for per-node alert display and announcements.
 
@@ -312,13 +310,13 @@ class MobileCountyService:
                 return {effective}
         return self._static_counties_for_node(node_number)
 
-    def get_nodes_for_counties(self, alert_county_codes: List[str]) -> List[int]:
+    def get_nodes_for_counties(self, alert_county_codes: list[str]) -> list[int]:
         """Determine target nodes for an alert, honoring GPS forecast zone overrides."""
         if not alert_county_codes:
             return []
 
         alert_set = set(alert_county_codes)
-        result: List[int] = []
+        result: list[int] = []
 
         for node in self.config.asterisk.nodes:
             if isinstance(node, int):
@@ -356,7 +354,7 @@ class MobileCountyService:
 
         return sorted(set(result))
 
-    def get_monitored_county_codes(self) -> Set[str]:
+    def get_monitored_county_codes(self) -> set[str]:
         """All zone/county codes currently in use for alert filtering."""
         monitored = self._enabled_county_codes()
         effective = self._effective_gps_zone()
@@ -364,11 +362,11 @@ class MobileCountyService:
             monitored.add(effective)
         return monitored
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """GPS state for dashboard and API consumers."""
         node = self.get_gps_controlled_node()
         effective_zone = self._effective_gps_zone()
-        status: Dict[str, Any] = {
+        status: dict[str, Any] = {
             "enabled": self._position_monitoring_configured(),
             "poll_counties": self.get_fetch_counties(),
             "controlled_node": node,

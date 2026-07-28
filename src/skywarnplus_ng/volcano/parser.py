@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from ..geo_hazard.tts import sanitize_for_tts
 from ..nhc.parser import haversine_miles
@@ -29,10 +29,10 @@ class ParsedVolcano:
     notice_type: str
     notice_issued: str
     announcement_key: str
-    lat: Optional[float]
-    lon: Optional[float]
-    distance_miles: Optional[int]
-    issued_utc: Optional[datetime]
+    lat: float | None
+    lon: float | None
+    distance_miles: int | None
+    issued_utc: datetime | None
     tts_text: str
 
 
@@ -70,7 +70,7 @@ def parse_pseudo_navy_coord(hemisphere: str, value: str) -> float:
     return decimal
 
 
-def extract_pseudo_coords(text: str) -> Optional[tuple[float, float]]:
+def extract_pseudo_coords(text: str) -> tuple[float, float] | None:
     match = _PSN_RE.search(text or "")
     if not match:
         return None
@@ -79,7 +79,7 @@ def extract_pseudo_coords(text: str) -> Optional[tuple[float, float]]:
     return lat, lon
 
 
-def _catalog_coords(item: Dict[str, Any]) -> Optional[tuple[float, float]]:
+def _catalog_coords(item: dict[str, Any]) -> tuple[float, float] | None:
     for lat_key, lon_key in (
         ("lat", "lon"),
         ("latitude", "longitude"),
@@ -97,14 +97,14 @@ def _catalog_coords(item: Dict[str, Any]) -> Optional[tuple[float, float]]:
     return None
 
 
-def _parse_notice_issued(value: Optional[str]) -> Optional[datetime]:
+def _parse_notice_issued(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
     except ValueError:
         return None
 
@@ -135,9 +135,9 @@ def _build_announcement_key(
     return f"{vnum}:{issued_part}:{notice_type}:{digest}"
 
 
-def latest_notices_per_volcano(notices: List[ParsedVolcano]) -> List[ParsedVolcano]:
+def latest_notices_per_volcano(notices: list[ParsedVolcano]) -> list[ParsedVolcano]:
     """Keep only the newest notice for each volcano (vnum)."""
-    min_dt = datetime.min.replace(tzinfo=timezone.utc)
+    min_dt = datetime.min.replace(tzinfo=UTC)
     latest_by_vnum: dict[str, ParsedVolcano] = {}
 
     for notice in notices:
@@ -161,11 +161,11 @@ def latest_notices_per_volcano(notices: List[ParsedVolcano]) -> List[ParsedVolca
 
 
 def parse_volcano_notice(
-    item: Dict[str, Any],
+    item: dict[str, Any],
     *,
-    origin_lat: Optional[float] = None,
-    origin_lon: Optional[float] = None,
-) -> Optional[ParsedVolcano]:
+    origin_lat: float | None = None,
+    origin_lon: float | None = None,
+) -> ParsedVolcano | None:
     vnum = str(item.get("vnum") or "").strip()
     if not vnum:
         return None
@@ -182,7 +182,7 @@ def parse_volcano_notice(
     coords = extract_pseudo_coords(notice_html) or _catalog_coords(item)
     lat = coords[0] if coords else None
     lon = coords[1] if coords else None
-    distance_miles: Optional[int] = None
+    distance_miles: int | None = None
     if lat is not None and lon is not None and origin_lat is not None and origin_lon is not None:
         distance_miles = haversine_miles(origin_lat, origin_lon, lat, lon)
 
@@ -209,12 +209,12 @@ def parse_volcano_notice(
 
 
 def parse_volcano_notices(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     *,
-    origin_lat: Optional[float] = None,
-    origin_lon: Optional[float] = None,
-) -> List[ParsedVolcano]:
-    parsed: List[ParsedVolcano] = []
+    origin_lat: float | None = None,
+    origin_lon: float | None = None,
+) -> list[ParsedVolcano]:
+    parsed: list[ParsedVolcano] = []
     seen: set[str] = set()
     for item in items:
         if not isinstance(item, dict):
@@ -225,7 +225,7 @@ def parse_volcano_notices(
         parsed.append(notice)
         seen.add(notice.announcement_key)
     parsed.sort(
-        key=lambda n: n.issued_utc or datetime.min.replace(tzinfo=timezone.utc),
+        key=lambda n: n.issued_utc or datetime.min.replace(tzinfo=UTC),
         reverse=True,
     )
     return parsed

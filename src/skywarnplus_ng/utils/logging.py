@@ -2,13 +2,14 @@
 Enhanced logging utilities for SkywarnPlus-NG.
 """
 
+import json
 import logging
 import logging.handlers
-import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
+
 import structlog
 from structlog.stdlib import LoggerFactory
 
@@ -50,7 +51,7 @@ class SkywarnPlusFormatter(logging.Formatter):
 
         # Create structured log entry
         log_entry = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -79,14 +80,14 @@ class PerformanceLogger:
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
-        self._metrics: Dict[str, Any] = {}
+        self._metrics: dict[str, Any] = {}
 
     def start_timer(self, operation: str) -> str:
         """Start timing an operation."""
-        timer_id = f"{operation}_{datetime.now(timezone.utc).timestamp()}"
+        timer_id = f"{operation}_{datetime.now(UTC).timestamp()}"
         self._metrics[timer_id] = {
             "operation": operation,
-            "start_time": datetime.now(timezone.utc),
+            "start_time": datetime.now(UTC),
             "status": "running",
         }
         return timer_id
@@ -98,7 +99,7 @@ class PerformanceLogger:
             return
 
         metric = self._metrics[timer_id]
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         duration_ms = (end_time - metric["start_time"]).total_seconds() * 1000
 
         self.logger.info(

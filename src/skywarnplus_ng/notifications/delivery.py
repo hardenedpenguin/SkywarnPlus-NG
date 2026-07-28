@@ -2,15 +2,14 @@
 Delivery queue and status tracking system for SkywarnPlus-NG.
 """
 
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, field
-from enum import Enum
 import json
-from pathlib import Path
+import logging
 import uuid
-
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +73,9 @@ class DeliveryAttempt:
     attempt_id: str
     timestamp: datetime
     status: DeliveryStatus
-    error_message: Optional[str] = None
-    response_data: Optional[Dict[str, Any]] = None
-    duration_ms: Optional[float] = None
+    error_message: str | None = None
+    response_data: dict[str, Any] | None = None
+    duration_ms: float | None = None
 
 
 @dataclass
@@ -89,22 +88,22 @@ class DeliveryItem:
     recipient: str
     subject: str
     body: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     # Status tracking
     status: DeliveryStatus = DeliveryStatus.PENDING
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    scheduled_at: Optional[datetime] = None
-    sent_at: Optional[datetime] = None
-    delivered_at: Optional[datetime] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    scheduled_at: datetime | None = None
+    sent_at: datetime | None = None
+    delivered_at: datetime | None = None
 
     # Retry tracking
     retry_count: int = 0
     max_retries: int = 3
-    next_retry_at: Optional[datetime] = None
+    next_retry_at: datetime | None = None
 
     # Attempts
-    attempts: List[DeliveryAttempt] = field(default_factory=list)
+    attempts: list[DeliveryAttempt] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.scheduled_at:
@@ -113,14 +112,14 @@ class DeliveryItem:
     def add_attempt(
         self,
         status: DeliveryStatus,
-        error_message: Optional[str] = None,
-        response_data: Optional[Dict[str, Any]] = None,
-        duration_ms: Optional[float] = None,
+        error_message: str | None = None,
+        response_data: dict[str, Any] | None = None,
+        duration_ms: float | None = None,
     ) -> None:
         """Add a delivery attempt."""
         attempt = DeliveryAttempt(
             attempt_id=str(uuid.uuid4()),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status=status,
             error_message=error_message,
             response_data=response_data,
@@ -143,7 +142,7 @@ class DeliveryItem:
 
         self.retry_count += 1
         delay_seconds = retry_policy.get_delay(self.retry_count)
-        self.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+        self.next_retry_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
         self.status = DeliveryStatus.RETRYING
         self.scheduled_at = self.next_retry_at
 
@@ -151,7 +150,7 @@ class DeliveryItem:
             f"Scheduled retry {self.retry_count} for delivery {self.delivery_id} in {delay_seconds}s"
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "delivery_id": self.delivery_id,
@@ -183,7 +182,7 @@ class DeliveryItem:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DeliveryItem":
+    def from_dict(cls, data: dict[str, Any]) -> "DeliveryItem":
         """Create from dictionary."""
         item = cls(
             delivery_id=data["delivery_id"],
@@ -201,13 +200,13 @@ class DeliveryItem:
         # Set timestamps
         if "created_at" in data:
             item.created_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
-        if "scheduled_at" in data and data["scheduled_at"]:
+        if data.get("scheduled_at"):
             item.scheduled_at = datetime.fromisoformat(data["scheduled_at"].replace("Z", "+00:00"))
-        if "sent_at" in data and data["sent_at"]:
+        if data.get("sent_at"):
             item.sent_at = datetime.fromisoformat(data["sent_at"].replace("Z", "+00:00"))
-        if "delivered_at" in data and data["delivered_at"]:
+        if data.get("delivered_at"):
             item.delivered_at = datetime.fromisoformat(data["delivered_at"].replace("Z", "+00:00"))
-        if "next_retry_at" in data and data["next_retry_at"]:
+        if data.get("next_retry_at"):
             item.next_retry_at = datetime.fromisoformat(
                 data["next_retry_at"].replace("Z", "+00:00")
             )
@@ -230,9 +229,9 @@ class DeliveryItem:
 class DeliveryQueue:
     """Delivery queue for managing notification delivery."""
 
-    def __init__(self, data_file: Optional[Path] = None):
+    def __init__(self, data_file: Path | None = None):
         self.data_file = data_file or Path("delivery_queue.json")
-        self.queue: List[DeliveryItem] = []
+        self.queue: list[DeliveryItem] = []
         self.retry_policy = RetryPolicy()
         self.logger = logging.getLogger(__name__)
         self._load_queue()
@@ -241,7 +240,7 @@ class DeliveryQueue:
         """Load delivery queue from file."""
         try:
             if self.data_file.exists():
-                with open(self.data_file, "r", encoding="utf-8") as f:
+                with open(self.data_file, encoding="utf-8") as f:
                     data = json.load(f)
 
                 for item_data in data.get("queue", []):
@@ -261,7 +260,7 @@ class DeliveryQueue:
         try:
             data = {
                 "queue": [item.to_dict() for item in self.queue],
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
 
             from ..utils.atomic_json import atomic_write_json
@@ -280,8 +279,8 @@ class DeliveryQueue:
         recipient: str,
         subject: str,
         body: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        scheduled_at: Optional[datetime] = None,
+        metadata: dict[str, Any] | None = None,
+        scheduled_at: datetime | None = None,
     ) -> str:
         """Add a delivery item to the queue."""
         delivery_id = str(uuid.uuid4())
@@ -303,9 +302,9 @@ class DeliveryQueue:
         self.logger.debug(f"Added delivery {delivery_id} to queue")
         return delivery_id
 
-    def get_pending_deliveries(self) -> List[DeliveryItem]:
+    def get_pending_deliveries(self) -> list[DeliveryItem]:
         """Get deliveries that are ready to be sent."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         pending = []
         for item in self.queue:
@@ -318,7 +317,7 @@ class DeliveryQueue:
 
         return pending
 
-    def get_delivery(self, delivery_id: str) -> Optional[DeliveryItem]:
+    def get_delivery(self, delivery_id: str) -> DeliveryItem | None:
         """Get a delivery item by ID."""
         for item in self.queue:
             if item.delivery_id == delivery_id:
@@ -329,9 +328,9 @@ class DeliveryQueue:
         self,
         delivery_id: str,
         status: DeliveryStatus,
-        error_message: Optional[str] = None,
-        response_data: Optional[Dict[str, Any]] = None,
-        duration_ms: Optional[float] = None,
+        error_message: str | None = None,
+        response_data: dict[str, Any] | None = None,
+        duration_ms: float | None = None,
     ) -> bool:
         """Update delivery status."""
         item = self.get_delivery(delivery_id)
@@ -344,9 +343,9 @@ class DeliveryQueue:
 
         # Update timestamps
         if status == DeliveryStatus.SENT:
-            item.sent_at = datetime.now(timezone.utc)
+            item.sent_at = datetime.now(UTC)
         elif status == DeliveryStatus.DELIVERED:
-            item.delivered_at = datetime.now(timezone.utc)
+            item.delivered_at = datetime.now(UTC)
 
         # Handle retry logic
         if status == DeliveryStatus.FAILED and item.can_retry():
@@ -373,7 +372,7 @@ class DeliveryQueue:
 
     def cleanup_completed_deliveries(self, max_age_hours: int = 24) -> int:
         """Remove completed deliveries older than specified age."""
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=max_age_hours)
 
         removed_count = 0
         items_to_remove = []
@@ -396,7 +395,7 @@ class DeliveryQueue:
 
         return removed_count
 
-    def get_queue_stats(self) -> Dict[str, Any]:
+    def get_queue_stats(self) -> dict[str, Any]:
         """Get delivery queue statistics."""
         stats = {
             "total_items": len(self.queue),
@@ -418,10 +417,10 @@ class DeliveryQueue:
 
     def get_delivery_history(
         self,
-        alert_id: Optional[str] = None,
-        method: Optional[DeliveryMethod] = None,
-        status: Optional[DeliveryStatus] = None,
-    ) -> List[DeliveryItem]:
+        alert_id: str | None = None,
+        method: DeliveryMethod | None = None,
+        status: DeliveryStatus | None = None,
+    ) -> list[DeliveryItem]:
         """Get delivery history with optional filters."""
         filtered = self.queue
 
@@ -439,7 +438,7 @@ class DeliveryQueue:
 
         return filtered
 
-    def get_failed_deliveries(self) -> List[DeliveryItem]:
+    def get_failed_deliveries(self) -> list[DeliveryItem]:
         """Get deliveries that have failed and can be retried."""
         failed = []
         for item in self.queue:

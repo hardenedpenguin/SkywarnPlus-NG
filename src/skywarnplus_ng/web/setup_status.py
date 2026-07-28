@@ -4,7 +4,7 @@ Whether the operator has finished initial dashboard setup (for hiding first-run 
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from ..core.config import AppConfig
 from .auth_security import uses_default_dashboard_password
@@ -20,7 +20,7 @@ def has_enabled_counties(config: AppConfig) -> bool:
 
 def is_dashboard_configured(
     config: AppConfig,
-    verify_password: Optional[Callable[[str, str], bool]] = None,
+    verify_password: Callable[[str, str], bool] | None = None,
 ) -> bool:
     """
     Return True when initial dashboard setup is complete.
@@ -47,7 +47,7 @@ def is_dashboard_configured(
 
 def configuration_setup_hints_needed(
     config: AppConfig,
-    verify_password: Optional[Callable[[str, str], bool]] = None,
+    verify_password: Callable[[str, str], bool] | None = None,
 ) -> bool:
     """Inverse of is_dashboard_configured for UI that should hide when setup is done."""
     return not is_dashboard_configured(config, verify_password)

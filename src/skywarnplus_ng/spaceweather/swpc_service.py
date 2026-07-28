@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -46,11 +46,11 @@ class SwpcSpaceWeatherService:
             headers={"User-Agent": config.nws.user_agent},
             follow_redirects=True,
         )
-        self._last_poll_at: Optional[datetime] = None
-        self._tracked_alerts: List[Dict[str, Any]] = []
-        self._last_fetch_ok_at: Optional[datetime] = None
-        self._last_error_message: Optional[str] = None
-        self._last_display_refresh_at: Optional[datetime] = None
+        self._last_poll_at: datetime | None = None
+        self._tracked_alerts: list[dict[str, Any]] = []
+        self._last_fetch_ok_at: datetime | None = None
+        self._last_error_message: str | None = None
+        self._last_display_refresh_at: datetime | None = None
         self._fetch_cache = GeoFetchCache.shared()
 
     def sync_http_client_user_agent(self) -> None:
@@ -59,23 +59,23 @@ class SwpcSpaceWeatherService:
     async def close(self) -> None:
         await self._client.aclose()
 
-    def should_poll(self, now: Optional[datetime] = None) -> bool:
+    def should_poll(self, now: datetime | None = None) -> bool:
         if not self.config.space_weather.enabled:
             return False
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         if self._last_poll_at is None:
             return True
         elapsed = (now - self._last_poll_at).total_seconds() / 60.0
         return elapsed >= self.config.space_weather.poll_interval_minutes
 
-    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_error(self, state: dict[str, Any], message: str) -> None:
+        now = datetime.now(UTC)
         self._last_error_message = message
         state["spaceweather_last_error_at"] = now.isoformat()
         state["spaceweather_last_error_message"] = message
 
-    def _record_poll_success(self, state: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_success(self, state: dict[str, Any]) -> None:
+        now = datetime.now(UTC)
         self._last_fetch_ok_at = now
         self._last_error_message = None
         state["spaceweather_last_error_at"] = None
@@ -114,13 +114,13 @@ class SwpcSpaceWeatherService:
             return False
         return True
 
-    def _already_announced(self, announcement_key: str, state: Dict[str, Any]) -> bool:
+    def _already_announced(self, announcement_key: str, state: dict[str, Any]) -> bool:
         announced = state.get("spaceweather_announced_alerts") or []
         if not isinstance(announced, list):
             return False
         return announcement_key in announced
 
-    def mark_announced(self, announcement_key: str, state: Dict[str, Any]) -> None:
+    def mark_announced(self, announcement_key: str, state: dict[str, Any]) -> None:
         announced = state.get("spaceweather_announced_alerts")
         if not isinstance(announced, list):
             announced = []
@@ -130,8 +130,8 @@ class SwpcSpaceWeatherService:
 
     def _maybe_seed_announced_history(
         self,
-        alerts: List[ParsedSpaceWeather],
-        state: Dict[str, Any],
+        alerts: list[ParsedSpaceWeather],
+        state: dict[str, Any],
     ) -> None:
         if state.get("spaceweather_history_seeded"):
             return
@@ -159,7 +159,7 @@ class SwpcSpaceWeatherService:
         *,
         within_filters: bool,
         announced: bool,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return {
             "product_id": alert.product_id,
             "title": alert.title,
@@ -174,11 +174,11 @@ class SwpcSpaceWeatherService:
 
     def select_new_alerts(
         self,
-        alerts: List[ParsedSpaceWeather],
-        state: Dict[str, Any],
-    ) -> List[SpaceWeatherAlert]:
-        selected: List[SpaceWeatherAlert] = []
-        tracked: List[Dict[str, Any]] = []
+        alerts: list[ParsedSpaceWeather],
+        state: dict[str, Any],
+    ) -> list[SpaceWeatherAlert]:
+        selected: list[SpaceWeatherAlert] = []
+        tracked: list[dict[str, Any]] = []
 
         for alert in alerts:
             within_filters = self._passes_filters(alert)
@@ -210,15 +210,15 @@ class SwpcSpaceWeatherService:
         self._tracked_alerts = tracked
         return selected
 
-    async def fetch_alerts_json(self) -> Optional[list[Any]]:
+    async def fetch_alerts_json(self) -> list[Any] | None:
         cache_key = "swpc:alerts.json"
 
-        async def _fetch() -> Optional[list[Any]]:
+        async def _fetch() -> list[Any] | None:
             return await self._fetch_alerts_json_uncached()
 
         return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
 
-    async def _fetch_alerts_json_uncached(self) -> Optional[list[Any]]:
+    async def _fetch_alerts_json_uncached(self) -> list[Any] | None:
         try:
             response = await self._client.get(SWPC_ALERTS_URL)
             response.raise_for_status()
@@ -236,10 +236,10 @@ class SwpcSpaceWeatherService:
             self._last_error_message = f"SWPC alerts response invalid: {exc}"
             return None
 
-    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def check_health(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
         state = state or {}
         sw = self.config.space_weather
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "min_geomagnetic_scale": sw.min_geomagnetic_scale,
             "min_radio_blackout_scale": sw.min_radio_blackout_scale,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
@@ -261,26 +261,26 @@ class SwpcSpaceWeatherService:
             "details": details,
         }
 
-    async def refresh_tracked_alerts_if_stale(self, state: Dict[str, Any]) -> None:
+    async def refresh_tracked_alerts_if_stale(self, state: dict[str, Any]) -> None:
         if not self.config.space_weather.enabled:
             self._tracked_alerts = []
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._last_display_refresh_at is not None:
             elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
             if elapsed_min < DISPLAY_REFRESH_MINUTES:
                 return
 
         data = await self.fetch_alerts_json()
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = datetime.now(UTC)
         if data is None:
             return
 
         alerts = parse_swpc_alerts(data)
         self.select_new_alerts(alerts, state)
 
-    async def poll(self, state: Dict[str, Any]) -> List[SpaceWeatherAlert]:
+    async def poll(self, state: dict[str, Any]) -> list[SpaceWeatherAlert]:
         if not self.config.space_weather.enabled:
             self._tracked_alerts = []
             return []
@@ -296,7 +296,7 @@ class SwpcSpaceWeatherService:
         alerts = parse_swpc_alerts(data)
         self._maybe_seed_announced_history(alerts, state)
         selected = self.select_new_alerts(alerts, state)
-        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(UTC)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
 
@@ -314,7 +314,7 @@ class SwpcSpaceWeatherService:
             logger.info("SWPC: %s new space weather alert(s)", len(selected))
         return selected
 
-    def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any]) -> dict[str, Any]:
         sw = self.config.space_weather
         return {
             "enabled": sw.enabled,

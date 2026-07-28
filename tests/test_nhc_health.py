@@ -9,8 +9,8 @@ from skywarnplus_ng.core.config import (
     AppConfig,
     GeoHazardPositionConfig,
     GpsdConfig,
-    NWSApiConfig,
     NhcConfig,
+    NWSApiConfig,
 )
 from skywarnplus_ng.monitoring.health import ComponentStatus, HealthMonitor, rollup_overall_status
 from skywarnplus_ng.nhc.cyclone_service import NhcCycloneService

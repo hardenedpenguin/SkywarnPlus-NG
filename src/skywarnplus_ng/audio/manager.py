@@ -6,23 +6,21 @@ import logging
 import os
 import re
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 from ..core.config import AudioConfig, TTSConfig
 from ..core.models import WeatherAlert
 from ..utils.cap_speech import prepare_cap_text_for_tts
-from .tts_engine import AslTTSEngine, GTTSEngine, TTSEngineError
 from .audio_utils import AudioSegment
+from .tts_engine import AslTTSEngine, GTTSEngine, TTSEngineError
 
 logger = logging.getLogger(__name__)
 
 
 class AudioManagerError(Exception):
     """Audio manager error."""
-
-    pass
 
 
 class AudioManager:
@@ -36,7 +34,7 @@ class AudioManager:
             config: Audio configuration
         """
         self.config = config
-        self._fallback_tts_engine: Optional[GTTSEngine] = None
+        self._fallback_tts_engine: GTTSEngine | None = None
         self.tts_engine = self._initialize_tts_engine()
 
         # Ensure directories exist
@@ -134,7 +132,7 @@ class AudioManager:
             f"Unsupported TTS engine: {engine_type}. Supported engines: 'asl-tts', 'gtts'"
         )
 
-    def _get_fallback_tts_engine(self) -> Optional[GTTSEngine]:
+    def _get_fallback_tts_engine(self) -> GTTSEngine | None:
         """
         Lazily create a gTTS fallback so we can still generate county audio if
         asl-tts becomes unavailable mid-run.
@@ -188,11 +186,11 @@ class AudioManager:
     def generate_alert_audio(
         self,
         alert: WeatherAlert,
-        suffix_file: Optional[str] = None,
-        county_audio_files: Optional[List[str]] = None,
+        suffix_file: str | None = None,
+        county_audio_files: list[str] | None = None,
         with_multiples: bool = False,
         include_cap_description: bool = False,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """
         Generate audio for a weather alert.
 
@@ -216,7 +214,7 @@ class AudioManager:
             logger.info(f"Generating audio for alert: {alert.event}")
 
             # Generate unique filename
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"alert_{alert.id}_{timestamp}.{self.config.tts.output_format}"
             output_path = self.config.temp_dir / filename
 
@@ -310,7 +308,7 @@ class AudioManager:
             logger.error(f"Unexpected error generating alert audio: {e}", exc_info=True)
             return None
 
-    def generate_spoken_audio(self, text: str, prefix: str = "spoken") -> Optional[Path]:
+    def generate_spoken_audio(self, text: str, prefix: str = "spoken") -> Path | None:
         """
         Generate TTS audio from arbitrary spoken text.
 
@@ -323,7 +321,7 @@ class AudioManager:
         """
         try:
             safe_prefix = re.sub(r"[^a-zA-Z0-9_-]+", "_", prefix).strip("_") or "spoken"
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"{safe_prefix}_{timestamp}.{self.config.tts.output_format}"
             output_path = self.config.temp_dir / filename
 
@@ -349,7 +347,7 @@ class AudioManager:
             logger.error(f"Unexpected error generating spoken audio: {e}", exc_info=True)
             return None
 
-    def generate_all_clear_audio(self, suffix_file: Optional[str] = None) -> Optional[Path]:
+    def generate_all_clear_audio(self, suffix_file: str | None = None) -> Path | None:
         """
         Generate all-clear audio message.
 
@@ -364,7 +362,7 @@ class AudioManager:
             logger.info("Generating all-clear audio")
 
             # Generate unique filename
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"allclear_{timestamp}.{self.config.tts.output_format}"
             output_path = self.config.temp_dir / filename
 
@@ -386,7 +384,7 @@ class AudioManager:
                 if not audio_path:
                     logger.warning(f"Failed to append suffix {suffix_file}, using original audio")
                     # Return original audio if suffix fails
-                    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
                     filename = f"allclear_{timestamp}.{self.config.tts.output_format}"
                     output_path = self.config.temp_dir / filename
                     audio_path = self.tts_engine.synthesize(all_clear_text, output_path)
@@ -437,7 +435,7 @@ class AudioManager:
         spoken = prepare_cap_text_for_tts(raw, max_words=250)
         return f"{base}. {spoken}" if spoken else base
 
-    def get_alert_sound_path(self) -> Optional[Path]:
+    def get_alert_sound_path(self) -> Path | None:
         """
         Get path to alert sound file.
 
@@ -451,7 +449,7 @@ class AudioManager:
         logger.warning(f"Alert sound file not found: {sound_path}")
         return None
 
-    def get_all_clear_sound_path(self) -> Optional[Path]:
+    def get_all_clear_sound_path(self) -> Path | None:
         """
         Get path to all-clear sound file.
 
@@ -465,7 +463,7 @@ class AudioManager:
         logger.warning(f"All-clear sound file not found: {sound_path}")
         return None
 
-    def get_separator_sound_path(self) -> Optional[Path]:
+    def get_separator_sound_path(self) -> Path | None:
         """
         Get path to separator sound file.
 
@@ -492,7 +490,7 @@ class AudioManager:
         if not self.config.temp_dir.exists():
             return 0
 
-        cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
+        cutoff_time = datetime.now(UTC).timestamp() - (max_age_hours * 3600)
         cleaned_count = 0
 
         for file_path in self.config.temp_dir.iterdir():
@@ -549,7 +547,7 @@ class AudioManager:
 
         return cleaned_count
 
-    def get_audio_info(self, audio_path: Path) -> Dict[str, Any]:
+    def get_audio_info(self, audio_path: Path) -> dict[str, Any]:
         """
         Get information about an audio file.
 
@@ -574,7 +572,7 @@ class AudioManager:
 
         return info
 
-    def _load_audio_file_for_append(self, audio_path: Path) -> Optional[AudioSegment]:
+    def _load_audio_file_for_append(self, audio_path: Path) -> AudioSegment | None:
         """
         Load an audio file for appending, handling ulaw format conversion.
 
@@ -588,8 +586,8 @@ class AudioManager:
             ext = audio_path.suffix.lower()
             if ext in [".ulaw", ".ul"]:
                 # For ulaw files, convert to WAV first using ffmpeg
-                import tempfile
                 import subprocess
+                import tempfile
 
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                     temp_wav_path = Path(temp_wav.name)
@@ -639,8 +637,8 @@ class AudioManager:
             return None
 
     def _append_county_audio(
-        self, main_audio_path: Path, county_audio_files: List[str]
-    ) -> Optional[Path]:
+        self, main_audio_path: Path, county_audio_files: list[str]
+    ) -> Path | None:
         """
         Append county audio files to the main audio file.
 
@@ -662,9 +660,9 @@ class AudioManager:
             main_audio = main_audio.set_frame_rate(8000).set_channels(1)
 
             combined = main_audio
-            appended_counties: List[str] = []
-            missing_files: List[str] = []
-            failed_loads: List[str] = []
+            appended_counties: list[str] = []
+            missing_files: list[str] = []
+            failed_loads: list[str] = []
 
             for county_file in county_audio_files:
                 county_path = self.config.sounds_path / county_file
@@ -714,7 +712,7 @@ class AudioManager:
             combined = combined + AudioSegment.silent(duration=600)
 
             # Create new filename for combined audio
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             base_name = main_audio_path.stem
             combined_filename = (
                 f"{base_name}_with_counties_{timestamp}.{self.config.tts.output_format}"
@@ -794,7 +792,7 @@ class AudioManager:
             logger.debug(f"Exported to ulaw: {output_path} ({file_size} bytes)")
         except RuntimeError as e:
             logger.error(f"Failed to export to ulaw: {e}")
-            raise AudioManagerError(f"Failed to convert to ulaw format: {str(e)}")
+            raise AudioManagerError(f"Failed to convert to ulaw format: {e!s}")
         except FileNotFoundError as e:
             logger.error(f"File not found during ulaw export: {e}")
             raise AudioManagerError(
@@ -802,7 +800,7 @@ class AudioManager:
                 f"Check directory permissions and disk space."
             )
 
-    def _append_suffix_audio(self, main_audio_path: Path, suffix_filename: str) -> Optional[Path]:
+    def _append_suffix_audio(self, main_audio_path: Path, suffix_filename: str) -> Path | None:
         """
         Append a suffix audio file to the main audio file.
 
@@ -832,7 +830,7 @@ class AudioManager:
             combined = main_audio + AudioSegment.silent(duration=500) + suffix_audio
 
             # Create new filename for combined audio
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             base_name = main_audio_path.stem
             combined_filename = (
                 f"{base_name}_with_suffix_{timestamp}.{self.config.tts.output_format}"
@@ -872,7 +870,7 @@ class AudioManager:
             logger.error(f"Failed to append suffix audio: {e}")
             return None
 
-    def generate_county_audio(self, county_name: str) -> Optional[str]:
+    def generate_county_audio(self, county_name: str) -> str | None:
         """
         Generate audio file for a county name using TTS.
 
@@ -937,7 +935,7 @@ class AudioManager:
             logger.error(f"Unexpected error generating county audio: {e}", exc_info=True)
             return None
 
-    def copy_audio_to_sounds(self, source_path: Path, filename: str) -> Optional[Path]:
+    def copy_audio_to_sounds(self, source_path: Path, filename: str) -> Path | None:
         """
         Copy audio file to sounds directory.
 

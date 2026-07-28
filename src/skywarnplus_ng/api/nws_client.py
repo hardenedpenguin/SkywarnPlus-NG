@@ -2,28 +2,29 @@
 NWS API client for fetching weather alerts.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Dict, Any, Set, Tuple
+import asyncio
 import logging
 import re
-import asyncio
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 import httpx
 from dateutil import parser
 
 from ..core.config import NWSApiConfig
 from ..core.models import (
-    WeatherAlert,
-    AlertSeverity,
-    AlertUrgency,
-    AlertCertainty,
-    AlertStatus,
     AlertCategory,
+    AlertCertainty,
+    AlertSeverity,
+    AlertStatus,
+    AlertUrgency,
+    WeatherAlert,
 )
 
 logger = logging.getLogger(__name__)
 
 # NWS SAME uses a 6-digit FIPS form: 0 + 2-digit state FIPS + 3-digit county FIPS (e.g. 048167 -> TXC167).
-_FIPS_STATE_POSTAL: Dict[str, str] = {
+_FIPS_STATE_POSTAL: dict[str, str] = {
     "01": "AL",
     "02": "AK",
     "04": "AZ",
@@ -89,8 +90,6 @@ _UGC_ZONE_CODE = re.compile(r"^[A-Z]{2}[A-Z]\d{3}$")
 class NWSClientError(Exception):
     """NWS API client error."""
 
-    pass
-
 
 class NWSClient:
     """NWS API client for fetching weather alerts."""
@@ -111,8 +110,8 @@ class NWSClient:
             headers={"User-Agent": config.user_agent},
             follow_redirects=True,
         )
-        self._point_county_cache: Dict[Tuple[float, float], Tuple[str, str]] = {}
-        self._point_forecast_zone_cache: Dict[Tuple[float, float], Tuple[str, str]] = {}
+        self._point_county_cache: dict[tuple[float, float], tuple[str, str]] = {}
+        self._point_forecast_zone_cache: dict[tuple[float, float], tuple[str, str]] = {}
 
     async def close(self) -> None:
         """Close the HTTP client."""
@@ -126,7 +125,7 @@ class NWSClient:
         """Async context manager exit."""
         await self.close()
 
-    def _map_severity(self, severity: Optional[str]) -> AlertSeverity:
+    def _map_severity(self, severity: str | None) -> AlertSeverity:
         """Map NWS severity string to AlertSeverity enum."""
         if not severity:
             return AlertSeverity.UNKNOWN
@@ -140,7 +139,7 @@ class NWSClient:
         }
         return mapping.get(severity, AlertSeverity.UNKNOWN)
 
-    def _map_urgency(self, urgency: Optional[str]) -> AlertUrgency:
+    def _map_urgency(self, urgency: str | None) -> AlertUrgency:
         """Map NWS urgency string to AlertUrgency enum."""
         if not urgency:
             return AlertUrgency.UNKNOWN
@@ -154,7 +153,7 @@ class NWSClient:
         }
         return mapping.get(urgency, AlertUrgency.UNKNOWN)
 
-    def _map_certainty(self, certainty: Optional[str]) -> AlertCertainty:
+    def _map_certainty(self, certainty: str | None) -> AlertCertainty:
         """Map NWS certainty string to AlertCertainty enum."""
         if not certainty:
             return AlertCertainty.UNKNOWN
@@ -168,7 +167,7 @@ class NWSClient:
         }
         return mapping.get(certainty, AlertCertainty.UNKNOWN)
 
-    def _map_status(self, status: Optional[str]) -> AlertStatus:
+    def _map_status(self, status: str | None) -> AlertStatus:
         """Map NWS status string to AlertStatus enum."""
         if not status:
             return AlertStatus.ACTUAL
@@ -182,7 +181,7 @@ class NWSClient:
         }
         return mapping.get(status, AlertStatus.ACTUAL)
 
-    def _map_category(self, category: Optional[str]) -> AlertCategory:
+    def _map_category(self, category: str | None) -> AlertCategory:
         """Map NWS category string to AlertCategory enum."""
         if not category:
             return AlertCategory.OTHER
@@ -211,15 +210,15 @@ class NWSClient:
             raise NWSClientError(f"Invalid datetime {dt_str!r}: {e}") from e
 
     @staticmethod
-    def _county_codes_from_nws_geocode(geocode: Dict[str, Any]) -> List[str]:
+    def _county_codes_from_nws_geocode(geocode: dict[str, Any]) -> list[str]:
         """
         Build NWS zone codes for filtering and geographic matching.
 
         Includes all UGC codes (county ``TXC###``, forecast ``TXZ###``, marine ``TXM###``,
         etc.) plus county codes derived from SAME FIPS when present.
         """
-        out: List[str] = []
-        seen: Set[str] = set()
+        out: list[str] = []
+        seen: set[str] = set()
 
         def add(code: str) -> None:
             if code not in seen:
@@ -247,7 +246,7 @@ class NWSClient:
 
         return out
 
-    def _parse_alert(self, feature: Dict[str, Any]) -> WeatherAlert:
+    def _parse_alert(self, feature: dict[str, Any]) -> WeatherAlert:
         """Parse a GeoJSON feature into a WeatherAlert."""
         props = feature.get("properties")
         if not isinstance(props, dict):
@@ -297,7 +296,7 @@ class NWSClient:
             sender_name=props.get("senderName", ""),
         )
 
-    async def _fetch_with_retry(self, url: str, retry_count: int = 0) -> Optional[Dict[str, Any]]:
+    async def _fetch_with_retry(self, url: str, retry_count: int = 0) -> dict[str, Any] | None:
         """
         Fetch data from NWS API with retry logic.
 
@@ -349,7 +348,7 @@ class NWSClient:
             logger.error(f"Unexpected error: {e}")
             raise NWSClientError(f"Unexpected error: {e}") from e
 
-    async def fetch_alerts_for_zone(self, zone_code: str) -> List[WeatherAlert]:
+    async def fetch_alerts_for_zone(self, zone_code: str) -> list[WeatherAlert]:
         """
         Fetch active alerts for a specific zone/county code.
 
@@ -367,7 +366,7 @@ class NWSClient:
             return []
 
         alerts = []
-        seen_alert_ids: Set[str] = set()
+        seen_alert_ids: set[str] = set()
 
         for feature in data.get("features", []):
             try:
@@ -391,7 +390,7 @@ class NWSClient:
 
     async def fetch_active_alert_features_at_point(
         self, lat: float, lon: float
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Fetch raw active alert GeoJSON features for a geographic point.
 
@@ -410,8 +409,8 @@ class NWSClient:
         return [f for f in features if isinstance(f, dict)]
 
     async def fetch_alerts_for_zones(
-        self, zone_codes: List[str], deduplicate: bool = True
-    ) -> Tuple[List[WeatherAlert], List[str]]:
+        self, zone_codes: list[str], deduplicate: bool = True
+    ) -> tuple[list[WeatherAlert], list[str]]:
         """
         Fetch active alerts for multiple zones concurrently.
 
@@ -436,7 +435,7 @@ class NWSClient:
 
         # Collect all alerts
         all_alerts = []
-        failed_zones: List[str] = []
+        failed_zones: list[str] = []
         for zone_code, result in zip(zone_codes, results):
             if isinstance(result, BaseException):
                 logger.error("Error fetching alerts for zone %s: %s", zone_code, result)
@@ -460,7 +459,7 @@ class NWSClient:
 
         # Deduplicate by alert ID if requested
         if deduplicate:
-            seen_ids: Set[str] = set()
+            seen_ids: set[str] = set()
             unique_alerts = []
             for alert in all_alerts:
                 if alert.id not in seen_ids:
@@ -471,7 +470,7 @@ class NWSClient:
         logger.debug(f"Retrieved {len(all_alerts)} total alerts from {len(zone_codes)} zones")
         return all_alerts, failed_zones
 
-    async def fetch_all_alerts(self) -> List[WeatherAlert]:
+    async def fetch_all_alerts(self) -> list[WeatherAlert]:
         """
         Fetch all active alerts (use with caution!).
 
@@ -486,7 +485,7 @@ class NWSClient:
             return []
 
         alerts = []
-        seen_alert_ids: Set[str] = set()
+        seen_alert_ids: set[str] = set()
 
         for feature in data.get("features", []):
             try:
@@ -524,8 +523,8 @@ class NWSClient:
         return False
 
     def filter_active_alerts(
-        self, alerts: List[WeatherAlert], time_type: str = "onset"
-    ) -> List[WeatherAlert]:
+        self, alerts: list[WeatherAlert], time_type: str = "onset"
+    ) -> list[WeatherAlert]:
         """
         Filter alerts to only include currently active ones.
 
@@ -539,7 +538,7 @@ class NWSClient:
         Returns:
             Filtered list of active alerts
         """
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now(UTC)
         active_alerts = []
 
         for alert in alerts:
@@ -571,8 +570,8 @@ class NWSClient:
         return active_alerts
 
     def generate_inject_alerts(
-        self, inject_config: List[Dict[str, Any]], available_counties: List[str]
-    ) -> List[WeatherAlert]:
+        self, inject_config: list[dict[str, Any]], available_counties: list[str]
+    ) -> list[WeatherAlert]:
         """
         Generate test alerts from injection configuration.
 
@@ -587,7 +586,7 @@ class NWSClient:
             return []
 
         alerts = []
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now(UTC)
 
         # Severity mapping based on last word in alert title
         severity_words = {
@@ -672,9 +671,9 @@ class NWSClient:
         *,
         points_property: str,
         zone_pattern: re.Pattern[str],
-        cache: Dict[Tuple[float, float], Tuple[str, str]],
+        cache: dict[tuple[float, float], tuple[str, str]],
         label: str,
-    ) -> Optional[Tuple[str, str]]:
+    ) -> tuple[str, str] | None:
         """Resolve an NWS zone code from coordinates via the /points endpoint."""
         cache_key = (round(latitude, 3), round(longitude, 3))
         cached = cache.get(cache_key)
@@ -728,7 +727,7 @@ class NWSClient:
 
     async def resolve_county_from_coordinates(
         self, latitude: float, longitude: float
-    ) -> Optional[Tuple[str, str]]:
+    ) -> tuple[str, str] | None:
         """
         Resolve an NWS county zone code (e.g. TXC039) from coordinates.
 
@@ -745,7 +744,7 @@ class NWSClient:
 
     async def resolve_forecast_zone_from_coordinates(
         self, latitude: float, longitude: float
-    ) -> Optional[Tuple[str, str]]:
+    ) -> tuple[str, str] | None:
         """
         Resolve an NWS forecast zone code (e.g. TXZ213) from coordinates.
 

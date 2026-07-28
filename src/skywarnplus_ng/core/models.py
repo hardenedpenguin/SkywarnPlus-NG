@@ -3,12 +3,12 @@ Core data models for SkywarnPlus-NG.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import List, Optional
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
 
 
-class AlertSeverity(str, Enum):
+class AlertSeverity(StrEnum):
     """Alert severity levels."""
 
     EXTREME = "Extreme"
@@ -18,7 +18,7 @@ class AlertSeverity(str, Enum):
     UNKNOWN = "Unknown"
 
 
-class AlertUrgency(str, Enum):
+class AlertUrgency(StrEnum):
     """Alert urgency levels."""
 
     IMMEDIATE = "Immediate"
@@ -28,7 +28,7 @@ class AlertUrgency(str, Enum):
     UNKNOWN = "Unknown"
 
 
-class AlertCertainty(str, Enum):
+class AlertCertainty(StrEnum):
     """Alert certainty levels."""
 
     OBSERVED = "Observed"
@@ -38,7 +38,7 @@ class AlertCertainty(str, Enum):
     UNKNOWN = "Unknown"
 
 
-class AlertStatus(str, Enum):
+class AlertStatus(StrEnum):
     """Alert status."""
 
     ACTUAL = "Actual"
@@ -48,7 +48,7 @@ class AlertStatus(str, Enum):
     DRAFT = "Draft"
 
 
-class AlertCategory(str, Enum):
+class AlertCategory(StrEnum):
     """Alert categories."""
 
     MET = "Met"
@@ -70,9 +70,9 @@ class WeatherAlert(BaseModel):
 
     id: str = Field(..., description="Alert identifier")
     event: str = Field(..., description="Alert event type")
-    headline: Optional[str] = Field(None, description="Alert headline")
+    headline: str | None = Field(None, description="Alert headline")
     description: str = Field(..., description="Alert description")
-    instruction: Optional[str] = Field(None, description="Alert instructions")
+    instruction: str | None = Field(None, description="Alert instructions")
     severity: AlertSeverity = Field(AlertSeverity.UNKNOWN, description="Alert severity")
     urgency: AlertUrgency = Field(AlertUrgency.UNKNOWN, description="Alert urgency")
     certainty: AlertCertainty = Field(AlertCertainty.UNKNOWN, description="Alert certainty")
@@ -80,11 +80,11 @@ class WeatherAlert(BaseModel):
     category: AlertCategory = Field(AlertCategory.OTHER, description="Alert category")
     sent: datetime = Field(..., description="Alert sent timestamp")
     effective: datetime = Field(..., description="Alert effective timestamp")
-    onset: Optional[datetime] = Field(None, description="Alert onset timestamp")
+    onset: datetime | None = Field(None, description="Alert onset timestamp")
     expires: datetime = Field(..., description="Alert expiration timestamp")
-    ends: Optional[datetime] = Field(None, description="Alert end timestamp")
+    ends: datetime | None = Field(None, description="Alert end timestamp")
     area_desc: str = Field(..., description="Affected area description")
-    geocode: List[str] = Field(default_factory=list, description="Geographic codes")
-    county_codes: List[str] = Field(default_factory=list, description="County codes")
+    geocode: list[str] = Field(default_factory=list, description="Geographic codes")
+    county_codes: list[str] = Field(default_factory=list, description="County codes")
     sender: str = Field(..., description="Alert sender")
     sender_name: str = Field(..., description="Alert sender name")

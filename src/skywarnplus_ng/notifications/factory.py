@@ -5,7 +5,6 @@ Build a NotificationManager from application configuration.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from ..core.config import AppConfig
 from .delivery import RetryPolicy
@@ -25,11 +24,11 @@ def _parse_email_provider(value: str) -> EmailProvider:
         return EmailProvider.CUSTOM
 
 
-def _non_empty(value: Optional[str]) -> bool:
+def _non_empty(value: str | None) -> bool:
     return bool(value and str(value).strip())
 
 
-def build_notification_manager(config: AppConfig) -> Optional[NotificationManager]:
+def build_notification_manager(config: AppConfig) -> NotificationManager | None:
     """
     Construct a NotificationManager from AppConfig.
 

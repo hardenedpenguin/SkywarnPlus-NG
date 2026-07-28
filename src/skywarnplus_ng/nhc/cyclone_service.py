@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -36,7 +36,7 @@ NHC_BASIN_FEEDS = ("/gis-at.xml", "/gis-ep.xml", "/gis-cp.xml")
 DISPLAY_REFRESH_MINUTES = 5
 
 
-def resolve_nhc_feed_paths(feed_path: str) -> List[str]:
+def resolve_nhc_feed_paths(feed_path: str) -> list[str]:
     """Resolve configured feed path into one or more NHC GIS RSS paths."""
     raw = (feed_path or "").strip()
     if not raw:
@@ -45,7 +45,7 @@ def resolve_nhc_feed_paths(feed_path: str) -> List[str]:
     if lowered in {"all", "*", "/gis-all", "/gis-all.xml", "gis-all.xml"}:
         return list(NHC_BASIN_FEEDS)
     if "," in raw:
-        paths: List[str] = []
+        paths: list[str] = []
         for part in raw.split(","):
             part = part.strip()
             if not part:
@@ -81,7 +81,7 @@ class NhcCycloneService:
     def __init__(
         self,
         config: AppConfig,
-        mobile_service: Optional[MobileCountyService] = None,
+        mobile_service: MobileCountyService | None = None,
     ) -> None:
         self.config = config
         self.mobile_service = mobile_service
@@ -90,11 +90,11 @@ class NhcCycloneService:
             headers={"User-Agent": config.nws.user_agent},
             follow_redirects=True,
         )
-        self._last_poll_at: Optional[datetime] = None
-        self._tracked_storms: List[Dict[str, Any]] = []
-        self._last_fetch_ok_at: Optional[datetime] = None
-        self._last_error_message: Optional[str] = None
-        self._last_display_refresh_at: Optional[datetime] = None
+        self._last_poll_at: datetime | None = None
+        self._tracked_storms: list[dict[str, Any]] = []
+        self._last_fetch_ok_at: datetime | None = None
+        self._last_error_message: str | None = None
+        self._last_display_refresh_at: datetime | None = None
         self._fetch_cache = GeoFetchCache.shared()
 
     def sync_http_client_user_agent(self) -> None:
@@ -103,22 +103,22 @@ class NhcCycloneService:
     def _feed_cache_key(self, path: str) -> str:
         return f"nhc:{path.lstrip('/')}"
 
-    def feed_paths(self) -> List[str]:
+    def feed_paths(self) -> list[str]:
         return resolve_nhc_feed_paths(self.config.nhc.feed_path)
 
     async def close(self) -> None:
         await self._client.aclose()
 
-    def should_poll(self, now: Optional[datetime] = None) -> bool:
+    def should_poll(self, now: datetime | None = None) -> bool:
         if not self.config.nhc.enabled:
             return False
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         if self._last_poll_at is None:
             return True
         elapsed = (now - self._last_poll_at).total_seconds() / 60.0
         return elapsed >= self.config.nhc.poll_interval_minutes
 
-    def get_position(self) -> Optional[Tuple[float, float]]:
+    def get_position(self) -> tuple[float, float] | None:
         pos = self.config.geo_hazard_position
         return get_monitoring_position(
             use_gps_position=pos.use_gps_position,
@@ -127,16 +127,16 @@ class NhcCycloneService:
             mobile_service=self.mobile_service,
         )
 
-    async def fetch_feed_xml(self, path: Optional[str] = None) -> Optional[str]:
+    async def fetch_feed_xml(self, path: str | None = None) -> str | None:
         feed_path = path or self.feed_paths()[0]
         cache_key = self._feed_cache_key(feed_path)
 
-        async def _fetch() -> Optional[str]:
+        async def _fetch() -> str | None:
             return await self._fetch_feed_xml_uncached(feed_path)
 
         return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
 
-    async def _fetch_feed_xml_uncached(self, path: str) -> Optional[str]:
+    async def _fetch_feed_xml_uncached(self, path: str) -> str | None:
         url = f"{NHC_BASE_URL}/{path.lstrip('/')}"
         try:
             response = await self._client.get(url)
@@ -148,16 +148,16 @@ class NhcCycloneService:
             self._last_error_message = f"NHC feed fetch failed ({path}): {exc}"
             return None
 
-    async def fetch_cyclones(self) -> Optional[List[ParsedCyclone]]:
+    async def fetch_cyclones(self) -> list[ParsedCyclone] | None:
         """
         Fetch and parse configured NHC basin feed(s).
 
         Returns ``None`` when every configured feed fails. Returns an empty
         list when feeds are reachable but report no active cyclones.
         """
-        storms: List[ParsedCyclone] = []
+        storms: list[ParsedCyclone] = []
         any_success = False
-        last_error: Optional[str] = None
+        last_error: str | None = None
 
         for path in self.feed_paths():
             xml_text = await self.fetch_feed_xml(path)
@@ -177,7 +177,7 @@ class NhcCycloneService:
         self._last_error_message = None
         # Deduplicate by ATCF + advisory datetime if feeds overlap.
         seen: set[str] = set()
-        unique: List[ParsedCyclone] = []
+        unique: list[ParsedCyclone] = []
         for cyclone in storms:
             key = cyclone.advisory_key
             if key in seen:
@@ -196,25 +196,25 @@ class NhcCycloneService:
             gpsd_enabled=self.config.gpsd.enabled,
         )
 
-    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_error(self, state: dict[str, Any], message: str) -> None:
+        now = datetime.now(UTC)
         self._last_error_message = message
         state["nhc_last_error_at"] = now.isoformat()
         state["nhc_last_error_message"] = message
 
-    def _record_poll_success(self, state: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_success(self, state: dict[str, Any]) -> None:
+        now = datetime.now(UTC)
         self._last_fetch_ok_at = now
         self._last_error_message = None
         state["nhc_last_error_at"] = None
         state["nhc_last_error_message"] = None
 
-    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def check_health(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Live health probe for dashboard (feed reachability + position when GPS-backed).
         """
         state = state or {}
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "feed_path": self.config.nhc.feed_path,
             "feed_paths": self.feed_paths(),
             "use_gps_position": self.config.geo_hazard_position.use_gps_position,
@@ -273,13 +273,13 @@ class NhcCycloneService:
 
         return {"ok": True, "message": message, "details": details}
 
-    def _already_announced(self, advisory_key: str, state: Dict[str, Any]) -> bool:
+    def _already_announced(self, advisory_key: str, state: dict[str, Any]) -> bool:
         announced = state.get("nhc_announced_advisories") or []
         if not isinstance(announced, list):
             return False
         return advisory_key in announced
 
-    def mark_announced(self, advisory_key: str, state: Dict[str, Any]) -> None:
+    def mark_announced(self, advisory_key: str, state: dict[str, Any]) -> None:
         announced = state.get("nhc_announced_advisories")
         if not isinstance(announced, list):
             announced = []
@@ -290,14 +290,14 @@ class NhcCycloneService:
 
     def select_new_advisories(
         self,
-        cyclones: List[ParsedCyclone],
-        state: Dict[str, Any],
-        position: Tuple[float, float],
-    ) -> List[CycloneAdvisory]:
+        cyclones: list[ParsedCyclone],
+        state: dict[str, Any],
+        position: tuple[float, float],
+    ) -> list[CycloneAdvisory]:
         nhc: NhcConfig = self.config.nhc
         lat, lon = position
-        selected: List[CycloneAdvisory] = []
-        tracked: List[Dict[str, Any]] = []
+        selected: list[CycloneAdvisory] = []
+        tracked: list[dict[str, Any]] = []
 
         for cyclone in filter_active_cyclones(cyclones):
             coords = parse_coordinates(cyclone.center)
@@ -355,13 +355,13 @@ class NhcCycloneService:
         self._tracked_storms = tracked
         return selected
 
-    async def refresh_tracked_storms_if_stale(self, state: Dict[str, Any]) -> None:
+    async def refresh_tracked_storms_if_stale(self, state: dict[str, Any]) -> None:
         """Refresh in-memory storm list for dashboard (throttled; does not affect poll cadence)."""
         if not self.config.nhc.enabled:
             self._tracked_storms = []
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._last_display_refresh_at is not None:
             elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
             if elapsed_min < DISPLAY_REFRESH_MINUTES:
@@ -372,13 +372,13 @@ class NhcCycloneService:
             return
 
         cyclones = await self.fetch_cyclones()
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = datetime.now(UTC)
         if cyclones is None:
             return
 
         self.select_new_advisories(cyclones, state, position)
 
-    async def poll(self, state: Dict[str, Any]) -> List[CycloneAdvisory]:
+    async def poll(self, state: dict[str, Any]) -> list[CycloneAdvisory]:
         if not self.config.nhc.enabled:
             self._tracked_storms = []
             return []
@@ -399,7 +399,7 @@ class NhcCycloneService:
             return []
 
         advisories = self.select_new_advisories(cyclones, state, position)
-        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(UTC)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
         if not cyclones:
@@ -421,7 +421,7 @@ class NhcCycloneService:
             )
         return advisories
 
-    def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any]) -> dict[str, Any]:
         position = self.get_position()
         nhc = self.config.nhc
         return {

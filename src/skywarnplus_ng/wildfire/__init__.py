@@ -1,5 +1,5 @@
 """Wildfire incident monitoring via NIFC WFIGS."""
 
-from .wfigs_service import WildfireIncident, WfigsWildfireService
+from .wfigs_service import WfigsWildfireService, WildfireIncident
 
-__all__ = ["WildfireIncident", "WfigsWildfireService"]
+__all__ = ["WfigsWildfireService", "WildfireIncident"]

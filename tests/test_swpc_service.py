@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from skywarnplus_ng.core.config import AppConfig
 from skywarnplus_ng.spaceweather.parser import ParsedSpaceWeather
@@ -10,7 +10,7 @@ from skywarnplus_ng.spaceweather.swpc_service import DISPLAY_TRACKED_LIMIT, Swpc
 
 
 def _parsed_alert(index: int) -> ParsedSpaceWeather:
-    issued = datetime(2026, 7, 1, index, 0, 0, tzinfo=timezone.utc)
+    issued = datetime(2026, 7, 1, index, 0, 0, tzinfo=UTC)
     return ParsedSpaceWeather(
         product_id=f"P{index}",
         title=f"Alert {index}",
@@ -57,7 +57,7 @@ def test_passes_filters_ignores_unset_scales() -> None:
         radio_blackout_scale=3,
         solar_radiation_scale=0,
         announcement_key="ALTTP2:2026-07-01:12:00:00",
-        issued_utc=datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc),
+        issued_utc=datetime(2026, 7, 1, 12, 0, tzinfo=UTC),
         tts_text="Radio Blackout R3",
     )
 

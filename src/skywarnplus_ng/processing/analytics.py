@@ -3,12 +3,12 @@ Alert analytics and reporting system for SkywarnPlus-NG.
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
-from enum import Enum
 import statistics
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from enum import Enum
+from typing import Any
 
 from ..core.models import WeatherAlert
 
@@ -41,14 +41,14 @@ class AlertStatistics:
     period_start: datetime
     period_end: datetime
     total_alerts: int
-    severity_distribution: Dict[str, int]
-    urgency_distribution: Dict[str, int]
-    certainty_distribution: Dict[str, int]
-    category_distribution: Dict[str, int]
-    event_type_distribution: Dict[str, int]
-    geographic_distribution: Dict[str, int]
-    hourly_distribution: Dict[int, int]
-    daily_distribution: Dict[int, int]
+    severity_distribution: dict[str, int]
+    urgency_distribution: dict[str, int]
+    certainty_distribution: dict[str, int]
+    category_distribution: dict[str, int]
+    event_type_distribution: dict[str, int]
+    geographic_distribution: dict[str, int]
+    hourly_distribution: dict[int, int]
+    daily_distribution: dict[int, int]
     average_processing_time_ms: float
     peak_alert_hour: int
     peak_alert_day: int
@@ -59,7 +59,7 @@ class AlertStatistics:
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc)
+            self.calculated_at = datetime.now(UTC)
 
 
 @dataclass
@@ -72,13 +72,13 @@ class TrendAnalysis:
     change_percentage: float
     trend_direction: TrendDirection
     confidence_level: float
-    data_points: List[float]
+    data_points: list[float]
     period: AnalyticsPeriod
     calculated_at: datetime
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc)
+            self.calculated_at = datetime.now(UTC)
 
 
 @dataclass
@@ -99,16 +99,16 @@ class PerformanceMetrics:
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc)
+            self.calculated_at = datetime.now(UTC)
 
 
 def _aware_alert_time(alert: WeatherAlert) -> datetime:
     """Alert timestamp as tz-aware UTC (naive values would crash period comparisons)."""
     when = alert.sent or alert.effective
     if when is None:
-        return datetime.min.replace(tzinfo=timezone.utc)
+        return datetime.min.replace(tzinfo=UTC)
     if when.tzinfo is None:
-        return when.replace(tzinfo=timezone.utc)
+        return when.replace(tzinfo=UTC)
     return when
 
 
@@ -117,17 +117,17 @@ class AlertAnalytics:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self._alert_history: List[WeatherAlert] = []
+        self._alert_history: list[WeatherAlert] = []
         # (recorded_at, duration_ms) so durations can be filtered by time period
-        self._processing_times: List[tuple] = []
-        self._error_counts: Dict[str, int] = defaultdict(int)
+        self._processing_times: list[tuple] = []
+        self._error_counts: dict[str, int] = defaultdict(int)
 
-    def add_alert(self, alert: WeatherAlert, processing_time_ms: Optional[float] = None) -> None:
+    def add_alert(self, alert: WeatherAlert, processing_time_ms: float | None = None) -> None:
         """Add an alert to the analytics history."""
         self._alert_history.append(alert)
 
         if processing_time_ms is not None:
-            self._processing_times.append((datetime.now(timezone.utc), processing_time_ms))
+            self._processing_times.append((datetime.now(UTC), processing_time_ms))
 
         # Keep only last 10000 alerts to prevent memory issues
         if len(self._alert_history) > 10000:
@@ -141,7 +141,7 @@ class AlertAnalytics:
         self._error_counts[error_type] += 1
 
     def get_statistics(
-        self, period: AnalyticsPeriod, start_time: Optional[datetime] = None
+        self, period: AnalyticsPeriod, start_time: datetime | None = None
     ) -> AlertStatistics:
         """
         Get alert statistics for a time period.
@@ -156,7 +156,7 @@ class AlertAnalytics:
         if start_time is None:
             start_time = self._get_period_start(period)
 
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
 
         # Filter alerts for the period
         period_alerts = [
@@ -190,7 +190,7 @@ class AlertAnalytics:
             alert_time = alert.sent or alert.effective
             if alert_time:
                 if alert_time.tzinfo is None:
-                    alert_time = alert_time.replace(tzinfo=timezone.utc)
+                    alert_time = alert_time.replace(tzinfo=UTC)
 
                 hourly_dist[alert_time.hour] += 1
                 daily_dist[alert_time.weekday()] += 1
@@ -235,7 +235,7 @@ class AlertAnalytics:
             most_common_event=most_common_event,
             most_common_severity=most_common_severity,
             most_common_urgency=most_common_urgency,
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
     def analyze_trends(
@@ -265,7 +265,7 @@ class AlertAnalytics:
                 confidence_level=0.0,
                 data_points=metric_data,
                 period=period,
-                calculated_at=datetime.now(timezone.utc),
+                calculated_at=datetime.now(UTC),
             )
 
         current_value = metric_data[-1]
@@ -292,7 +292,7 @@ class AlertAnalytics:
             confidence_level=confidence_level,
             data_points=metric_data,
             period=period,
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
     def get_performance_metrics(self, period_hours: int = 24) -> PerformanceMetrics:
@@ -305,7 +305,7 @@ class AlertAnalytics:
         Returns:
             Performance metrics
         """
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=period_hours)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=period_hours)
 
         # Filter data for the period
         period_alerts = [
@@ -356,12 +356,12 @@ class AlertAnalytics:
             throughput_per_hour=throughput_per_hour,
             error_rate=error_rate,
             uptime_percentage=uptime_percentage,
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
     def generate_report(
         self, period: AnalyticsPeriod, include_trends: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate a comprehensive analytics report.
 
@@ -382,7 +382,7 @@ class AlertAnalytics:
         performance = self.get_performance_metrics(period_hours)
 
         report = {
-            "report_generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_generated_at": datetime.now(UTC).isoformat(),
             "period": period.value,
             "period_start": stats.period_start.isoformat(),
             "period_end": stats.period_end.isoformat(),
@@ -447,7 +447,7 @@ class AlertAnalytics:
 
     def _get_period_start(self, period: AnalyticsPeriod) -> datetime:
         """Get start time for a period."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if period == AnalyticsPeriod.HOUR:
             return now - timedelta(hours=1)
@@ -497,12 +497,12 @@ class AlertAnalytics:
             most_common_event="",
             most_common_severity="",
             most_common_urgency="",
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
     def _get_metric_data(
         self, metric_name: str, period: AnalyticsPeriod, data_points: int
-    ) -> List[float]:
+    ) -> list[float]:
         """Get data points for a specific metric."""
         # This is a simplified implementation
         # In a real implementation, you'd query historical data
@@ -524,7 +524,7 @@ class AlertAnalytics:
         else:
             return [0.0] * data_points
 
-    def _determine_trend_direction(self, data_points: List[float]) -> TrendDirection:
+    def _determine_trend_direction(self, data_points: list[float]) -> TrendDirection:
         """Determine trend direction from data points."""
         if len(data_points) < 2:
             return TrendDirection.STABLE
@@ -559,7 +559,7 @@ class AlertAnalytics:
         else:
             return TrendDirection.STABLE
 
-    def _calculate_confidence_level(self, data_points: List[float]) -> float:
+    def _calculate_confidence_level(self, data_points: list[float]) -> float:
         """Calculate confidence level for trend analysis."""
         if len(data_points) < 2:
             return 0.0
@@ -579,7 +579,7 @@ class AlertAnalytics:
 
         return confidence
 
-    def _calculate_percentile(self, data: List[float], percentile: int) -> float:
+    def _calculate_percentile(self, data: list[float], percentile: int) -> float:
         """Calculate percentile of data."""
         if not data:
             return 0.0

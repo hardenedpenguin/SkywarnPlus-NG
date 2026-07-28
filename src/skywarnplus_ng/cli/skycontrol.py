@@ -13,15 +13,15 @@ Examples:
   skycontrol changeid wx
 """
 
-import sys
-import subprocess
 import logging
+import subprocess
+import sys
 from pathlib import Path
-from typing import Optional, Dict, Any
-from ..audio.audio_utils import AudioSegment
+from typing import Any
 
-from ..core.config import AppConfig
 from ..asterisk.manager import AsteriskManager
+from ..audio.audio_utils import AudioSegment
+from ..core.config import AppConfig
 
 # Setup logging
 logging.basicConfig(level=logging.WARNING)
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 # Define valid commands and their configuration paths
-VALID_COMMANDS: Dict[str, Dict[str, Any]] = {
+VALID_COMMANDS: dict[str, dict[str, Any]] = {
     "enable": {
         "config_path": "enabled",
         "true_file": "SWP_137.wav",
@@ -97,7 +97,7 @@ def get_config_file(config: AppConfig) -> Path:
     return config_path
 
 
-def load_config(config_path: Path) -> Dict[str, Any]:
+def load_config(config_path: Path) -> dict[str, Any]:
     """Load config file using ruamel.yaml to preserve comments."""
     from ruamel.yaml import YAML
 
@@ -108,11 +108,11 @@ def load_config(config_path: Path) -> Dict[str, Any]:
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         return yaml.load(f)
 
 
-def save_config(config_path: Path, config_data: Dict[str, Any]) -> None:
+def save_config(config_path: Path, config_data: dict[str, Any]) -> None:
     """Save config file using ruamel.yaml to preserve comments."""
     from ruamel.yaml import YAML
 
@@ -125,7 +125,7 @@ def save_config(config_path: Path, config_data: Dict[str, Any]) -> None:
         yaml.dump(config_data, f)
 
 
-def set_nested_value(config_data: Dict[str, Any], path: str, value: Any) -> None:
+def set_nested_value(config_data: dict[str, Any], path: str, value: Any) -> None:
     """Set a nested value in config using dot notation path."""
     keys = path.split(".")
     current = config_data
@@ -140,7 +140,7 @@ def set_nested_value(config_data: Dict[str, Any], path: str, value: Any) -> None
     current[keys[-1]] = value
 
 
-def get_nested_value(config_data: Dict[str, Any], path: str) -> Any:
+def get_nested_value(config_data: dict[str, Any], path: str) -> Any:
     """Get a nested value from config using dot notation path."""
     keys = path.split(".")
     current = config_data
@@ -157,7 +157,7 @@ def play_audio_feedback(
     audio_file: str,
     nodes: list,
     sounds_path: Path,
-    asterisk_manager: Optional[AsteriskManager] = None,
+    asterisk_manager: AsteriskManager | None = None,
 ) -> None:
     """
     Play audio feedback on configured nodes.
@@ -219,7 +219,7 @@ def create_silent_tailmessage(tailmessage_path: Path) -> None:
         logger.error(f"Failed to create silent tail message: {e}")
 
 
-def handle_changect(config_data: Dict[str, Any], mode: str) -> bool:
+def handle_changect(config_data: dict[str, Any], mode: str) -> bool:
     """
     Handle changect command - force CT mode.
 
@@ -236,8 +236,8 @@ def handle_changect(config_data: Dict[str, Any], mode: str) -> bool:
         sys.exit(1)
 
     # Import managers
-    from ..core.config import AppConfig
     from ..asterisk.courtesy_tone import CourtesyToneManager
+    from ..core.config import AppConfig
     from ..core.state import ApplicationState
 
     try:
@@ -275,7 +275,7 @@ def handle_changect(config_data: Dict[str, Any], mode: str) -> bool:
         sys.exit(1)
 
 
-def handle_changeid(config_data: Dict[str, Any], mode: str) -> bool:
+def handle_changeid(config_data: dict[str, Any], mode: str) -> bool:
     """
     Handle changeid command - force ID mode.
 
@@ -299,8 +299,8 @@ def handle_changeid(config_data: Dict[str, Any], mode: str) -> bool:
             sys.exit(1)
 
     # Import managers
-    from ..core.config import AppConfig
     from ..asterisk.id_change import IDChangeManager
+    from ..core.config import AppConfig
     from ..core.state import ApplicationState
 
     try:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -35,10 +35,10 @@ class VolcanoNotice:
     vnum: str
     name: str
     color_code: str
-    distance_miles: Optional[int]
+    distance_miles: int | None
     announcement_key: str
     tts_text: str
-    issued_utc: Optional[datetime]
+    issued_utc: datetime | None
 
 
 class VolcanoService:
@@ -47,7 +47,7 @@ class VolcanoService:
     def __init__(
         self,
         config: AppConfig,
-        mobile_service: Optional[MobileCountyService] = None,
+        mobile_service: MobileCountyService | None = None,
     ) -> None:
         self.config = config
         self.mobile_service = mobile_service
@@ -56,12 +56,12 @@ class VolcanoService:
             headers={"User-Agent": config.nws.user_agent},
             follow_redirects=True,
         )
-        self._last_poll_at: Optional[datetime] = None
-        self._tracked_notices: List[Dict[str, Any]] = []
+        self._last_poll_at: datetime | None = None
+        self._tracked_notices: list[dict[str, Any]] = []
         self._notices_in_feed: int = 0
-        self._last_fetch_ok_at: Optional[datetime] = None
-        self._last_error_message: Optional[str] = None
-        self._last_display_refresh_at: Optional[datetime] = None
+        self._last_fetch_ok_at: datetime | None = None
+        self._last_error_message: str | None = None
+        self._last_display_refresh_at: datetime | None = None
         self._fetch_cache = GeoFetchCache.shared()
 
     def sync_http_client_user_agent(self) -> None:
@@ -70,16 +70,16 @@ class VolcanoService:
     async def close(self) -> None:
         await self._client.aclose()
 
-    def should_poll(self, now: Optional[datetime] = None) -> bool:
+    def should_poll(self, now: datetime | None = None) -> bool:
         if not self.config.volcano.enabled:
             return False
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         if self._last_poll_at is None:
             return True
         elapsed = (now - self._last_poll_at).total_seconds() / 60.0
         return elapsed >= self.config.volcano.poll_interval_minutes
 
-    def get_position(self) -> Optional[Tuple[float, float]]:
+    def get_position(self) -> tuple[float, float] | None:
         pos = self.config.geo_hazard_position
         return get_monitoring_position(
             use_gps_position=pos.use_gps_position,
@@ -91,15 +91,15 @@ class VolcanoService:
     def _cache_key(self) -> str:
         return f"usgs:vonas:{self.config.volcano.lookback_days}"
 
-    async def fetch_notices(self) -> Optional[List[Dict[str, Any]]]:
+    async def fetch_notices(self) -> list[dict[str, Any]] | None:
         cache_key = self._cache_key()
 
-        async def _fetch() -> Optional[List[Dict[str, Any]]]:
+        async def _fetch() -> list[dict[str, Any]] | None:
             return await self._fetch_notices_uncached()
 
         return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
 
-    async def _fetch_notices_uncached(self) -> Optional[List[Dict[str, Any]]]:
+    async def _fetch_notices_uncached(self) -> list[dict[str, Any]] | None:
         days = self.config.volcano.lookback_days
         url = f"{USGS_VONA_API}/{days}"
         try:
@@ -119,14 +119,14 @@ class VolcanoService:
             self._last_error_message = f"USGS volcano response invalid: {exc}"
             return None
 
-    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_error(self, state: dict[str, Any], message: str) -> None:
+        now = datetime.now(UTC)
         self._last_error_message = message
         state["volcano_last_error_at"] = now.isoformat()
         state["volcano_last_error_message"] = message
 
-    def _record_poll_success(self, state: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_success(self, state: dict[str, Any]) -> None:
+        now = datetime.now(UTC)
         self._last_fetch_ok_at = now
         self._last_error_message = None
         state["volcano_last_error_at"] = None
@@ -147,13 +147,13 @@ class VolcanoService:
             return False
         return True
 
-    def _already_announced(self, announcement_key: str, state: Dict[str, Any]) -> bool:
+    def _already_announced(self, announcement_key: str, state: dict[str, Any]) -> bool:
         announced = state.get("volcano_announced_notices") or []
         if not isinstance(announced, list):
             return False
         return announcement_key in announced
 
-    def mark_announced(self, announcement_key: str, state: Dict[str, Any]) -> None:
+    def mark_announced(self, announcement_key: str, state: dict[str, Any]) -> None:
         announced = state.get("volcano_announced_notices")
         if not isinstance(announced, list):
             announced = []
@@ -163,8 +163,8 @@ class VolcanoService:
 
     def _maybe_seed_announced_history(
         self,
-        notices: List[ParsedVolcano],
-        state: Dict[str, Any],
+        notices: list[ParsedVolcano],
+        state: dict[str, Any],
     ) -> None:
         if state.get("volcano_history_seeded"):
             return
@@ -185,11 +185,11 @@ class VolcanoService:
 
     def select_new_notices(
         self,
-        notices: List[ParsedVolcano],
-        state: Dict[str, Any],
-    ) -> List[VolcanoNotice]:
-        selected: List[VolcanoNotice] = []
-        tracked: List[Dict[str, Any]] = []
+        notices: list[ParsedVolcano],
+        state: dict[str, Any],
+    ) -> list[VolcanoNotice]:
+        selected: list[VolcanoNotice] = []
+        tracked: list[dict[str, Any]] = []
 
         for notice in notices:
             within_filters = self._passes_filters(notice)
@@ -226,17 +226,17 @@ class VolcanoService:
 
     def _prepare_notices(
         self,
-        data: List[Dict[str, Any]],
-        position: Tuple[float, float],
-    ) -> tuple[List[ParsedVolcano], List[ParsedVolcano]]:
+        data: list[dict[str, Any]],
+        position: tuple[float, float],
+    ) -> tuple[list[ParsedVolcano], list[ParsedVolcano]]:
         notices = parse_volcano_notices(data, origin_lat=position[0], origin_lon=position[1])
         self._notices_in_feed = len(notices)
         return notices, latest_notices_per_volcano(notices)
 
-    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def check_health(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
         state = state or {}
         vo = self.config.volcano
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "min_color_code": vo.min_color_code,
             "max_distance_miles": vo.max_distance_miles,
             "lookback_days": vo.lookback_days,
@@ -297,12 +297,12 @@ class VolcanoService:
             "details": details,
         }
 
-    async def refresh_tracked_notices_if_stale(self, state: Dict[str, Any]) -> None:
+    async def refresh_tracked_notices_if_stale(self, state: dict[str, Any]) -> None:
         if not self.config.volcano.enabled:
             self._tracked_notices = []
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._last_display_refresh_at is not None:
             elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
             if elapsed_min < DISPLAY_REFRESH_MINUTES:
@@ -313,14 +313,14 @@ class VolcanoService:
             return
 
         data = await self.fetch_notices()
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = datetime.now(UTC)
         if data is None:
             return
 
         all_notices, latest_notices = self._prepare_notices(data, position)
         self.select_new_notices(latest_notices, state)
 
-    async def poll(self, state: Dict[str, Any]) -> List[VolcanoNotice]:
+    async def poll(self, state: dict[str, Any]) -> list[VolcanoNotice]:
         if not self.config.volcano.enabled:
             self._tracked_notices = []
             self._notices_in_feed = 0
@@ -344,7 +344,7 @@ class VolcanoService:
         all_notices, latest_notices = self._prepare_notices(data, position)
         self._maybe_seed_announced_history(all_notices, state)
         selected = self.select_new_notices(latest_notices, state)
-        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(UTC)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
 
@@ -367,7 +367,7 @@ class VolcanoService:
             )
         return selected
 
-    def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any]) -> dict[str, Any]:
         position = self.get_position()
         vo = self.config.volcano
         return {

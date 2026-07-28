@@ -2,14 +2,14 @@
 Database components for SkywarnPlus-NG.
 """
 
-from .models import AlertRecord, MetricRecord, HealthCheckRecord, ScriptExecutionRecord
-from .manager import DatabaseManager, DatabaseError
+from .manager import DatabaseError, DatabaseManager
+from .models import AlertRecord, HealthCheckRecord, MetricRecord, ScriptExecutionRecord
 
 __all__ = [
     "AlertRecord",
-    "MetricRecord",
-    "HealthCheckRecord",
-    "ScriptExecutionRecord",
-    "DatabaseManager",
     "DatabaseError",
+    "DatabaseManager",
+    "HealthCheckRecord",
+    "MetricRecord",
+    "ScriptExecutionRecord",
 ]

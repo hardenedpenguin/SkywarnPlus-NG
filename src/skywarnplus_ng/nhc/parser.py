@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from datetime import UTC, datetime, timedelta, timezone
 
 # NHC advisories include the local abbreviation (CDT, EDT, etc.) for that issuance.
 _NHC_TZ_OFFSETS: dict[str, timezone] = {
@@ -70,11 +69,11 @@ def _extract_tag(line: str, tag: str) -> str:
     return line[start:end].strip()
 
 
-def parse_nhc_cyclone_xml(xml_text: str) -> List[ParsedCyclone]:
+def parse_nhc_cyclone_xml(xml_text: str) -> list[ParsedCyclone]:
     """
     Parse NHC GIS RSS XML using a line-oriented approach (tolerant of namespace quirks).
     """
-    storms: List[ParsedCyclone] = []
+    storms: list[ParsedCyclone] = []
     inside = False
     fields = {
         "center": "",
@@ -123,8 +122,8 @@ def parse_nhc_cyclone_xml(xml_text: str) -> List[ParsedCyclone]:
     return storms
 
 
-def filter_active_cyclones(cyclones: List[ParsedCyclone]) -> List[ParsedCyclone]:
-    active: List[ParsedCyclone] = []
+def filter_active_cyclones(cyclones: list[ParsedCyclone]) -> list[ParsedCyclone]:
+    active: list[ParsedCyclone] = []
     for cyclone in cyclones:
         wind_digits = re.search(r"(\d+)", cyclone.wind or "")
         wind_val = int(wind_digits.group(1)) if wind_digits else 0
@@ -140,7 +139,7 @@ def filter_active_cyclones(cyclones: List[ParsedCyclone]) -> List[ParsedCyclone]
     return active
 
 
-def _parse_nhc_human_datetime(text: str) -> Optional[datetime]:
+def _parse_nhc_human_datetime(text: str) -> datetime | None:
     """Parse NHC strings like ``10:00 AM CDT Tue Jun 16 2026`` into UTC."""
     match = _NHC_HUMAN_DT.match(text.strip())
     if not match:
@@ -153,7 +152,7 @@ def _parse_nhc_human_datetime(text: str) -> Optional[datetime]:
 
     year = match.group("year")
     if year is None:
-        year = str(datetime.now(timezone.utc).year)
+        year = str(datetime.now(UTC).year)
 
     month = _MONTHS.get(match.group("mon").lower())
     if month is None:
@@ -179,10 +178,10 @@ def _parse_nhc_human_datetime(text: str) -> Optional[datetime]:
     except ValueError:
         return None
 
-    return local_dt.astimezone(timezone.utc)
+    return local_dt.astimezone(UTC)
 
 
-def parse_cyclone_datetime(raw: str) -> Optional[datetime]:
+def parse_cyclone_datetime(raw: str) -> datetime | None:
     text = (raw or "").strip()
     if not text:
         return None
@@ -192,20 +191,20 @@ def parse_cyclone_datetime(raw: str) -> Optional[datetime]:
         try:
             dt = datetime.fromisoformat(iso)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
+            return dt.astimezone(UTC)
         except ValueError:
             pass
 
     if not re.search(r"\b\d{4}\b", text):
-        text = f"{text} {datetime.now(timezone.utc).year}"
+        text = f"{text} {datetime.now(UTC).year}"
 
     human_dt = _parse_nhc_human_datetime(text)
     if human_dt is not None:
         return human_dt
 
     try:
-        return datetime.strptime(text, "%I:%M %p %Z %a %b %d %Y").replace(tzinfo=timezone.utc)
+        return datetime.strptime(text, "%I:%M %p %Z %a %b %d %Y").replace(tzinfo=UTC)
     except ValueError:
         return None
 
@@ -214,11 +213,11 @@ def is_cyclone_current(cyclone: ParsedCyclone, max_age_hours: int) -> bool:
     dt = parse_cyclone_datetime(cyclone.datetime_raw)
     if not dt:
         return False
-    age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+    age_hours = (datetime.now(UTC) - dt).total_seconds() / 3600.0
     return age_hours <= max_age_hours
 
 
-def parse_coordinates(center: str) -> Optional[tuple[float, float]]:
+def parse_coordinates(center: str) -> tuple[float, float] | None:
     if not center or "," not in center:
         return None
     lat_str, lon_str = center.split(",", 1)
@@ -277,7 +276,7 @@ def normalize_cyclone_movement(movement: str, headline: str = "") -> str:
 
 
 def build_storm_summary(cyclone: ParsedCyclone) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     if cyclone.center:
         parts.append(f"Located near {cyclone.center}.")
     if cyclone.wind:

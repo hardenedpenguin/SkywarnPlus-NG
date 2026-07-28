@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, List, Optional, Sequence
+from datetime import UTC, datetime
+from typing import Any
 
 from ..geo_hazard.tts import sanitize_for_tts
 
@@ -47,7 +48,7 @@ def _message_type_from_product_id(product_id: str) -> str:
     return "other"
 
 
-def _message_type_from_message(message: str) -> Optional[str]:
+def _message_type_from_message(message: str) -> str | None:
     for line in (message or "").replace("\r", "\n").split("\n"):
         line = line.strip()
         if not line:
@@ -97,10 +98,10 @@ def _parse_issue_datetime(date_str: str, time_str: str = "") -> datetime:
     raw = f"{date_str} {time_str}".strip() if time_str else (date_str or "").strip()
     for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
         try:
-            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
+            return datetime.strptime(raw, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _extract_scale(pattern: re.Pattern[str], text: str) -> int:
@@ -132,7 +133,7 @@ def _build_parsed_space_weather(
     date_str: str,
     time_str: str,
     announcement_key: str,
-) -> Optional[ParsedSpaceWeather]:
+) -> ParsedSpaceWeather | None:
     if not product_id:
         return None
 
@@ -165,7 +166,7 @@ def _build_parsed_space_weather(
     )
 
 
-def parse_swpc_alert_row(row: Sequence[Any]) -> Optional[ParsedSpaceWeather]:
+def parse_swpc_alert_row(row: Sequence[Any]) -> ParsedSpaceWeather | None:
     if not row or len(row) < 5:
         return None
 
@@ -185,7 +186,7 @@ def parse_swpc_alert_row(row: Sequence[Any]) -> Optional[ParsedSpaceWeather]:
     )
 
 
-def parse_swpc_alert_dict(item: dict[str, Any]) -> Optional[ParsedSpaceWeather]:
+def parse_swpc_alert_dict(item: dict[str, Any]) -> ParsedSpaceWeather | None:
     product_id = str(item.get("product_id") or "").strip()
     issue_datetime = str(item.get("issue_datetime") or "").strip()
     message = str(item.get("message") or "")
@@ -209,7 +210,7 @@ def parse_swpc_alert_dict(item: dict[str, Any]) -> Optional[ParsedSpaceWeather]:
     )
 
 
-def parse_swpc_alert_item(item: Any) -> Optional[ParsedSpaceWeather]:
+def parse_swpc_alert_item(item: Any) -> ParsedSpaceWeather | None:
     if isinstance(item, dict):
         return parse_swpc_alert_dict(item)
     if isinstance(item, list):
@@ -217,8 +218,8 @@ def parse_swpc_alert_item(item: Any) -> Optional[ParsedSpaceWeather]:
     return None
 
 
-def parse_swpc_alerts(rows: List[Any]) -> List[ParsedSpaceWeather]:
-    parsed: List[ParsedSpaceWeather] = []
+def parse_swpc_alerts(rows: list[Any]) -> list[ParsedSpaceWeather]:
+    parsed: list[ParsedSpaceWeather] = []
     seen: set[str] = set()
     for row in rows:
         item = parse_swpc_alert_item(row)

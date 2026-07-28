@@ -2,14 +2,14 @@
 Advanced alert filtering system for SkywarnPlus-NG.
 """
 
-import re
 import logging
-from datetime import datetime, timezone, time
-from typing import List, Dict, Any, Optional
+import re
 from dataclasses import dataclass
+from datetime import UTC, datetime, time
 from enum import Enum
+from typing import Any
 
-from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty
+from ..core.models import AlertCertainty, AlertSeverity, AlertUrgency, WeatherAlert
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class FilterResult:
 
     passed: bool
     reason: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
     def __post_init__(self):
         if not self.metadata:
@@ -64,7 +64,7 @@ class AlertFilter:
         except Exception as e:
             self.logger.error(f"Filter '{self.name}' failed: {e}")
             return FilterResult(
-                passed=False, reason=f"Filter error: {str(e)}", metadata={"error": str(e)}
+                passed=False, reason=f"Filter error: {e!s}", metadata={"error": str(e)}
             )
 
     def _apply_filter(self, alert: WeatherAlert) -> FilterResult:
@@ -79,10 +79,10 @@ class GeographicFilter(AlertFilter):
         self,
         name: str = "GeographicFilter",
         enabled: bool = True,
-        allowed_counties: Optional[List[str]] = None,
-        blocked_counties: Optional[List[str]] = None,
-        bounding_box: Optional[Dict[str, float]] = None,
-        polygon_coordinates: Optional[List[List[float]]] = None,
+        allowed_counties: list[str] | None = None,
+        blocked_counties: list[str] | None = None,
+        bounding_box: dict[str, float] | None = None,
+        polygon_coordinates: list[list[float]] | None = None,
     ):
         super().__init__(name, enabled)
         self.allowed_counties = allowed_counties or []
@@ -91,7 +91,7 @@ class GeographicFilter(AlertFilter):
         self.polygon_coordinates = polygon_coordinates
 
     @staticmethod
-    def _normalize_counties(counties: List[str]) -> set:
+    def _normalize_counties(counties: list[str]) -> set:
         """Case/whitespace-insensitive county code set (matches dedup normalization)."""
         return {str(c).strip().upper() for c in counties if c and str(c).strip()}
 
@@ -149,14 +149,14 @@ class GeographicFilter(AlertFilter):
 
         return FilterResult(passed=True, reason="Geographic filter passed", metadata=metadata)
 
-    def _is_in_bounding_box(self, alert: WeatherAlert, bbox: Dict[str, float]) -> bool:
+    def _is_in_bounding_box(self, alert: WeatherAlert, bbox: dict[str, float]) -> bool:
         """Check if alert is within bounding box."""
         # This is a simplified implementation
         # In a real implementation, you'd parse the alert's geocode data
         # and check if coordinates fall within the bounding box
         return True  # Placeholder
 
-    def _is_in_polygon(self, alert: WeatherAlert, polygon: List[List[float]]) -> bool:
+    def _is_in_polygon(self, alert: WeatherAlert, polygon: list[list[float]]) -> bool:
         """Check if alert is within polygon using ray casting algorithm."""
         # This is a simplified implementation
         # In a real implementation, you'd parse the alert's geocode data
@@ -175,8 +175,8 @@ class TimeFilter(AlertFilter):
         business_start: time = time(9, 0),
         business_end: time = time(17, 0),
         weekdays_only: bool = False,
-        allowed_days: Optional[List[int]] = None,  # 0=Monday, 6=Sunday
-        time_window_hours: Optional[int] = None,
+        allowed_days: list[int] | None = None,  # 0=Monday, 6=Sunday
+        time_window_hours: int | None = None,
         exclude_holidays: bool = False,
     ):
         super().__init__(name, enabled)
@@ -190,13 +190,13 @@ class TimeFilter(AlertFilter):
 
     def _apply_filter(self, alert: WeatherAlert) -> FilterResult:
         """Apply time-based filtering."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if alert.effective:
             alert_time = alert.effective
             if alert_time.tzinfo is None:
-                alert_time = alert_time.replace(tzinfo=timezone.utc)
+                alert_time = alert_time.replace(tzinfo=UTC)
             else:
-                alert_time = alert_time.astimezone(timezone.utc)
+                alert_time = alert_time.astimezone(UTC)
         else:
             alert_time = now
 
@@ -263,12 +263,12 @@ class SeverityFilter(AlertFilter):
         self,
         name: str = "SeverityFilter",
         enabled: bool = True,
-        min_severity: Optional[AlertSeverity] = None,
-        max_severity: Optional[AlertSeverity] = None,
-        allowed_severities: Optional[List[AlertSeverity]] = None,
-        blocked_severities: Optional[List[AlertSeverity]] = None,
-        min_urgency: Optional[AlertUrgency] = None,
-        min_certainty: Optional[AlertCertainty] = None,
+        min_severity: AlertSeverity | None = None,
+        max_severity: AlertSeverity | None = None,
+        allowed_severities: list[AlertSeverity] | None = None,
+        blocked_severities: list[AlertSeverity] | None = None,
+        min_urgency: AlertUrgency | None = None,
+        min_certainty: AlertCertainty | None = None,
     ):
         super().__init__(name, enabled)
         self.min_severity = min_severity
@@ -376,7 +376,7 @@ class CustomRuleFilter(AlertFilter):
         self,
         name: str = "CustomRuleFilter",
         enabled: bool = True,
-        rules: Optional[List[Dict[str, Any]]] = None,
+        rules: list[dict[str, Any]] | None = None,
     ):
         super().__init__(name, enabled)
         self.rules = rules or []
@@ -401,7 +401,7 @@ class CustomRuleFilter(AlertFilter):
             passed=True, reason=f"All {len(self.rules)} custom rules passed", metadata=metadata
         )
 
-    def _evaluate_rule(self, alert: WeatherAlert, rule: Dict[str, Any]) -> bool:
+    def _evaluate_rule(self, alert: WeatherAlert, rule: dict[str, Any]) -> bool:
         """Evaluate a single custom rule."""
         rule_type = rule.get("type", "text_match")
 
@@ -419,7 +419,7 @@ class CustomRuleFilter(AlertFilter):
             self.logger.warning(f"Unknown rule type: {rule_type}")
             return True  # Default to pass for unknown rules
 
-    def _evaluate_text_match(self, alert: WeatherAlert, rule: Dict[str, Any]) -> bool:
+    def _evaluate_text_match(self, alert: WeatherAlert, rule: dict[str, Any]) -> bool:
         """Evaluate text match rule."""
         field = rule.get("field", "event")
         pattern = rule.get("pattern", "")
@@ -435,7 +435,7 @@ class CustomRuleFilter(AlertFilter):
 
         return pattern in value
 
-    def _evaluate_regex(self, alert: WeatherAlert, rule: Dict[str, Any]) -> bool:
+    def _evaluate_regex(self, alert: WeatherAlert, rule: dict[str, Any]) -> bool:
         """Evaluate regex rule."""
         field = rule.get("field", "event")
         pattern = rule.get("pattern", "")
@@ -453,7 +453,7 @@ class CustomRuleFilter(AlertFilter):
             self.logger.error(f"Regex error in rule: {e}")
             return False
 
-    def _evaluate_field_equals(self, alert: WeatherAlert, rule: Dict[str, Any]) -> bool:
+    def _evaluate_field_equals(self, alert: WeatherAlert, rule: dict[str, Any]) -> bool:
         """Evaluate field equals rule."""
         field = rule.get("field", "event")
         expected_value = rule.get("value", "")
@@ -461,7 +461,7 @@ class CustomRuleFilter(AlertFilter):
         actual_value = self._get_field_value(alert, field)
         return str(actual_value) == str(expected_value)
 
-    def _evaluate_field_contains(self, alert: WeatherAlert, rule: Dict[str, Any]) -> bool:
+    def _evaluate_field_contains(self, alert: WeatherAlert, rule: dict[str, Any]) -> bool:
         """Evaluate field contains rule."""
         field = rule.get("field", "event")
         expected_value = rule.get("value", "")
@@ -477,7 +477,7 @@ class CustomRuleFilter(AlertFilter):
 
         return str(expected_value) in str(actual_value)
 
-    def _evaluate_custom_function(self, alert: WeatherAlert, rule: Dict[str, Any]) -> bool:
+    def _evaluate_custom_function(self, alert: WeatherAlert, rule: dict[str, Any]) -> bool:
         """Evaluate custom function rule."""
         # This would require implementing a safe way to execute custom functions
         # For now, just return True as a placeholder
@@ -508,7 +508,7 @@ class FilterChain:
 
     def __init__(self, name: str = "FilterChain"):
         self.name = name
-        self.filters: List[AlertFilter] = []
+        self.filters: list[AlertFilter] = []
         self.logger = logging.getLogger(f"{__name__}.{name}")
 
     def add_filter(self, filter_obj: AlertFilter) -> None:
@@ -537,7 +537,7 @@ class FilterChain:
             metadata={"filters_applied": len(self.filters)},
         )
 
-    def filter_alerts(self, alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+    def filter_alerts(self, alerts: list[WeatherAlert]) -> list[WeatherAlert]:
         """Apply all filters to a list of alerts."""
         filtered_alerts = []
 

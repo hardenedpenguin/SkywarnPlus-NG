@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..location.mobile_counties import MobileCountyService
@@ -11,9 +11,9 @@ if TYPE_CHECKING:
 def position_source_label(
     *,
     use_gps_position: bool,
-    static_lat: Optional[float],
-    static_lon: Optional[float],
-    mobile_service: Optional[MobileCountyService],
+    static_lat: float | None,
+    static_lon: float | None,
+    mobile_service: MobileCountyService | None,
     gpsd_enabled: bool,
 ) -> str:
     if use_gps_position and mobile_service and mobile_service.get_position():
@@ -26,12 +26,12 @@ def position_source_label(
 
 
 def append_gps_health_details(
-    details: Dict[str, Any],
+    details: dict[str, Any],
     *,
     use_gps_position: bool,
     gpsd_enabled: bool,
-    mobile_service: Optional[MobileCountyService],
-    position: Optional[Tuple[float, float]],
+    mobile_service: MobileCountyService | None,
+    position: tuple[float, float] | None,
 ) -> None:
     if use_gps_position and gpsd_enabled and mobile_service:
         gps = mobile_service.get_status()
@@ -47,7 +47,7 @@ def missing_position_message(
     *,
     use_gps_position: bool,
     gpsd_enabled: bool,
-    mobile_service: Optional[MobileCountyService],
+    mobile_service: MobileCountyService | None,
 ) -> str:
     if use_gps_position and gpsd_enabled and mobile_service:
         gps = mobile_service.get_status()

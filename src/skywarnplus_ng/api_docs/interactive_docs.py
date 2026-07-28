@@ -3,8 +3,9 @@ Interactive API documentation generator for SkywarnPlus-NG.
 """
 
 import json
-from typing import Dict, Any, List
 from pathlib import Path
+from typing import Any
+
 from jinja2 import Environment, FileSystemLoader
 
 from .openapi import OpenAPIGenerator
@@ -95,14 +96,14 @@ class InteractiveDocsGenerator:
             version=self.version,
         )
 
-    def generate_postman_collection(self) -> Dict[str, Any]:
+    def generate_postman_collection(self) -> dict[str, Any]:
         """Generate Postman collection."""
         from .postman import PostmanCollectionGenerator
 
         postman_generator = PostmanCollectionGenerator(self.base_url)
         return postman_generator.generate_collection()
 
-    def generate_curl_examples(self) -> List[Dict[str, str]]:
+    def generate_curl_examples(self) -> list[dict[str, str]]:
         """Generate cURL examples for all endpoints."""
         examples = []
 

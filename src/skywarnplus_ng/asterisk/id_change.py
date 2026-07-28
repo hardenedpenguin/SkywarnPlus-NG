@@ -5,11 +5,10 @@ ID changes allow dynamically switching the node identifier audio file
 between "normal" and "wx" (weather alert) mode based on active weather alerts.
 """
 
+import fnmatch
 import logging
 import shutil
-import fnmatch
 from pathlib import Path
-from typing import List, Optional
 
 from ..core.models import WeatherAlert
 
@@ -18,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 class IDChangeError(Exception):
     """ID change error."""
-
-    pass
 
 
 class IDChangeManager:
@@ -32,7 +29,7 @@ class IDChangeManager:
         normal_id: str,
         wx_id: str,
         rpt_id: str,
-        id_alerts: List[str],
+        id_alerts: list[str],
         state_manager=None,
     ):
         """
@@ -54,7 +51,7 @@ class IDChangeManager:
         self.rpt_id = rpt_id
         self.id_alerts = id_alerts
         self.state_manager = state_manager
-        self.current_mode: Optional[str] = None
+        self.current_mode: str | None = None
 
         # Ensure ID directory exists
         self.id_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +73,7 @@ class IDChangeManager:
                 f"ID change manager initialized (id_dir: {self.id_dir}, rpt_id: {self.rpt_id})"
             )
 
-    def _has_wx_alerts(self, alerts: List[WeatherAlert]) -> bool:
+    def _has_wx_alerts(self, alerts: list[WeatherAlert]) -> bool:
         """
         Check if any active alerts match the ID trigger list.
 
@@ -178,7 +175,7 @@ class IDChangeManager:
             logger.error(f"Failed to change ID to {mode} mode")
             return False
 
-    def update_id(self, alerts: List[WeatherAlert]) -> bool:
+    def update_id(self, alerts: list[WeatherAlert]) -> bool:
         """
         Update ID based on active alerts.
 

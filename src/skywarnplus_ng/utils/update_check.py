@@ -7,9 +7,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import aiohttp
 
@@ -35,7 +35,7 @@ def compare_versions(installed: str, remote: str) -> bool:
         return Version(remote) > Version(installed)
     except Exception:
         # Fallback: naive dot-split numeric compare
-        def parts(s: str) -> Tuple[int, ...]:
+        def parts(s: str) -> tuple[int, ...]:
             out: list[int] = []
             for chunk in re.split(r"[^\d]+", s):
                 if chunk.isdigit():
@@ -49,7 +49,7 @@ async def fetch_latest_release(
     session: aiohttp.ClientSession,
     github_repo: str,
     timeout_seconds: float = 20.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Call GitHub releases/latest API.
 
@@ -77,7 +77,7 @@ async def fetch_latest_release(
     }
 
 
-def read_cache(path: Path) -> Optional[Dict[str, Any]]:
+def read_cache(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
     try:
@@ -87,7 +87,7 @@ def read_cache(path: Path) -> Optional[Dict[str, Any]]:
         return None
 
 
-def write_cache(path: Path, payload: Dict[str, Any]) -> None:
+def write_cache(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     text = json.dumps(payload, indent=2)
@@ -95,17 +95,17 @@ def write_cache(path: Path, payload: Dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def cache_is_fresh(cached: Dict[str, Any], interval_hours: int) -> bool:
+def cache_is_fresh(cached: dict[str, Any], interval_hours: int) -> bool:
     raw = cached.get("checked_at")
     if not raw:
         return False
     try:
         checked = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         if checked.tzinfo is None:
-            checked = checked.replace(tzinfo=timezone.utc)
+            checked = checked.replace(tzinfo=UTC)
     except Exception:
         return False
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     delta_hours = (now - checked).total_seconds() / 3600.0
     return delta_hours < interval_hours
 
@@ -117,8 +117,8 @@ def build_cache_payload(
     remote_version: str,
     html_url: str,
     published_at: str,
-    error: Optional[str],
-) -> Dict[str, Any]:
+    error: str | None,
+) -> dict[str, Any]:
     update_available = False
     if not error and remote_version:
         try:
@@ -126,7 +126,7 @@ def build_cache_payload(
         except Exception:
             update_available = False
     return {
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
         "installed_version": installed_version,
         "remote_tag": remote_tag,
         "remote_version": remote_version,

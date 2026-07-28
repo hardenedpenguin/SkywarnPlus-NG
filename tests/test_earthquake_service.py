@@ -1,5 +1,6 @@
 """Tests for USGS earthquake service selection logic."""
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +13,6 @@ from skywarnplus_ng.core.config import (
 )
 from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService
 from skywarnplus_ng.usgs.parser import ParsedEarthquake
-from datetime import datetime, timezone
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def _sample_event(**overrides):
         latitude=34.1,
         longitude=-118.1,
         depth_km=10.0,
-        time_utc=datetime.now(timezone.utc),
+        time_utc=datetime.now(UTC),
         status="reviewed",
         tsunami=False,
         distance_miles=10,

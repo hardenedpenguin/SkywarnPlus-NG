@@ -3,7 +3,7 @@ Postman collection generator for SkywarnPlus-NG API.
 """
 
 import json
-from typing import Dict, Any
+from typing import Any
 
 
 class PostmanCollectionGenerator:
@@ -13,7 +13,7 @@ class PostmanCollectionGenerator:
         self.base_url = base_url
         self.version = version
 
-    def generate_collection(self) -> Dict[str, Any]:
+    def generate_collection(self) -> dict[str, Any]:
         """Generate Postman collection."""
         return {
             "info": {
@@ -36,7 +36,7 @@ class PostmanCollectionGenerator:
             ],
         }
 
-    def _generate_status_folder(self) -> Dict[str, Any]:
+    def _generate_status_folder(self) -> dict[str, Any]:
         """Generate status folder with requests."""
         return {
             "name": "Status",
@@ -73,7 +73,7 @@ class PostmanCollectionGenerator:
             ],
         }
 
-    def _generate_alerts_folder(self) -> Dict[str, Any]:
+    def _generate_alerts_folder(self) -> dict[str, Any]:
         """Generate alerts folder with requests."""
         return {
             "name": "Alerts",
@@ -164,7 +164,7 @@ class PostmanCollectionGenerator:
             ],
         }
 
-    def _generate_configuration_folder(self) -> Dict[str, Any]:
+    def _generate_configuration_folder(self) -> dict[str, Any]:
         """Generate configuration folder with requests."""
         return {
             "name": "Configuration",
@@ -234,7 +234,7 @@ class PostmanCollectionGenerator:
             ],
         }
 
-    def _generate_notifications_folder(self) -> Dict[str, Any]:
+    def _generate_notifications_folder(self) -> dict[str, Any]:
         """Generate notifications folder with requests."""
         return {
             "name": "Notifications",
@@ -375,7 +375,7 @@ class PostmanCollectionGenerator:
             ],
         }
 
-    def _generate_monitoring_folder(self) -> Dict[str, Any]:
+    def _generate_monitoring_folder(self) -> dict[str, Any]:
         """Generate monitoring folder with requests."""
         return {
             "name": "Monitoring",
@@ -438,7 +438,7 @@ class PostmanCollectionGenerator:
             ],
         }
 
-    def _generate_websocket_folder(self) -> Dict[str, Any]:
+    def _generate_websocket_folder(self) -> dict[str, Any]:
         """Generate WebSocket folder with requests."""
         return {
             "name": "WebSocket",
@@ -468,7 +468,7 @@ class PostmanCollectionGenerator:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(collection, f, indent=2, ensure_ascii=False)
 
-    def generate_environment(self) -> Dict[str, Any]:
+    def generate_environment(self) -> dict[str, Any]:
         """Generate Postman environment."""
         return {
             "id": "skywarnplus-ng-env",

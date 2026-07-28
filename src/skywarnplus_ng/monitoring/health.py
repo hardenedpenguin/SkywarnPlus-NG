@@ -4,20 +4,20 @@ Health monitoring and status reporting for SkywarnPlus-NG.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 from .. import __version__ as APP_VERSION
-from ..core.config import AppConfig
 from ..api.nws_client import NWSClient
-from ..audio.manager import AudioManager
 from ..asterisk.manager import AsteriskManager
+from ..audio.manager import AudioManager
+from ..core.config import AppConfig
 from ..utils.script_manager import ScriptManager
 
 
-class ComponentStatus(str, Enum):
+class ComponentStatus(StrEnum):
     """Status of a system component."""
 
     HEALTHY = "healthy"
@@ -34,8 +34,8 @@ class ComponentHealth:
     status: ComponentStatus
     message: str
     last_check: datetime
-    response_time_ms: Optional[float] = None
-    details: Optional[Dict[str, Any]] = None
+    response_time_ms: float | None = None
+    details: dict[str, Any] | None = None
 
 
 @dataclass
@@ -46,11 +46,11 @@ class HealthStatus:
     timestamp: datetime
     uptime_seconds: float
     version: str
-    components: List[ComponentHealth]
-    metrics: Dict[str, Any]
+    components: list[ComponentHealth]
+    metrics: dict[str, Any]
 
 
-def rollup_overall_status(statuses: List[ComponentStatus]) -> ComponentStatus:
+def rollup_overall_status(statuses: list[ComponentStatus]) -> ComponentStatus:
     """Derive overall status from components, ignoring non-applicable UNKNOWN checks."""
     actionable = [status for status in statuses if status != ComponentStatus.UNKNOWN]
     if not actionable:
@@ -80,7 +80,7 @@ class HealthMonitor:
         self.logger = logging.getLogger(__name__)
 
         # Component references (set during initialization)
-        self.nws_client: Optional[NWSClient] = None
+        self.nws_client: NWSClient | None = None
         self.nhc_service = None
         self.earthquake_service = None
         self.wildfire_service = None
@@ -88,18 +88,18 @@ class HealthMonitor:
         self.space_weather_service = None
         self.volcano_service = None
         self.mobile_county_service = None
-        self.audio_manager: Optional[AudioManager] = None
-        self.asterisk_manager: Optional[AsteriskManager] = None
-        self.script_manager: Optional[ScriptManager] = None
+        self.audio_manager: AudioManager | None = None
+        self.asterisk_manager: AsteriskManager | None = None
+        self.script_manager: ScriptManager | None = None
         self.database_manager = None
 
         # Health check history
-        self._health_history: List[HealthStatus] = []
+        self._health_history: list[HealthStatus] = []
         self._max_history = 100
 
     def set_components(
         self,
-        nws_client: Optional[NWSClient] = None,
+        nws_client: NWSClient | None = None,
         nhc_service=None,
         earthquake_service=None,
         wildfire_service=None,
@@ -107,9 +107,9 @@ class HealthMonitor:
         space_weather_service=None,
         volcano_service=None,
         mobile_county_service=None,
-        audio_manager: Optional[AudioManager] = None,
-        asterisk_manager: Optional[AsteriskManager] = None,
-        script_manager: Optional[ScriptManager] = None,
+        audio_manager: AudioManager | None = None,
+        asterisk_manager: AsteriskManager | None = None,
+        script_manager: ScriptManager | None = None,
         database_manager=None,
     ) -> None:
         """Set component references for health checking."""
@@ -128,7 +128,7 @@ class HealthMonitor:
 
     async def check_nws_health(self) -> ComponentHealth:
         """Check NWS API health."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.nws_client:
             return ComponentHealth(
@@ -142,7 +142,7 @@ class HealthMonitor:
             # Test connection with timeout
             connected = await asyncio.wait_for(self.nws_client.test_connection(), timeout=10.0)
 
-            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
             if connected:
                 return ComponentHealth(
@@ -161,7 +161,7 @@ class HealthMonitor:
                     response_time_ms=response_time,
                 )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ComponentHealth(
                 name="nws_api",
                 status=ComponentStatus.UNHEALTHY,
@@ -179,7 +179,7 @@ class HealthMonitor:
 
     async def check_audio_health(self) -> ComponentHealth:
         """Check audio system health."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.audio_manager:
             return ComponentHealth(
@@ -224,7 +224,7 @@ class HealthMonitor:
 
     async def check_asterisk_health(self) -> ComponentHealth:
         """Check Asterisk system health."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.asterisk_manager:
             return ComponentHealth(
@@ -246,7 +246,7 @@ class HealthMonitor:
             # Test Asterisk connection
             connected = await asyncio.wait_for(self.asterisk_manager.test_connection(), timeout=5.0)
 
-            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
             if connected:
                 return ComponentHealth(
@@ -269,7 +269,7 @@ class HealthMonitor:
                     response_time_ms=response_time,
                 )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ComponentHealth(
                 name="asterisk_system",
                 status=ComponentStatus.UNHEALTHY,
@@ -287,7 +287,7 @@ class HealthMonitor:
 
     async def check_scripts_health(self) -> ComponentHealth:
         """Check script system health."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.script_manager:
             return ComponentHealth(
@@ -327,7 +327,7 @@ class HealthMonitor:
 
     async def check_database_health(self) -> ComponentHealth:
         """Check database system health."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.database_manager:
             return ComponentHealth(
@@ -366,13 +366,13 @@ class HealthMonitor:
             return ComponentHealth(
                 name="database_system",
                 status=ComponentStatus.UNHEALTHY,
-                message=f"Database health check failed: {str(e)}",
+                message=f"Database health check failed: {e!s}",
                 last_check=start_time,
             )
 
-    async def check_nhc_health(self, state: Optional[Dict[str, Any]] = None) -> ComponentHealth:
+    async def check_nhc_health(self, state: dict[str, Any] | None = None) -> ComponentHealth:
         """Check NHC feed and position health when cyclone monitoring is enabled."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.config.nhc.enabled:
             return ComponentHealth(
@@ -395,7 +395,7 @@ class HealthMonitor:
                 self.nhc_service.check_health(state or {}),
                 timeout=20.0,
             )
-            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
             details = result.get("details") or {}
 
             if result.get("ok"):
@@ -427,7 +427,7 @@ class HealthMonitor:
                 response_time_ms=response_time,
                 details=details,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ComponentHealth(
                 name="nhc_api",
                 status=ComponentStatus.UNHEALTHY,
@@ -450,10 +450,10 @@ class HealthMonitor:
         enabled: bool,
         service,
         use_gps_position: bool,
-        state: Optional[Dict[str, Any]],
+        state: dict[str, Any] | None,
         disabled_message: str,
     ) -> ComponentHealth:
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not enabled:
             return ComponentHealth(
@@ -476,7 +476,7 @@ class HealthMonitor:
                 service.check_health(state or {}),
                 timeout=20.0,
             )
-            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
             details = result.get("details") or {}
 
             if result.get("ok"):
@@ -507,7 +507,7 @@ class HealthMonitor:
                 response_time_ms=response_time,
                 details=details,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ComponentHealth(
                 name=component_name,
                 status=ComponentStatus.UNHEALTHY,
@@ -523,9 +523,7 @@ class HealthMonitor:
                 last_check=start_time,
             )
 
-    async def check_earthquake_health(
-        self, state: Optional[Dict[str, Any]] = None
-    ) -> ComponentHealth:
+    async def check_earthquake_health(self, state: dict[str, Any] | None = None) -> ComponentHealth:
         """Check USGS earthquake feed and position health when enabled."""
         return await self._check_position_hazard_health(
             component_name="usgs_api",
@@ -536,9 +534,7 @@ class HealthMonitor:
             disabled_message="USGS earthquake monitoring disabled",
         )
 
-    async def check_wildfire_health(
-        self, state: Optional[Dict[str, Any]] = None
-    ) -> ComponentHealth:
+    async def check_wildfire_health(self, state: dict[str, Any] | None = None) -> ComponentHealth:
         """Check WFIGS wildfire feed and position health when enabled."""
         return await self._check_position_hazard_health(
             component_name="wfigs_api",
@@ -549,7 +545,7 @@ class HealthMonitor:
             disabled_message="Wildfire monitoring disabled",
         )
 
-    async def check_tsunami_health(self, state: Optional[Dict[str, Any]] = None) -> ComponentHealth:
+    async def check_tsunami_health(self, state: dict[str, Any] | None = None) -> ComponentHealth:
         """Check NWS tsunami feed and position health when enabled."""
         return await self._check_position_hazard_health(
             component_name="tsunami_api",
@@ -560,7 +556,7 @@ class HealthMonitor:
             disabled_message="Tsunami monitoring disabled",
         )
 
-    async def check_volcano_health(self, state: Optional[Dict[str, Any]] = None) -> ComponentHealth:
+    async def check_volcano_health(self, state: dict[str, Any] | None = None) -> ComponentHealth:
         """Check USGS volcano feed and position health when enabled."""
         return await self._check_position_hazard_health(
             component_name="volcano_api",
@@ -572,10 +568,10 @@ class HealthMonitor:
         )
 
     async def check_space_weather_health(
-        self, state: Optional[Dict[str, Any]] = None
+        self, state: dict[str, Any] | None = None
     ) -> ComponentHealth:
         """Check SWPC space weather feed when enabled."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         if not self.config.space_weather.enabled:
             return ComponentHealth(
@@ -598,7 +594,7 @@ class HealthMonitor:
                 self.space_weather_service.check_health(state or {}),
                 timeout=20.0,
             )
-            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            response_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
             details = result.get("details") or {}
 
             if result.get("ok"):
@@ -619,7 +615,7 @@ class HealthMonitor:
                 response_time_ms=response_time,
                 details=details,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ComponentHealth(
                 name="swpc_api",
                 status=ComponentStatus.UNHEALTHY,
@@ -635,9 +631,9 @@ class HealthMonitor:
                 last_check=start_time,
             )
 
-    async def get_health_status(self, state: Optional[Dict[str, Any]] = None) -> HealthStatus:
+    async def get_health_status(self, state: dict[str, Any] | None = None) -> HealthStatus:
         """Get comprehensive health status."""
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # Check all components concurrently
         check_coroutines = [
@@ -718,11 +714,11 @@ class HealthMonitor:
 
         return health_status
 
-    def get_health_history(self, limit: int = 10) -> List[HealthStatus]:
+    def get_health_history(self, limit: int = 10) -> list[HealthStatus]:
         """Get health check history."""
         return self._health_history[-limit:]
 
-    def get_health_summary(self) -> Dict[str, Any]:
+    def get_health_summary(self) -> dict[str, Any]:
         """Get a summary of recent health status."""
         if not self._health_history:
             return {"status": "unknown", "message": "No health checks performed"}

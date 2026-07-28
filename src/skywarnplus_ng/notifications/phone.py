@@ -5,12 +5,11 @@ Phone number normalization and validation (E.164).
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 _E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
-def normalize_phone_number(value: Optional[str]) -> Optional[str]:
+def normalize_phone_number(value: str | None) -> str | None:
     """
     Normalize a phone number to E.164 when possible.
 
@@ -40,7 +39,7 @@ def normalize_phone_number(value: Optional[str]) -> Optional[str]:
     return None
 
 
-def validate_phone_number(value: Optional[str]) -> tuple[bool, str]:
+def validate_phone_number(value: str | None) -> tuple[bool, str]:
     """Return (ok, error_message). Empty is allowed (optional field)."""
     if value is None or not str(value).strip():
         return True, ""

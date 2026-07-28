@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from ..geo_hazard.tts import sanitize_for_tts
 from ..nhc.parser import haversine_miles
@@ -38,12 +38,12 @@ class ParsedEarthquake:
         ).strip()
 
 
-def _parse_time_ms(value: Any) -> Optional[datetime]:
+def _parse_time_ms(value: Any) -> datetime | None:
     try:
         ms = int(value)
     except (TypeError, ValueError):
         return None
-    return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
+    return datetime.fromtimestamp(ms / 1000.0, tz=UTC)
 
 
 def parse_earthquake_feature(
@@ -51,7 +51,7 @@ def parse_earthquake_feature(
     *,
     origin_lat: float,
     origin_lon: float,
-) -> Optional[ParsedEarthquake]:
+) -> ParsedEarthquake | None:
     if not isinstance(feature, dict):
         return None
     event_id = str(feature.get("id") or "").strip()

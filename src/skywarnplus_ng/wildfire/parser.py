@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from ..geo_hazard.tts import sanitize_for_tts
 from ..nhc.parser import haversine_miles
@@ -17,8 +17,8 @@ class ParsedWildfire:
     incident_id: str
     name: str
     acres: float
-    percent_contained: Optional[int]
-    discovery_utc: Optional[datetime]
+    percent_contained: int | None
+    discovery_utc: datetime | None
     incident_type_kind: str
     feature_category: str
     latitude: float
@@ -38,15 +38,15 @@ class ParsedWildfire:
         )
 
 
-def _parse_discovery_time(value: Any) -> Optional[datetime]:
+def _parse_discovery_time(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, (int, float)):
         try:
             ms = float(value)
             if ms > 1e12:
-                return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
-            return datetime.fromtimestamp(ms, tz=timezone.utc)
+                return datetime.fromtimestamp(ms / 1000.0, tz=UTC)
+            return datetime.fromtimestamp(ms, tz=UTC)
         except (OSError, OverflowError, ValueError):
             return None
     text = str(value).strip()
@@ -55,12 +55,12 @@ def _parse_discovery_time(value: Any) -> Optional[datetime]:
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     try:
-        return datetime.fromisoformat(text).astimezone(timezone.utc)
+        return datetime.fromisoformat(text).astimezone(UTC)
     except ValueError:
         return None
 
 
-def geometry_centroid(geometry: dict[str, Any]) -> Optional[Tuple[float, float]]:
+def geometry_centroid(geometry: dict[str, Any]) -> tuple[float, float] | None:
     if not isinstance(geometry, dict):
         return None
     gtype = geometry.get("type")
@@ -101,7 +101,7 @@ def parse_wildfire_feature(
     *,
     origin_lat: float,
     origin_lon: float,
-) -> Optional[ParsedWildfire]:
+) -> ParsedWildfire | None:
     if not isinstance(feature, dict):
         return None
 
@@ -137,7 +137,7 @@ def parse_wildfire_feature(
     percent_raw = props.get("attr_PercentContained")
     if percent_raw is None:
         percent_raw = props.get("PercentContained")
-    percent_contained: Optional[int] = None
+    percent_contained: int | None = None
     if percent_raw is not None and str(percent_raw).strip() != "":
         try:
             percent_contained = int(float(percent_raw))

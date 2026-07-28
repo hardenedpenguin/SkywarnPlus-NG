@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from typing import Tuple
 from urllib.parse import urlparse
 
 
@@ -20,7 +19,7 @@ def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return not ip.is_global
 
 
-def validate_public_https_webhook_url(url: str) -> Tuple[bool, str]:
+def validate_public_https_webhook_url(url: str) -> tuple[bool, str]:
     """
     Ensure URL is safe for server-side HTTP callbacks.
 

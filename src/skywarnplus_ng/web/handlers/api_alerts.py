@@ -5,17 +5,13 @@ Alerts API handlers mixin.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from aiohttp import web
 from aiohttp.web import Request, Response
 
 from ..alert_payload import build_active_alerts_payload
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +27,7 @@ class AlertsApiMixin:
                 {
                     "alerts": alerts_data,
                     "count": len(alerts_data),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
         except Exception as e:
@@ -62,15 +58,16 @@ class AlertsApiMixin:
             except Exception:
                 # Fallback: minimal model using required fields
                 from datetime import datetime
+
                 from ...core.models import WeatherAlert
 
                 minimal = {
                     "id": alert_data.get("id", alert_id),
                     "event": alert_data.get("event", "Weather Alert"),
                     "description": alert_data.get("description", alert_data.get("area_desc", "")),
-                    "sent": datetime.now(timezone.utc),
-                    "effective": datetime.now(timezone.utc),
-                    "expires": datetime.now(timezone.utc),
+                    "sent": datetime.now(UTC),
+                    "effective": datetime.now(UTC),
+                    "expires": datetime.now(UTC),
                     "area_desc": alert_data.get("area_desc", ""),
                     "sender": alert_data.get("sender", "NWS"),
                     "sender_name": alert_data.get("sender_name", "National Weather Service"),
@@ -101,8 +98,8 @@ class AlertsApiMixin:
 
             # Convert ulaw to WAV for browser compatibility (browsers can't play ulaw)
             if ext in [".ulaw", ".ul"]:
-                import tempfile
                 import subprocess
+                import tempfile
 
                 # Create temporary WAV file for conversion
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -225,7 +222,7 @@ class AlertsApiMixin:
                 {
                     "alerts": alerts_data,
                     "count": len(alerts_data),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
         except Exception as e:

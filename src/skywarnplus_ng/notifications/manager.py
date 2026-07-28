@@ -6,32 +6,30 @@ Coordinates all notification delivery methods and subscriber management.
 import asyncio
 import html
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
-from .email import EmailNotifier, EmailConfig
-from .webhook import WebhookNotifier, WebhookConfig, webhook_provider_for_url
-from .push import PushNotifier, PushConfig
+from ..core.models import WeatherAlert
+from .delivery import DeliveryItem, DeliveryMethod, DeliveryQueue, DeliveryStatus
+from .email import EmailConfig, EmailNotifier
+from .push import PushConfig, PushNotifier
 from .sms import (
-    SmsNotifier,
     SmsConfig,
+    SmsNotifier,
     format_short_alert_message,
     format_short_general_message,
 )
-from .subscriber import SubscriberManager, Subscriber, NotificationMethod
+from .subscriber import NotificationMethod, Subscriber, SubscriberManager
 from .templates import TemplateEngine
-from .delivery import DeliveryQueue, DeliveryItem, DeliveryMethod, DeliveryStatus
-from ..core.models import WeatherAlert
+from .webhook import WebhookConfig, WebhookNotifier, webhook_provider_for_url
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationError(Exception):
     """Notification system error."""
-
-    pass
 
 
 @dataclass
@@ -40,19 +38,19 @@ class NotificationConfig:
 
     # Email settings
     email_enabled: bool = True
-    email_configs: List[EmailConfig] = None
+    email_configs: list[EmailConfig] = None
 
     # Webhook settings
     webhook_enabled: bool = True
-    webhook_configs: List[WebhookConfig] = None
+    webhook_configs: list[WebhookConfig] = None
 
     # Push settings
     push_enabled: bool = True
-    push_configs: List[PushConfig] = None
+    push_configs: list[PushConfig] = None
 
     # SMS settings
     sms_enabled: bool = True
-    sms_configs: List[SmsConfig] = None
+    sms_configs: list[SmsConfig] = None
 
     # Delivery settings
     delivery_queue_enabled: bool = True
@@ -62,9 +60,9 @@ class NotificationConfig:
     retry_delay_seconds: int = 5
 
     # Subscriber settings
-    subscriber_file: Optional[Path] = None
-    template_storage_path: Optional[Path] = None
-    delivery_queue_path: Optional[Path] = None
+    subscriber_file: Path | None = None
+    template_storage_path: Path | None = None
+    delivery_queue_path: Path | None = None
 
     def __post_init__(self):
         if self.email_configs is None:
@@ -94,15 +92,15 @@ class NotificationManager:
         )
 
         # Initialize notifiers
-        self.email_notifiers: List[EmailNotifier] = []
-        self.webhook_notifiers: List[WebhookNotifier] = []
-        self.push_notifiers: List[PushNotifier] = []
-        self.sms_notifiers: List[SmsNotifier] = []
+        self.email_notifiers: list[EmailNotifier] = []
+        self.webhook_notifiers: list[WebhookNotifier] = []
+        self.push_notifiers: list[PushNotifier] = []
+        self.sms_notifiers: list[SmsNotifier] = []
 
         self._initialize_notifiers()
 
         # Delivery tracking
-        self._delivery_tasks: Set[asyncio.Task] = set()
+        self._delivery_tasks: set[asyncio.Task] = set()
         self._running = False
 
     def _initialize_notifiers(self) -> None:
@@ -152,7 +150,7 @@ class NotificationManager:
 
     async def send_alert_notifications(
         self, alert: WeatherAlert, *, skip_webhooks: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send notifications for a weather alert.
 
@@ -228,7 +226,7 @@ class NotificationManager:
             "webhook_success": webhook_success,
         }
 
-    async def send_global_webhook_notifications(self, alert: WeatherAlert) -> Dict[str, Any]:
+    async def send_global_webhook_notifications(self, alert: WeatherAlert) -> dict[str, Any]:
         """Send alert to globally configured webhook URLs (Slack, Teams, generic)."""
         if not self.webhook_notifiers:
             return {"success": False, "results": [], "sent_count": 0}
@@ -252,7 +250,7 @@ class NotificationManager:
             "sent_count": sent_count,
         }
 
-    async def send_all_clear_notifications(self, area_message: str) -> Dict[str, Any]:
+    async def send_all_clear_notifications(self, area_message: str) -> dict[str, Any]:
         """Notify subscribers and global webhooks that there are no active alerts."""
         title = "All Clear"
         message = f"No active weather alerts. {area_message}".strip()
@@ -265,7 +263,7 @@ class NotificationManager:
             "global_webhooks": global_result,
         }
 
-    async def _send_global_general_webhooks(self, title: str, message: str) -> Dict[str, Any]:
+    async def _send_global_general_webhooks(self, title: str, message: str) -> dict[str, Any]:
         """Send a general notification to globally configured webhooks."""
         if not self.webhook_notifiers:
             return {"success": False, "results": [], "sent_count": 0}
@@ -285,7 +283,7 @@ class NotificationManager:
 
         return {"success": sent_count > 0, "results": results, "sent_count": sent_count}
 
-    async def send_broadcast_notification(self, title: str, message: str) -> Dict[str, Any]:
+    async def send_broadcast_notification(self, title: str, message: str) -> dict[str, Any]:
         """Notify subscribers and global webhooks with a general message."""
         subscriber_result = await self.send_general_notification(title, message)
         global_result = await self._send_global_general_webhooks(title, message)
@@ -300,9 +298,9 @@ class NotificationManager:
         self,
         title: str,
         message: str,
-        recipients: Optional[List[str]] = None,
-        methods: Optional[List[NotificationMethod]] = None,
-    ) -> Dict[str, Any]:
+        recipients: list[str] | None = None,
+        methods: list[NotificationMethod] | None = None,
+    ) -> dict[str, Any]:
         """
         Send general notification to specified recipients.
 
@@ -375,7 +373,7 @@ class NotificationManager:
 
     async def _generate_notification_content(
         self, alert: WeatherAlert, subscriber: Subscriber
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Generate notification content for a subscriber."""
         # Use template engine to generate content
         try:
@@ -393,7 +391,7 @@ class NotificationManager:
             self.logger.error(f"Failed to generate notification content: {e}")
             return self._generate_default_content(alert)
 
-    def _select_template_for_subscriber(self, subscriber: Subscriber) -> Optional[str]:
+    def _select_template_for_subscriber(self, subscriber: Subscriber) -> str | None:
         """Select appropriate template for subscriber."""
         # Simple template selection logic
         # In a real implementation, this would be more sophisticated
@@ -411,7 +409,7 @@ class NotificationManager:
 
     def _generate_sms_body(
         self,
-        alert: Optional[WeatherAlert],
+        alert: WeatherAlert | None,
         title: str,
         message: str,
     ) -> str:
@@ -433,7 +431,7 @@ class NotificationManager:
 
         return format_short_general_message(title, message, max_len)
 
-    def _generate_default_content(self, alert: WeatherAlert) -> Dict[str, str]:
+    def _generate_default_content(self, alert: WeatherAlert) -> dict[str, str]:
         """Generate default notification content."""
         subject = f"Weather Alert: {alert.event} - {alert.area_desc}"
 
@@ -465,13 +463,13 @@ This alert was sent by SkywarnPlus-NG.
 
     async def _send_subscriber_notifications(
         self,
-        alert: Optional[WeatherAlert],
+        alert: WeatherAlert | None,
         subscriber: Subscriber,
-        content: Dict[str, str],
-        methods: Optional[List[NotificationMethod]] = None,
+        content: dict[str, str],
+        methods: list[NotificationMethod] | None = None,
         *,
         skip_webhooks: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send notifications to a subscriber via their preferred methods."""
         if methods is None:
             methods = list(subscriber.preferences.enabled_methods)
@@ -557,13 +555,13 @@ This alert was sent by SkywarnPlus-NG.
         alert: WeatherAlert,
         subscriber: Subscriber,
         skip_webhooks: bool,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Queue subscriber notifications for batch delivery."""
         if not self.delivery_queue:
             return {"success": False, "error": "Delivery queue not enabled"}
 
         content = self._generate_default_content(alert)
-        scheduled_at = datetime.now(timezone.utc) + timedelta(
+        scheduled_at = datetime.now(UTC) + timedelta(
             minutes=subscriber.preferences.batch_interval_minutes
         )
         queued_count = 0
@@ -618,8 +616,8 @@ This alert was sent by SkywarnPlus-NG.
         return {"success": True, "queued": True, "queued_count": queued_count}
 
     async def _send_email_notification(
-        self, subscriber: Subscriber, subject: str, body: str, html_body: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, subscriber: Subscriber, subject: str, body: str, html_body: str | None = None
+    ) -> dict[str, Any]:
         """Send email notification to subscriber."""
         # Use the first available email notifier
         if not self.email_notifiers:
@@ -634,10 +632,10 @@ This alert was sent by SkywarnPlus-NG.
     async def _send_webhook_notification(
         self,
         subscriber: Subscriber,
-        alert: Optional[WeatherAlert],
+        alert: WeatherAlert | None,
         title: str,
         message: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send webhook notification to subscriber."""
         if not subscriber.webhook_url:
             raise NotificationError("No webhook URL configured for subscriber")
@@ -669,10 +667,10 @@ This alert was sent by SkywarnPlus-NG.
     async def _send_push_notification(
         self,
         subscriber: Subscriber,
-        alert: Optional[WeatherAlert],
+        alert: WeatherAlert | None,
         title: str,
         message: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send push notification to subscriber."""
         if not subscriber.push_tokens:
             raise NotificationError("No push tokens configured for subscriber")
@@ -691,10 +689,10 @@ This alert was sent by SkywarnPlus-NG.
     async def _send_sms_notification(
         self,
         subscriber: Subscriber,
-        alert: Optional[WeatherAlert],
+        alert: WeatherAlert | None,
         title: str,
         message: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Send SMS notification to subscriber via the configured gateway."""
         if not subscriber.phone:
             raise NotificationError("No phone number configured for subscriber")
@@ -900,7 +898,7 @@ This alert was sent by SkywarnPlus-NG.
                 error_message=result.get("error", "Unknown error"),
             )
 
-    def get_notification_stats(self) -> Dict[str, Any]:
+    def get_notification_stats(self) -> dict[str, Any]:
         """Get notification system statistics."""
         stats = {
             "subscribers": self.subscriber_manager.get_subscriber_stats(),

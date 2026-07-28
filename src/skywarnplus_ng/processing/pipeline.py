@@ -4,10 +4,10 @@ Core alert processing pipeline for SkywarnPlus-NG.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
 
 from ..core.models import WeatherAlert
 
@@ -29,8 +29,6 @@ class ProcessingStage(Enum):
 class ProcessingError(Exception):
     """Alert processing error."""
 
-    pass
-
 
 @dataclass
 class ProcessingContext:
@@ -38,15 +36,15 @@ class ProcessingContext:
 
     alert: WeatherAlert
     stage: ProcessingStage
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
     def __post_init__(self):
         if not self.created_at:
-            self.created_at = datetime.now(timezone.utc)
+            self.created_at = datetime.now(UTC)
         if not self.updated_at:
-            self.updated_at = datetime.now(timezone.utc)
+            self.updated_at = datetime.now(UTC)
 
 
 @dataclass
@@ -56,10 +54,10 @@ class ProcessingResult:
     alert: WeatherAlert
     processed: bool
     stage: ProcessingStage
-    actions_taken: List[str]
-    metadata: Dict[str, Any]
+    actions_taken: list[str]
+    metadata: dict[str, Any]
     processing_time_ms: float
-    errors: List[str]
+    errors: list[str]
 
     def add_action(self, action: str) -> None:
         """Add an action taken during processing."""
@@ -106,8 +104,8 @@ class AlertProcessingPipeline:
     """Main alert processing pipeline."""
 
     def __init__(self):
-        self.processors: List[AlertProcessor] = []
-        self.stage_processors: Dict[ProcessingStage, List[AlertProcessor]] = {}
+        self.processors: list[AlertProcessor] = []
+        self.stage_processors: dict[ProcessingStage, list[AlertProcessor]] = {}
         self.logger = logging.getLogger(__name__)
         self._processing_stats = {
             "total_processed": 0,
@@ -147,7 +145,7 @@ class AlertProcessingPipeline:
         self.logger.info(f"Removed processor '{processor_name}' from pipeline")
 
     async def process_alert(
-        self, alert: WeatherAlert, initial_metadata: Optional[Dict[str, Any]] = None
+        self, alert: WeatherAlert, initial_metadata: dict[str, Any] | None = None
     ) -> ProcessingResult:
         """
         Process a single alert through the pipeline.
@@ -159,7 +157,7 @@ class AlertProcessingPipeline:
         Returns:
             Processing result
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # Create initial context
         context = ProcessingContext(
@@ -187,7 +185,7 @@ class AlertProcessingPipeline:
                     continue  # Skip initial stage
 
                 context.stage = stage
-                context.updated_at = datetime.now(timezone.utc)
+                context.updated_at = datetime.now(UTC)
 
                 # Get processors for this stage
                 stage_processors = self.stage_processors.get(stage, [])
@@ -212,7 +210,7 @@ class AlertProcessingPipeline:
                         result.add_action(f"{processor.name}:{stage.value}")
 
                     except Exception as e:
-                        error_msg = f"Processor '{processor.name}' failed: {str(e)}"
+                        error_msg = f"Processor '{processor.name}' failed: {e!s}"
                         self.logger.error(error_msg, exc_info=True)
                         result.add_error(error_msg)
 
@@ -232,7 +230,7 @@ class AlertProcessingPipeline:
             self._processing_stats["successful"] += 1
 
         except Exception as e:
-            error_msg = f"Pipeline processing failed: {str(e)}"
+            error_msg = f"Pipeline processing failed: {e!s}"
             self.logger.error(error_msg, exc_info=True)
             result.add_error(error_msg)
             result.processed = False
@@ -243,7 +241,7 @@ class AlertProcessingPipeline:
 
         finally:
             # Calculate processing time
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             result.processing_time_ms = (end_time - start_time).total_seconds() * 1000
             result.metadata = context.metadata.copy()
 
@@ -255,8 +253,8 @@ class AlertProcessingPipeline:
         return result
 
     async def process_alerts(
-        self, alerts: List[WeatherAlert], max_concurrent: int = 10
-    ) -> List[ProcessingResult]:
+        self, alerts: list[WeatherAlert], max_concurrent: int = 10
+    ) -> list[ProcessingResult]:
         """
         Process multiple alerts through the pipeline.
 
@@ -304,7 +302,7 @@ class AlertProcessingPipeline:
         self.logger.info(f"Completed processing {len(alerts)} alerts")
         return processed_results
 
-    def get_processing_stats(self) -> Dict[str, Any]:
+    def get_processing_stats(self) -> dict[str, Any]:
         """Get processing statistics."""
         stats = self._processing_stats.copy()
 

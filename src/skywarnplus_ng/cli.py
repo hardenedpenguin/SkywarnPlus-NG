@@ -6,10 +6,11 @@ import argparse
 import asyncio
 import logging
 import sys
+
 from rich.console import Console
 
-from .core.config import AppConfig
 from .core.application import SkywarnPlusApplication
+from .core.config import AppConfig
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -108,11 +109,12 @@ async def handle_describe_command(config_path=None, index_or_title=None):
         sys.exit(1)
 
     try:
+        from collections import OrderedDict
+
+        from .audio.manager import AudioManager
         from .core.config import AppConfig
         from .core.state import ApplicationState
-        from .audio.manager import AudioManager
         from .skydescribe.manager import SkyDescribeManager
-        from collections import OrderedDict
 
         # Load configuration
         config = AppConfig.from_yaml(config_path)
@@ -183,7 +185,7 @@ async def handle_describe_command(config_path=None, index_or_title=None):
             sys.exit(1)
 
     except Exception as e:
-        print(f"ERROR: {str(e)}")
+        print(f"ERROR: {e!s}")
         import traceback
 
         traceback.print_exc()
@@ -248,7 +250,7 @@ async def handle_dtmf_command_with_config(config_path=None, command=None, alert_
             print(f"ERROR:{response.message}")
 
     except Exception as e:
-        print(f"ERROR: {str(e)}")
+        print(f"ERROR: {e!s}")
         sys.exit(1)
 
 

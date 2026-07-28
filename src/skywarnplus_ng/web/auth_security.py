@@ -4,13 +4,13 @@ Dashboard authentication helpers (password policy, backup path validation).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, FrozenSet, Optional, Tuple
 
 DEFAULT_DASHBOARD_PASSWORD = "skywarn123"
 
 # Dashboard pages anyone may view (read-only operational status).
-_PUBLIC_PAGES: FrozenSet[str] = frozenset(
+_PUBLIC_PAGES: frozenset[str] = frozenset(
     {
         "/",
         "/dashboard",
@@ -23,7 +23,7 @@ _PUBLIC_PAGES: FrozenSet[str] = frozenset(
 )
 
 # GET /api/* routes needed by public dashboard pages (no credentials or PII).
-_PUBLIC_GET_API_EXACT: FrozenSet[str] = frozenset(
+_PUBLIC_GET_API_EXACT: frozenset[str] = frozenset(
     {
         "/api/status",
         "/api/alerts",
@@ -37,10 +37,10 @@ _PUBLIC_GET_API_EXACT: FrozenSet[str] = frozenset(
 )
 
 # Page prefixes that always require a session (even for GET).
-_SENSITIVE_PAGE_PREFIXES: Tuple[str, ...] = ("/configuration", "/logs", "/database")
+_SENSITIVE_PAGE_PREFIXES: tuple[str, ...] = ("/configuration", "/logs", "/database")
 
 # API prefixes that always require a session (read or write).
-_SENSITIVE_API_PREFIXES: Tuple[str, ...] = (
+_SENSITIVE_API_PREFIXES: tuple[str, ...] = (
     "/api/config",
     "/api/logs",
     "/api/database",
@@ -133,7 +133,7 @@ def request_is_https(request) -> bool:
 
 
 def uses_default_dashboard_password(
-    verify_password: Callable[[str, str], bool], stored: Optional[str]
+    verify_password: Callable[[str, str], bool], stored: str | None
 ) -> bool:
     """Return True if stored credentials still match the factory default password."""
     if not stored:
@@ -163,7 +163,7 @@ def incoming_sets_non_default_password(data: dict, is_bcrypt_hash: Callable[[str
         return False
 
 
-def resolve_config_backup_path(config_path: Path, backup_path: Optional[str] = None) -> Path:
+def resolve_config_backup_path(config_path: Path, backup_path: str | None = None) -> Path:
     """
     Resolve a configuration backup file under the config directory.
 

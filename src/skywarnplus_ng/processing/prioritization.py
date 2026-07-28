@@ -3,11 +3,10 @@ Alert prioritization and scoring system for SkywarnPlus-NG.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Optional
-from dataclasses import dataclass
-from enum import Enum
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from enum import Enum
 
 from ..core.models import WeatherAlert
 
@@ -31,14 +30,14 @@ class PriorityScore:
     alert: WeatherAlert
     total_score: float
     priority_level: PriorityLevel
-    component_scores: Dict[str, float]
-    risk_factors: List[str]
-    recommendations: List[str]
+    component_scores: dict[str, float]
+    risk_factors: list[str]
+    recommendations: list[str]
     calculated_at: datetime
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc)
+            self.calculated_at = datetime.now(UTC)
 
 
 @dataclass
@@ -50,13 +49,13 @@ class RiskAssessment:
     impact_score: float
     probability_score: float
     urgency_score: float
-    factors: List[str]
-    mitigation_actions: List[str]
+    factors: list[str]
+    mitigation_actions: list[str]
     calculated_at: datetime
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc)
+            self.calculated_at = datetime.now(UTC)
 
 
 class AlertPrioritizer:
@@ -64,9 +63,9 @@ class AlertPrioritizer:
 
     def __init__(
         self,
-        severity_weights: Optional[Dict[str, float]] = None,
-        urgency_weights: Optional[Dict[str, float]] = None,
-        certainty_weights: Optional[Dict[str, float]] = None,
+        severity_weights: dict[str, float] | None = None,
+        urgency_weights: dict[str, float] | None = None,
+        certainty_weights: dict[str, float] | None = None,
         time_decay_factor: float = 0.1,
         geographic_risk_multiplier: float = 1.0,
         population_density_weight: float = 0.3,
@@ -157,10 +156,10 @@ class AlertPrioritizer:
             },
             risk_factors=risk_factors,
             recommendations=recommendations,
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
-    def prioritize_alerts(self, alerts: List[WeatherAlert]) -> List[PriorityScore]:
+    def prioritize_alerts(self, alerts: list[WeatherAlert]) -> list[PriorityScore]:
         """
         Prioritize a list of alerts.
 
@@ -228,7 +227,7 @@ class AlertPrioritizer:
             urgency_score=urgency_score,
             factors=factors,
             mitigation_actions=mitigation_actions,
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
     def _calculate_severity_score(self, alert: WeatherAlert) -> float:
@@ -245,7 +244,7 @@ class AlertPrioritizer:
 
     def _calculate_time_score(self, alert: WeatherAlert) -> float:
         """Calculate time-based score."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         alert_time = alert.effective or alert.sent
 
         if not alert_time:
@@ -253,7 +252,7 @@ class AlertPrioritizer:
 
         # Ensure timezone-aware
         if alert_time.tzinfo is None:
-            alert_time = alert_time.replace(tzinfo=timezone.utc)
+            alert_time = alert_time.replace(tzinfo=UTC)
 
         # Calculate time difference in hours
         time_diff_hours = (now - alert_time).total_seconds() / 3600
@@ -382,7 +381,7 @@ class AlertPrioritizer:
         else:
             return "Very Low"
 
-    def _identify_risk_factors(self, alert: WeatherAlert, scores: Dict[str, float]) -> List[str]:
+    def _identify_risk_factors(self, alert: WeatherAlert, scores: dict[str, float]) -> list[str]:
         """Identify risk factors for an alert."""
         factors = []
 
@@ -423,8 +422,8 @@ class AlertPrioritizer:
         return factors
 
     def _generate_recommendations(
-        self, alert: WeatherAlert, priority_level: PriorityLevel, risk_factors: List[str]
-    ) -> List[str]:
+        self, alert: WeatherAlert, priority_level: PriorityLevel, risk_factors: list[str]
+    ) -> list[str]:
         """Generate recommendations based on priority and risk factors."""
         recommendations = []
 
@@ -487,8 +486,8 @@ class AlertPrioritizer:
         return recommendations
 
     def _generate_mitigation_actions(
-        self, alert: WeatherAlert, risk_level: str, factors: List[str]
-    ) -> List[str]:
+        self, alert: WeatherAlert, risk_level: str, factors: list[str]
+    ) -> list[str]:
         """Generate mitigation actions based on risk assessment."""
         actions = []
 

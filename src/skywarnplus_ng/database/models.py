@@ -2,18 +2,19 @@
 Database models for SkywarnPlus-NG.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from sqlalchemy import (
+    JSON,
+    Boolean,
     Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
     Integer,
     String,
     Text,
-    Boolean,
-    DateTime,
-    Float,
-    JSON,
-    Index,
-    ForeignKey,
 )
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -88,9 +89,7 @@ class MetricRecord(Base):
     metric_unit = Column(String)
 
     # Timestamp
-    timestamp = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
 
     # Additional metadata
     additional_data = Column(JSON)
@@ -112,9 +111,7 @@ class HealthCheckRecord(Base):
 
     # Health check details
     overall_status = Column(String, nullable=False, index=True)
-    timestamp = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
     uptime_seconds = Column(Float, nullable=False)
 
     # Component status (stored as JSON)
@@ -151,9 +148,7 @@ class ScriptExecutionRecord(Base):
     output = Column(Text)
 
     # Timestamps
-    started_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    started_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
     completed_at = Column(DateTime, index=True)
 
     # Alert reference (if applicable)
@@ -185,9 +180,7 @@ class ConfigurationRecord(Base):
     config_data = Column(JSON, nullable=False)
 
     # Timestamps
-    created_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
     applied_at = Column(DateTime, index=True)
 
     # User information
@@ -238,9 +231,7 @@ class AlertAnalytics(Base):
     avg_script_execution_time_ms = Column(Float)
 
     # Timestamps
-    calculated_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    calculated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
 
     # Additional metadata
     additional_data = Column(JSON)

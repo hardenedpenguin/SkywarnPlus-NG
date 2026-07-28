@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import TYPE_CHECKING
 
 from aiohttp import web
 from aiohttp.web import Request, Response
@@ -18,9 +17,6 @@ from ...notifications.templates import (
     TemplateFormat,
     TemplateType,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +30,7 @@ class NotificationsApiMixin:
                 return web.json_response({"error": "JSON body must be an object"}, status=400)
 
             # Import notification modules
-            from ...notifications.email import EmailNotifier, EmailConfig, EmailProvider
+            from ...notifications.email import EmailConfig, EmailNotifier, EmailProvider
 
             # Password is redacted in the config UI; blank means use the saved value.
             password = data.get("password") or ""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, time
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from ..core.models import AlertSeverity, WeatherAlert
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _parse_hhmm(value: str) -> Optional[time]:
+def _parse_hhmm(value: str) -> time | None:
     try:
         hour_str, minute_str = value.strip().split(":", 1)
         return time(hour=int(hour_str), minute=int(minute_str))
@@ -46,7 +46,7 @@ class PlaybackPolicy:
                 logger.warning("Invalid quiet_hours.timezone %r; using system local", tz_name)
         return now.astimezone()
 
-    def is_quiet_hours_active(self, now: Optional[datetime] = None) -> bool:
+    def is_quiet_hours_active(self, now: datetime | None = None) -> bool:
         qh = self.config.quiet_hours
         if not qh.enabled:
             return False
@@ -64,8 +64,8 @@ class PlaybackPolicy:
     def is_on_announcement_hold(
         self,
         alert: WeatherAlert,
-        state: Dict[str, Any],
-        now: Optional[datetime] = None,
+        state: dict[str, Any],
+        now: datetime | None = None,
     ) -> bool:
         hold_minutes = int(self.config.announcement_hold_minutes or 0)
         if hold_minutes <= 0:
@@ -88,8 +88,8 @@ class PlaybackPolicy:
     def record_announcement(
         self,
         alert: WeatherAlert,
-        state: Dict[str, Any],
-        now: Optional[datetime] = None,
+        state: dict[str, Any],
+        now: datetime | None = None,
     ) -> None:
         hold_minutes = int(self.config.announcement_hold_minutes or 0)
         if hold_minutes <= 0:
@@ -104,9 +104,9 @@ class PlaybackPolicy:
     def should_announce_voice(
         self,
         alert: WeatherAlert,
-        state: Dict[str, Any],
-        now: Optional[datetime] = None,
-    ) -> tuple[bool, Optional[str]]:
+        state: dict[str, Any],
+        now: datetime | None = None,
+    ) -> tuple[bool, str | None]:
         """
         Return (allowed, skip_reason).
 
@@ -127,20 +127,18 @@ class PlaybackPolicy:
 
         return True, None
 
-    def should_announce_cyclone(self, now: Optional[datetime] = None) -> tuple[bool, Optional[str]]:
+    def should_announce_cyclone(self, now: datetime | None = None) -> tuple[bool, str | None]:
         """Cyclone advisories respect quiet hours but not county hold signatures."""
         return self.should_announce_geo_hazard(now)
 
-    def should_announce_geo_hazard(
-        self, now: Optional[datetime] = None
-    ) -> tuple[bool, Optional[str]]:
+    def should_announce_geo_hazard(self, now: datetime | None = None) -> tuple[bool, str | None]:
         """Position-based hazards (cyclone, earthquake, wildfire) respect quiet hours."""
         now = now or datetime.now().astimezone()
         if self.is_quiet_hours_active(now):
             return False, "quiet_hours"
         return True, None
 
-    def get_status(self, state: Dict[str, Any], now: Optional[datetime] = None) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
         now = now or datetime.now().astimezone()
         return {
             "quiet_hours_active": self.is_quiet_hours_active(now),

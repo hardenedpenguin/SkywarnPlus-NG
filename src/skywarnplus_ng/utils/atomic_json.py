@@ -30,5 +30,5 @@ def atomic_write_json(path: Path, data: Any, *, indent: int = 2) -> None:
 def load_json_file(path: Path, default: Any) -> Any:
     if not path.exists():
         return default
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, encoding="utf-8") as handle:
         return json.load(handle)

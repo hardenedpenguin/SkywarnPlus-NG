@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any
 
 import aiohttp
 from aiohttp import web
@@ -24,9 +24,6 @@ from ...utils.update_check import (
     write_cache,
 )
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +31,7 @@ class UpdatesMetricsApiMixin:
     def _update_check_cache_path(self) -> Path:
         return self._get_data_dir() / "update_check_cache.json"
 
-    def _update_status_public_dict(self, cached: Dict[str, Any]) -> Dict[str, Any]:
+    def _update_status_public_dict(self, cached: dict[str, Any]) -> dict[str, Any]:
         """Shape returned to the browser (no secrets)."""
         return {
             "check_enabled": True,
@@ -47,7 +44,7 @@ class UpdatesMetricsApiMixin:
             "error": cached.get("error"),
         }
 
-    async def _refresh_update_cache(self) -> Optional[Dict[str, Any]]:
+    async def _refresh_update_cache(self) -> dict[str, Any] | None:
         """Fetch GitHub latest release and write cache. Caller should hold lock or expect single-flight."""
         uc = self.config.monitoring.update_check
         if not uc.enabled:
@@ -226,7 +223,7 @@ class UpdatesMetricsApiMixin:
                                 "type": "system_status",
                                 "message": "NWS API connection active",
                                 "details": "Weather data is being received",
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "timestamp": datetime.now(UTC).isoformat(),
                                 "severity": "info",
                                 "icon": "wifi",
                             }
@@ -239,7 +236,7 @@ class UpdatesMetricsApiMixin:
                                 "type": "system_status",
                                 "message": "Asterisk connection active",
                                 "details": "DTMF commands and announcements available",
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "timestamp": datetime.now(UTC).isoformat(),
                                 "severity": "info",
                                 "icon": "phone",
                             }
@@ -252,7 +249,7 @@ class UpdatesMetricsApiMixin:
                                 "type": "system_status",
                                 "message": "Audio system operational",
                                 "details": "TTS and sound file playback available",
-                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "timestamp": datetime.now(UTC).isoformat(),
                                 "severity": "info",
                                 "icon": "speaker",
                             }
@@ -267,7 +264,7 @@ class UpdatesMetricsApiMixin:
                     "type": "system_event",
                     "message": "SkywarnPlus-NG server started",
                     "details": "All systems initialized and monitoring active",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "severity": "success",
                     "icon": "play-circle",
                 }
@@ -283,7 +280,7 @@ class UpdatesMetricsApiMixin:
                 {
                     "activities": activities,
                     "count": len(activities),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
 
@@ -299,7 +296,7 @@ class UpdatesMetricsApiMixin:
             metric_name = request.query.get("metric_name")
 
             metrics_data = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "period_hours": hours,
                 "metrics": {},
             }

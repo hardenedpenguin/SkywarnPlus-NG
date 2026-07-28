@@ -3,17 +3,18 @@ DTMF Handler - Handles DTMF code processing and Asterisk integration.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 from .manager import SkyDescribeManager
 
 logger = logging.getLogger(__name__)
 
 
-class DTMFCode(str, Enum):
+class DTMFCode(StrEnum):
     """DTMF codes for SkyDescribe functionality."""
 
     CURRENT_ALERTS = "*1"
@@ -30,15 +31,15 @@ class DTMFResponse:
     code: str
     success: bool
     message: str
-    audio_file: Optional[str] = None
-    duration_seconds: Optional[float] = None
+    audio_file: str | None = None
+    duration_seconds: float | None = None
 
 
 class DTMFHandler:
     """Handles DTMF code processing and response generation."""
 
     def __init__(
-        self, sky_describe_manager: SkyDescribeManager, dtmf_codes: Optional[Dict[str, str]] = None
+        self, sky_describe_manager: SkyDescribeManager, dtmf_codes: dict[str, str] | None = None
     ):
         """
         Initialize DTMF handler.
@@ -59,9 +60,9 @@ class DTMFHandler:
         }
 
         # Callback functions for getting current data
-        self.get_current_alerts: Optional[Callable[[], List[Any]]] = None
-        self.get_system_status: Optional[Callable[[], Dict[str, Any]]] = None
-        self.get_alert_by_id: Optional[Callable[[str], Optional[Any]]] = None
+        self.get_current_alerts: Callable[[], list[Any]] | None = None
+        self.get_system_status: Callable[[], dict[str, Any]] | None = None
+        self.get_alert_by_id: Callable[[str], Any | None] | None = None
 
         # DTMF code handlers
         self._handlers = {
@@ -74,9 +75,9 @@ class DTMFHandler:
 
     def set_callbacks(
         self,
-        get_current_alerts: Callable[[], List[Any]],
-        get_system_status: Callable[[], Dict[str, Any]],
-        get_alert_by_id: Callable[[str], Optional[Any]],
+        get_current_alerts: Callable[[], list[Any]],
+        get_system_status: Callable[[], dict[str, Any]],
+        get_alert_by_id: Callable[[str], Any | None],
     ) -> None:
         """
         Set callback functions for getting current data.
@@ -129,7 +130,7 @@ class DTMFHandler:
         except Exception as e:
             logger.error(f"Error processing DTMF code {code}: {e}")
             return DTMFResponse(
-                code=code, success=False, message=f"Error processing DTMF code: {str(e)}"
+                code=code, success=False, message=f"Error processing DTMF code: {e!s}"
             )
 
     async def _handle_current_alerts(self, additional_digits: str) -> DTMFResponse:
@@ -168,7 +169,7 @@ class DTMFHandler:
             return DTMFResponse(
                 code=DTMFCode.CURRENT_ALERTS.value,
                 success=False,
-                message=f"Error generating current alerts: {str(e)}",
+                message=f"Error generating current alerts: {e!s}",
             )
 
     async def _handle_alert_by_id(self, additional_digits: str) -> DTMFResponse:
@@ -220,7 +221,7 @@ class DTMFHandler:
             return DTMFResponse(
                 code=DTMFCode.ALERT_BY_ID.value,
                 success=False,
-                message=f"Error generating alert description: {str(e)}",
+                message=f"Error generating alert description: {e!s}",
             )
 
     async def _handle_all_clear(self, additional_digits: str) -> DTMFResponse:
@@ -249,7 +250,7 @@ class DTMFHandler:
             return DTMFResponse(
                 code=DTMFCode.ALL_CLEAR.value,
                 success=False,
-                message=f"Error generating all-clear: {str(e)}",
+                message=f"Error generating all-clear: {e!s}",
             )
 
     async def _handle_system_status(self, additional_digits: str) -> DTMFResponse:
@@ -288,7 +289,7 @@ class DTMFHandler:
             return DTMFResponse(
                 code=DTMFCode.SYSTEM_STATUS.value,
                 success=False,
-                message=f"Error generating system status: {str(e)}",
+                message=f"Error generating system status: {e!s}",
             )
 
     async def _handle_help(self, additional_digits: str) -> DTMFResponse:
@@ -306,7 +307,7 @@ class DTMFHandler:
             )
 
             # Generate help audio
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"help_{timestamp}.wav"
             output_path = self.sky_describe_manager.descriptions_dir / filename
 
@@ -334,10 +335,10 @@ class DTMFHandler:
         except Exception as e:
             logger.error(f"Error handling help DTMF: {e}")
             return DTMFResponse(
-                code=DTMFCode.HELP.value, success=False, message=f"Error generating help: {str(e)}"
+                code=DTMFCode.HELP.value, success=False, message=f"Error generating help: {e!s}"
             )
 
-    def get_available_codes(self) -> List[str]:
+    def get_available_codes(self) -> list[str]:
         """Get list of available DTMF codes."""
         return list(self.dtmf_codes.values())
 
@@ -360,7 +361,7 @@ class DTMFHandler:
 
         return descriptions.get(command, "Unknown DTMF code")
 
-    def get_code_mapping(self) -> Dict[str, str]:
+    def get_code_mapping(self) -> dict[str, str]:
         """Get mapping of DTMF codes to their functions."""
         return {
             self.dtmf_codes["current_alerts"]: "Current active weather alerts",

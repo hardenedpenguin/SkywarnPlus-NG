@@ -2,18 +2,18 @@
 SkyDescribe Manager - Handles generation and management of weather description audio files.
 """
 
+import contextlib
 import logging
 import subprocess
 import wave
-import contextlib
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
 from collections import OrderedDict
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
-from ..core.models import WeatherAlert
 from ..audio.manager import AudioManager
+from ..core.models import WeatherAlert
 from ..utils.cap_speech import prepare_cap_text_for_tts
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 
 class SkyDescribeError(Exception):
     """SkyDescribe error."""
-
-    pass
 
 
 @dataclass
@@ -64,7 +62,7 @@ class SkyDescribeManager:
         self.max_words = max_words
 
         # Cache of generated description audio files
-        self._description_cache: Dict[str, DescriptionAudio] = {}
+        self._description_cache: dict[str, DescriptionAudio] = {}
 
         # DTMF code mappings
         self.dtmf_codes = {
@@ -75,7 +73,7 @@ class SkyDescribeManager:
             "*5": "help",
         }
 
-    async def generate_description_audio(self, alert: WeatherAlert) -> Optional[DescriptionAudio]:
+    async def generate_description_audio(self, alert: WeatherAlert) -> DescriptionAudio | None:
         """
         Generate audio file for alert description.
 
@@ -97,7 +95,7 @@ class SkyDescribeManager:
             description_text = self._create_description_text(alert)
 
             # Generate unique filename
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"desc_{alert.id}_{timestamp}.{self.audio_manager.config.tts.output_format}"
             output_path = self.descriptions_dir / filename
 
@@ -115,7 +113,7 @@ class SkyDescribeManager:
             desc_audio = DescriptionAudio(
                 alert_id=alert.id,
                 file_path=audio_path,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 duration_seconds=duration,
                 description_text=description_text,
             )
@@ -183,8 +181,8 @@ class SkyDescribeManager:
         return ". ".join(parts) + "."
 
     async def generate_current_alerts_description(
-        self, alerts: List[WeatherAlert]
-    ) -> Optional[DescriptionAudio]:
+        self, alerts: list[WeatherAlert]
+    ) -> DescriptionAudio | None:
         """
         Generate description for all current active alerts.
 
@@ -216,7 +214,7 @@ class SkyDescribeManager:
                 text = ". ".join(parts) + "."
 
             # Generate unique filename for current alerts
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"current_alerts_{timestamp}.{self.audio_manager.config.tts.output_format}"
             output_path = self.descriptions_dir / filename
 
@@ -234,7 +232,7 @@ class SkyDescribeManager:
             desc_audio = DescriptionAudio(
                 alert_id="current_alerts",
                 file_path=audio_path,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 duration_seconds=duration,
                 description_text=text,
             )
@@ -246,12 +244,12 @@ class SkyDescribeManager:
             logger.error(f"Error generating current alerts description: {e}")
             return None
 
-    async def generate_all_clear_description(self) -> Optional[DescriptionAudio]:
+    async def generate_all_clear_description(self) -> DescriptionAudio | None:
         """Generate all-clear description audio."""
         try:
             text = "The National Weather Service has cleared all alerts."
 
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"all_clear_{timestamp}.{self.audio_manager.config.tts.output_format}"
             output_path = self.descriptions_dir / filename
 
@@ -266,7 +264,7 @@ class SkyDescribeManager:
             desc_audio = DescriptionAudio(
                 alert_id="all_clear",
                 file_path=audio_path,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 duration_seconds=duration,
                 description_text=text,
             )
@@ -279,8 +277,8 @@ class SkyDescribeManager:
             return None
 
     async def generate_system_status_description(
-        self, status: Dict[str, Any]
-    ) -> Optional[DescriptionAudio]:
+        self, status: dict[str, Any]
+    ) -> DescriptionAudio | None:
         """Generate system status description audio."""
         try:
             parts = ["SkywarnPlus-NG System Status"]
@@ -296,7 +294,7 @@ class SkyDescribeManager:
 
             text = ". ".join(parts) + "."
 
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"system_status_{timestamp}.{self.audio_manager.config.tts.output_format}"
             output_path = self.descriptions_dir / filename
 
@@ -311,7 +309,7 @@ class SkyDescribeManager:
             desc_audio = DescriptionAudio(
                 alert_id="system_status",
                 file_path=audio_path,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 duration_seconds=duration,
                 description_text=text,
             )
@@ -386,7 +384,7 @@ class SkyDescribeManager:
         else:
             return f"{minutes} minutes"
 
-    def get_description_audio(self, alert_id: str) -> Optional[DescriptionAudio]:
+    def get_description_audio(self, alert_id: str) -> DescriptionAudio | None:
         """Get cached description audio by alert ID."""
         return self._description_cache.get(alert_id)
 
@@ -401,7 +399,7 @@ class SkyDescribeManager:
             Number of files cleaned up
         """
         cleaned_count = 0
-        cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
+        cutoff_time = datetime.now(UTC).timestamp() - (max_age_hours * 3600)
 
         for alert_id, desc_audio in list(self._description_cache.items()):
             if desc_audio.created_at.timestamp() < cutoff_time:
@@ -420,9 +418,9 @@ class SkyDescribeManager:
         self,
         index_or_title: str,
         last_alerts: OrderedDict,
-        asterisk_nodes: Optional[List[int]] = None,
+        asterisk_nodes: list[int] | None = None,
         use_describe_wav: bool = True,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """
         Generate description audio by index or title, matching the original SkyDescribe.py behavior.
 
@@ -450,7 +448,7 @@ class SkyDescribeManager:
             index = int(index_or_title) - 1
             if index >= len(alerts):
                 logger.error("SkyDescribe: No alert found at index %d.", index + 1)
-                description = "Sky Describe error, no alert found at index {}.".format(index + 1)
+                description = f"Sky Describe error, no alert found at index {index + 1}."
             else:
                 alert_title, alert_data = alerts[index]
 
@@ -496,7 +494,7 @@ class SkyDescribeManager:
                     break
             else:
                 logger.error("SkyDescribe: No alert with title %s found.", title)
-                description = "Sky Describe error, no alert found with title {}.".format(title)
+                description = f"Sky Describe error, no alert found with title {title}."
 
         logger.debug("\n\nSkyDescribe: Original description: %s", description)
 
@@ -512,9 +510,7 @@ class SkyDescribeManager:
             if alert_title:
                 logger.info("SkyDescribe: Generating description for alert: %s", alert_title)
                 # Add the alert title at the beginning
-                description = "Detailed alert information for {}. {}".format(
-                    alert_title, description
-                )
+                description = f"Detailed alert information for {alert_title}. {description}"
             else:
                 logger.info("SkyDescribe: Generating description without alert title")
 
@@ -529,7 +525,7 @@ class SkyDescribeManager:
         if use_describe_wav:
             output_path = self.descriptions_dir / f"describe.{output_ext}"
         else:
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             output_path = self.descriptions_dir / f"describe_{timestamp}.{output_ext}"
 
         # Generate audio using configured TTS engine
@@ -571,7 +567,7 @@ class SkyDescribeManager:
         return audio_file
 
     def play_on_asterisk_nodes(
-        self, audio_path: Path, nodes: List[int], playback_mode: str = "local"
+        self, audio_path: Path, nodes: list[int], playback_mode: str = "local"
     ) -> None:
         """
         Play audio file on Asterisk nodes using rpt localplay or rpt playback.

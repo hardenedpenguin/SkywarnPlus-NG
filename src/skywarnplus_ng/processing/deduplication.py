@@ -2,14 +2,14 @@
 Alert deduplication and merging system for SkywarnPlus-NG.
 """
 
+import difflib
 import hashlib
 import logging
 import re
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-import difflib
+from typing import Any
 
 from ..core.models import WeatherAlert
 
@@ -23,9 +23,9 @@ def _normalize_event_name(event: str) -> str:
 def _alert_issue_time(alert: WeatherAlert) -> datetime:
     when = alert.sent or alert.effective
     if when is None:
-        return datetime.min.replace(tzinfo=timezone.utc)
+        return datetime.min.replace(tzinfo=UTC)
     if when.tzinfo is None:
-        return when.replace(tzinfo=timezone.utc)
+        return when.replace(tzinfo=UTC)
     return when
 
 
@@ -44,8 +44,8 @@ def _issuance_minute(alert: WeatherAlert) -> str:
 
 
 def merge_same_issuance_zone_splits(
-    alerts: List[WeatherAlert],
-) -> Tuple[List[WeatherAlert], Dict[str, str]]:
+    alerts: list[WeatherAlert],
+) -> tuple[list[WeatherAlert], dict[str, str]]:
     """
     Merge NWS CAP messages split across zones for the same event and issuance minute.
 
@@ -56,7 +56,7 @@ def merge_same_issuance_zone_splits(
     if len(alerts) < 2:
         return alerts, {}
 
-    by_key: Dict[tuple, List[WeatherAlert]] = {}
+    by_key: dict[tuple, list[WeatherAlert]] = {}
     for alert in alerts:
         key = (
             _normalize_event_name(alert.event),
@@ -65,9 +65,9 @@ def merge_same_issuance_zone_splits(
         )
         by_key.setdefault(key, []).append(alert)
 
-    merged_out: List[WeatherAlert] = []
+    merged_out: list[WeatherAlert] = []
     removed = 0
-    aliases: Dict[str, str] = {}
+    aliases: dict[str, str] = {}
 
     for group in by_key.values():
         if len(group) < 2:
@@ -80,11 +80,11 @@ def merge_same_issuance_zone_splits(
             reverse=True,
         )
         primary = group_sorted[0]
-        all_codes: List[str] = []
+        all_codes: list[str] = []
         seen_codes: set[str] = set()
-        geocodes: List[str] = []
+        geocodes: list[str] = []
         seen_geo: set[str] = set()
-        area_parts: List[str] = []
+        area_parts: list[str] = []
 
         for alert in group_sorted:
             for code in alert.county_codes or []:
@@ -127,8 +127,8 @@ def merge_same_issuance_zone_splits(
 
 
 def collapse_superseded_nws_alerts(
-    alerts: List[WeatherAlert],
-) -> Tuple[List[WeatherAlert], Dict[str, str]]:
+    alerts: list[WeatherAlert],
+) -> tuple[list[WeatherAlert], dict[str, str]]:
     """
     Collapse multiple active NWS CAP messages for the same event type.
 
@@ -142,14 +142,14 @@ def collapse_superseded_nws_alerts(
     if len(alerts) < 2:
         return alerts, {}
 
-    by_event: Dict[str, List[WeatherAlert]] = {}
+    by_event: dict[str, list[WeatherAlert]] = {}
     for alert in alerts:
         by_event.setdefault(_normalize_event_name(alert.event), []).append(alert)
 
     keep_ids: set[str] = set()
     removed = 0
-    aliases: Dict[str, str] = {}
-    updated: Dict[str, WeatherAlert] = {}
+    aliases: dict[str, str] = {}
+    updated: dict[str, WeatherAlert] = {}
 
     for event_alerts in by_event.values():
         if len(event_alerts) < 2:
@@ -158,7 +158,7 @@ def collapse_superseded_nws_alerts(
             continue
 
         sorted_alerts = sorted(event_alerts, key=_alert_issue_time, reverse=True)
-        kept: List[WeatherAlert] = []
+        kept: list[WeatherAlert] = []
 
         for alert in sorted_alerts:
             codes = _county_codes_set(alert)
@@ -213,9 +213,9 @@ def collapse_superseded_nws_alerts(
     return [updated.get(alert.id, alert) for alert in alerts if alert.id in keep_ids], aliases
 
 
-def _resolve_alias_chains(aliases: Dict[str, str]) -> Dict[str, str]:
+def _resolve_alias_chains(aliases: dict[str, str]) -> dict[str, str]:
     """Flatten alias chains (A->B, B->C becomes A->C, B->C)."""
-    resolved: Dict[str, str] = {}
+    resolved: dict[str, str] = {}
     for old_id in aliases:
         target = aliases[old_id]
         seen = {old_id}
@@ -227,8 +227,8 @@ def _resolve_alias_chains(aliases: Dict[str, str]) -> Dict[str, str]:
 
 
 def deduplicate_nws_active_alerts(
-    alerts: List[WeatherAlert],
-) -> Tuple[List[WeatherAlert], Dict[str, str]]:
+    alerts: list[WeatherAlert],
+) -> tuple[list[WeatherAlert], dict[str, str]]:
     """Collapse superseded products and merge zone splits; return alias map (old_id -> canonical_id)."""
     collapsed, collapse_aliases = collapse_superseded_nws_alerts(alerts)
     merged, merge_aliases = merge_same_issuance_zone_splits(collapsed)
@@ -255,7 +255,7 @@ class DuplicateMatch:
     similarity_score: float
     match_type: str
     confidence: float
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
     def __post_init__(self):
         if not self.metadata:
@@ -267,14 +267,14 @@ class MergedAlert:
     """Represents a merged alert."""
 
     primary_alert: WeatherAlert
-    merged_alerts: List[WeatherAlert]
+    merged_alerts: list[WeatherAlert]
     merged_at: datetime
     merge_reason: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
     def __post_init__(self):
         if not self.merged_at:
-            self.merged_at = datetime.now(timezone.utc)
+            self.merged_at = datetime.now(UTC)
         if not self.metadata:
             self.metadata = {}
 
@@ -298,10 +298,10 @@ class AlertDeduplicator:
         self.logger = logging.getLogger(__name__)
 
         # Cache for processed alerts
-        self._processed_alerts: Dict[str, WeatherAlert] = {}
-        self._alert_hashes: Dict[str, str] = {}
+        self._processed_alerts: dict[str, WeatherAlert] = {}
+        self._alert_hashes: dict[str, str] = {}
 
-    def deduplicate_alerts(self, alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+    def deduplicate_alerts(self, alerts: list[WeatherAlert]) -> list[WeatherAlert]:
         """
         Deduplicate a list of alerts.
 
@@ -345,7 +345,7 @@ class AlertDeduplicator:
         self.logger.info(f"Deduplication complete: {len(alerts)} -> {len(deduplicated)} alerts")
         return deduplicated
 
-    def _find_duplicates(self, alerts: List[WeatherAlert]) -> List[DuplicateMatch]:
+    def _find_duplicates(self, alerts: list[WeatherAlert]) -> list[DuplicateMatch]:
         """Find duplicate alerts using the configured strategy."""
         duplicates = []
 
@@ -362,7 +362,7 @@ class AlertDeduplicator:
 
         return duplicates
 
-    def _find_exact_matches(self, alerts: List[WeatherAlert]) -> List[DuplicateMatch]:
+    def _find_exact_matches(self, alerts: list[WeatherAlert]) -> list[DuplicateMatch]:
         """Find exact matches based on alert content."""
         duplicates = []
         seen_hashes = {}
@@ -387,7 +387,7 @@ class AlertDeduplicator:
 
         return duplicates
 
-    def _find_similarity_matches(self, alerts: List[WeatherAlert]) -> List[DuplicateMatch]:
+    def _find_similarity_matches(self, alerts: list[WeatherAlert]) -> list[DuplicateMatch]:
         """Find similar alerts based on text similarity."""
         duplicates = []
 
@@ -408,7 +408,7 @@ class AlertDeduplicator:
 
         return duplicates
 
-    def _find_time_window_matches(self, alerts: List[WeatherAlert]) -> List[DuplicateMatch]:
+    def _find_time_window_matches(self, alerts: list[WeatherAlert]) -> list[DuplicateMatch]:
         """Find alerts within a time window that might be duplicates."""
         duplicates = []
         time_window = timedelta(minutes=self.time_window_minutes)
@@ -436,7 +436,7 @@ class AlertDeduplicator:
 
         return duplicates
 
-    def _find_geographic_matches(self, alerts: List[WeatherAlert]) -> List[DuplicateMatch]:
+    def _find_geographic_matches(self, alerts: list[WeatherAlert]) -> list[DuplicateMatch]:
         """Find alerts with geographic overlap."""
         duplicates = []
 
@@ -458,7 +458,7 @@ class AlertDeduplicator:
 
         return duplicates
 
-    def _find_hybrid_matches(self, alerts: List[WeatherAlert]) -> List[DuplicateMatch]:
+    def _find_hybrid_matches(self, alerts: list[WeatherAlert]) -> list[DuplicateMatch]:
         """Find duplicates using a combination of strategies."""
         duplicates = []
 
@@ -478,7 +478,7 @@ class AlertDeduplicator:
 
         return duplicates
 
-    def _merge_duplicates(self, duplicates: List[DuplicateMatch]) -> List[MergedAlert]:
+    def _merge_duplicates(self, duplicates: list[DuplicateMatch]) -> list[MergedAlert]:
         """Merge duplicate alerts."""
         merged_alerts = []
         processed_alerts = set()
@@ -558,9 +558,9 @@ class AlertDeduplicator:
 
         # Ensure both times are timezone-aware
         if time1.tzinfo is None:
-            time1 = time1.replace(tzinfo=timezone.utc)
+            time1 = time1.replace(tzinfo=UTC)
         if time2.tzinfo is None:
-            time2 = time2.replace(tzinfo=timezone.utc)
+            time2 = time2.replace(tzinfo=UTC)
 
         return abs((time1 - time2).total_seconds()) <= window.total_seconds()
 
@@ -574,9 +574,9 @@ class AlertDeduplicator:
 
         # Ensure both times are timezone-aware
         if time1.tzinfo is None:
-            time1 = time1.replace(tzinfo=timezone.utc)
+            time1 = time1.replace(tzinfo=UTC)
         if time2.tzinfo is None:
-            time2 = time2.replace(tzinfo=timezone.utc)
+            time2 = time2.replace(tzinfo=UTC)
 
         return abs((time1 - time2).total_seconds()) / 60.0
 
@@ -636,8 +636,8 @@ class AlertDeduplicator:
         return alert1
 
     def _get_non_exact_alerts(
-        self, alerts: List[WeatherAlert], exact_matches: List[DuplicateMatch]
-    ) -> List[WeatherAlert]:
+        self, alerts: list[WeatherAlert], exact_matches: list[DuplicateMatch]
+    ) -> list[WeatherAlert]:
         """Get alerts that are not part of exact matches."""
         exact_alert_ids = set()
         for match in exact_matches:
@@ -647,8 +647,8 @@ class AlertDeduplicator:
         return [alert for alert in alerts if alert.id not in exact_alert_ids]
 
     def _get_remaining_alerts(
-        self, alerts: List[WeatherAlert], matches: List[DuplicateMatch]
-    ) -> List[WeatherAlert]:
+        self, alerts: list[WeatherAlert], matches: list[DuplicateMatch]
+    ) -> list[WeatherAlert]:
         """Get alerts that are not part of the given matches."""
         matched_alert_ids = set()
         for match in matches:
@@ -658,8 +658,8 @@ class AlertDeduplicator:
         return [alert for alert in alerts if alert.id not in matched_alert_ids]
 
     def _get_merged_alert(
-        self, alert: WeatherAlert, merged_alerts: List[MergedAlert]
-    ) -> Optional[WeatherAlert]:
+        self, alert: WeatherAlert, merged_alerts: list[MergedAlert]
+    ) -> WeatherAlert | None:
         """Get the merged alert if the given alert was merged."""
         for merged_alert in merged_alerts:
             if alert.id == merged_alert.primary_alert.id:

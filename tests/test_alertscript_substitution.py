@@ -1,7 +1,7 @@
 """AlertScript placeholder substitution and DTMF validation."""
 
 import shlex
-
+from datetime import UTC
 
 from skywarnplus_ng.core.models import (
     AlertCategory,
@@ -15,9 +15,9 @@ from skywarnplus_ng.utils.alertscript import AlertScriptManager
 
 
 def _sample_alert(**kw):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base = dict(
         id="id-1",
         event="Tornado Warning",

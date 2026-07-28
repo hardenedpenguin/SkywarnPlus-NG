@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from ..geo_hazard.position_health import (
     append_gps_health_details,
@@ -45,27 +45,27 @@ class TsunamiService:
         self,
         config: AppConfig,
         nws_client: NWSClient,
-        mobile_service: Optional[MobileCountyService] = None,
+        mobile_service: MobileCountyService | None = None,
     ) -> None:
         self.config = config
         self.nws_client = nws_client
         self.mobile_service = mobile_service
-        self._last_poll_at: Optional[datetime] = None
-        self._tracked_alerts: List[Dict[str, Any]] = []
-        self._last_fetch_ok_at: Optional[datetime] = None
-        self._last_error_message: Optional[str] = None
-        self._last_display_refresh_at: Optional[datetime] = None
+        self._last_poll_at: datetime | None = None
+        self._tracked_alerts: list[dict[str, Any]] = []
+        self._last_fetch_ok_at: datetime | None = None
+        self._last_error_message: str | None = None
+        self._last_display_refresh_at: datetime | None = None
 
-    def should_poll(self, now: Optional[datetime] = None) -> bool:
+    def should_poll(self, now: datetime | None = None) -> bool:
         if not self.config.tsunami.enabled:
             return False
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         if self._last_poll_at is None:
             return True
         elapsed = (now - self._last_poll_at).total_seconds() / 60.0
         return elapsed >= self.config.tsunami.poll_interval_minutes
 
-    def get_position(self) -> Optional[Tuple[float, float]]:
+    def get_position(self) -> tuple[float, float] | None:
         pos = self.config.geo_hazard_position
         return get_monitoring_position(
             use_gps_position=pos.use_gps_position,
@@ -74,14 +74,14 @@ class TsunamiService:
             mobile_service=self.mobile_service,
         )
 
-    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_error(self, state: dict[str, Any], message: str) -> None:
+        now = datetime.now(UTC)
         self._last_error_message = message
         state["tsunami_last_error_at"] = now.isoformat()
         state["tsunami_last_error_message"] = message
 
-    def _record_poll_success(self, state: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_success(self, state: dict[str, Any]) -> None:
+        now = datetime.now(UTC)
         self._last_fetch_ok_at = now
         self._last_error_message = None
         state["tsunami_last_error_at"] = None
@@ -92,13 +92,13 @@ class TsunamiService:
         min_rank = level_rank(ts.min_level)
         return level_rank(alert.level) >= min_rank
 
-    def _already_announced(self, announcement_key: str, state: Dict[str, Any]) -> bool:
+    def _already_announced(self, announcement_key: str, state: dict[str, Any]) -> bool:
         announced = state.get("tsunami_announced_alerts") or []
         if not isinstance(announced, list):
             return False
         return announcement_key in announced
 
-    def mark_announced(self, announcement_key: str, state: Dict[str, Any]) -> None:
+    def mark_announced(self, announcement_key: str, state: dict[str, Any]) -> None:
         announced = state.get("tsunami_announced_alerts")
         if not isinstance(announced, list):
             announced = []
@@ -108,8 +108,8 @@ class TsunamiService:
 
     def _maybe_seed_announced_history(
         self,
-        alerts: List[ParsedTsunami],
-        state: Dict[str, Any],
+        alerts: list[ParsedTsunami],
+        state: dict[str, Any],
     ) -> None:
         if state.get("tsunami_history_seeded"):
             return
@@ -130,11 +130,11 @@ class TsunamiService:
 
     def select_new_alerts(
         self,
-        alerts: List[ParsedTsunami],
-        state: Dict[str, Any],
-    ) -> List[TsunamiAlert]:
-        selected: List[TsunamiAlert] = []
-        tracked: List[Dict[str, Any]] = []
+        alerts: list[ParsedTsunami],
+        state: dict[str, Any],
+    ) -> list[TsunamiAlert]:
+        selected: list[TsunamiAlert] = []
+        tracked: list[dict[str, Any]] = []
 
         for alert in alerts:
             within_filters = self._passes_filters(alert)
@@ -169,8 +169,8 @@ class TsunamiService:
         return selected
 
     async def fetch_features_at_position(
-        self, position: Tuple[float, float]
-    ) -> Optional[List[Dict[str, Any]]]:
+        self, position: tuple[float, float]
+    ) -> list[dict[str, Any]] | None:
         try:
             features = await self.nws_client.fetch_active_alert_features_at_point(
                 position[0], position[1]
@@ -182,10 +182,10 @@ class TsunamiService:
             self._last_error_message = f"NWS tsunami fetch failed: {exc}"
             return None
 
-    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def check_health(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
         state = state or {}
         ts = self.config.tsunami
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "min_level": ts.min_level,
             "last_poll_at": self._last_poll_at.isoformat() if self._last_poll_at else None,
             "tracked_alerts": len(self._tracked_alerts),
@@ -244,12 +244,12 @@ class TsunamiService:
             "details": details,
         }
 
-    async def refresh_tracked_alerts_if_stale(self, state: Dict[str, Any]) -> None:
+    async def refresh_tracked_alerts_if_stale(self, state: dict[str, Any]) -> None:
         if not self.config.tsunami.enabled:
             self._tracked_alerts = []
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._last_display_refresh_at is not None:
             elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
             if elapsed_min < DISPLAY_REFRESH_MINUTES:
@@ -260,14 +260,14 @@ class TsunamiService:
             return
 
         features = await self.fetch_features_at_position(position)
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = datetime.now(UTC)
         if features is None:
             return
 
         alerts = parse_tsunami_features(features, min_level=self.config.tsunami.min_level)
         self.select_new_alerts(alerts, state)
 
-    async def poll(self, state: Dict[str, Any]) -> List[TsunamiAlert]:
+    async def poll(self, state: dict[str, Any]) -> list[TsunamiAlert]:
         if not self.config.tsunami.enabled:
             self._tracked_alerts = []
             return []
@@ -290,7 +290,7 @@ class TsunamiService:
         alerts = parse_tsunami_features(features, min_level=self.config.tsunami.min_level)
         self._maybe_seed_announced_history(alerts, state)
         selected = self.select_new_alerts(alerts, state)
-        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(UTC)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
 
@@ -312,7 +312,7 @@ class TsunamiService:
             )
         return selected
 
-    def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any]) -> dict[str, Any]:
         position = self.get_position()
         ts = self.config.tsunami
         return {

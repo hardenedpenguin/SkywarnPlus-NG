@@ -5,10 +5,11 @@ Uses Firebase Cloud Messaging (FCM) free tier.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
+
 import aiohttp
 
 from ..core.models import WeatherAlert
@@ -34,13 +35,13 @@ class PushConfig:
     retry_delay_seconds: int = 5
 
     # FCM-specific settings
-    fcm_server_key: Optional[str] = None
-    fcm_project_id: Optional[str] = None
+    fcm_server_key: str | None = None
+    fcm_project_id: str | None = None
 
     # Web Push settings
-    vapid_public_key: Optional[str] = None
-    vapid_private_key: Optional[str] = None
-    vapid_email: Optional[str] = None
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_email: str | None = None
 
 
 class PushNotifier:
@@ -49,7 +50,7 @@ class PushNotifier:
     def __init__(self, config: PushConfig):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{config.provider.value}")
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -66,10 +67,10 @@ class PushNotifier:
     async def send_alert_push(
         self,
         alert: WeatherAlert,
-        device_tokens: List[str],
-        custom_title: Optional[str] = None,
-        custom_body: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        device_tokens: list[str],
+        custom_title: str | None = None,
+        custom_body: str | None = None,
+    ) -> dict[str, Any]:
         """
         Send weather alert push notification.
 
@@ -99,12 +100,12 @@ class PushNotifier:
                 "error": str(e),
                 "alert_id": alert.id,
                 "provider": self.config.provider.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def send_notification_push(
-        self, title: str, body: str, device_tokens: List[str], data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, title: str, body: str, device_tokens: list[str], data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Send general push notification.
 
@@ -131,16 +132,16 @@ class PushNotifier:
                 "success": False,
                 "error": str(e),
                 "provider": self.config.provider.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def _send_fcm_alert(
         self,
         alert: WeatherAlert,
-        device_tokens: List[str],
-        custom_title: Optional[str] = None,
-        custom_body: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        device_tokens: list[str],
+        custom_title: str | None = None,
+        custom_body: str | None = None,
+    ) -> dict[str, Any]:
         """Send FCM alert notification."""
         if not self.config.fcm_server_key:
             raise ValueError("FCM server key not configured")
@@ -238,8 +239,8 @@ class PushNotifier:
         )
 
     async def _send_fcm_notification(
-        self, title: str, body: str, device_tokens: List[str], data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, title: str, body: str, device_tokens: list[str], data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Send FCM general notification."""
         if not self.config.fcm_server_key:
             raise ValueError("FCM server key not configured")
@@ -307,10 +308,10 @@ class PushNotifier:
     async def _send_web_push_alert(
         self,
         alert: WeatherAlert,
-        device_tokens: List[str],
-        custom_title: Optional[str] = None,
-        custom_body: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        device_tokens: list[str],
+        custom_title: str | None = None,
+        custom_body: str | None = None,
+    ) -> dict[str, Any]:
         """Send Web Push alert notification."""
         # Web Push implementation would go here
         # This is a placeholder for future implementation
@@ -323,8 +324,8 @@ class PushNotifier:
         }
 
     async def _send_web_push_notification(
-        self, title: str, body: str, device_tokens: List[str], data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, title: str, body: str, device_tokens: list[str], data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Send Web Push general notification."""
         # Web Push implementation would go here
         # This is a placeholder for future implementation
@@ -364,7 +365,7 @@ class PushNotifier:
 
     @classmethod
     def create_fcm_config(
-        cls, fcm_server_key: str, fcm_project_id: Optional[str] = None
+        cls, fcm_server_key: str, fcm_project_id: str | None = None
     ) -> PushConfig:
         """Create FCM push notification configuration."""
         return PushConfig(

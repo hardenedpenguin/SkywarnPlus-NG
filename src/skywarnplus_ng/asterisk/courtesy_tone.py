@@ -6,11 +6,10 @@ manages dynamically switching between "normal" and "wx" (weather alert) mode
 tones based on active weather alerts.
 """
 
+import fnmatch
 import logging
 import shutil
-import fnmatch
 from pathlib import Path
-from typing import List, Dict, Optional
 
 from ..core.models import WeatherAlert
 
@@ -20,8 +19,6 @@ logger = logging.getLogger(__name__)
 class CourtesyToneError(Exception):
     """Courtesy tone error."""
 
-    pass
-
 
 class CourtesyToneManager:
     """Manages courtesy tone switching based on weather alerts."""
@@ -30,8 +27,8 @@ class CourtesyToneManager:
         self,
         enabled: bool,
         tone_dir: Path,
-        tones_config: Dict[str, Dict[str, str]],
-        ct_alerts: List[str],
+        tones_config: dict[str, dict[str, str]],
+        ct_alerts: list[str],
         state_manager=None,
     ):
         """
@@ -50,7 +47,7 @@ class CourtesyToneManager:
         self.tones_config = tones_config
         self.ct_alerts = ct_alerts
         self.state_manager = state_manager
-        self.current_mode: Optional[str] = None
+        self.current_mode: str | None = None
 
         # Ensure tone directory exists
         self.tone_dir.mkdir(parents=True, exist_ok=True)
@@ -70,7 +67,7 @@ class CourtesyToneManager:
         else:
             logger.info(f"Courtesy tone manager initialized (tone_dir: {self.tone_dir})")
 
-    def _has_wx_alerts(self, alerts: List[WeatherAlert]) -> bool:
+    def _has_wx_alerts(self, alerts: list[WeatherAlert]) -> bool:
         """
         Check if any active alerts match the CT trigger list.
 
@@ -186,7 +183,7 @@ class CourtesyToneManager:
 
         return changed
 
-    def update_courtesy_tones(self, alerts: List[WeatherAlert]) -> bool:
+    def update_courtesy_tones(self, alerts: list[WeatherAlert]) -> bool:
         """
         Update courtesy tones based on active alerts.
 

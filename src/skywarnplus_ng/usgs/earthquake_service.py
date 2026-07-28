@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -49,7 +49,7 @@ class UsgsEarthquakeService:
     def __init__(
         self,
         config: AppConfig,
-        mobile_service: Optional[MobileCountyService] = None,
+        mobile_service: MobileCountyService | None = None,
     ) -> None:
         self.config = config
         self.mobile_service = mobile_service
@@ -58,17 +58,17 @@ class UsgsEarthquakeService:
             headers={"User-Agent": config.nws.user_agent},
             follow_redirects=True,
         )
-        self._last_poll_at: Optional[datetime] = None
-        self._tracked_events: List[Dict[str, Any]] = []
-        self._last_fetch_ok_at: Optional[datetime] = None
-        self._last_error_message: Optional[str] = None
-        self._last_display_refresh_at: Optional[datetime] = None
+        self._last_poll_at: datetime | None = None
+        self._tracked_events: list[dict[str, Any]] = []
+        self._last_fetch_ok_at: datetime | None = None
+        self._last_error_message: str | None = None
+        self._last_display_refresh_at: datetime | None = None
         self._fetch_cache = GeoFetchCache.shared()
 
     def sync_http_client_user_agent(self) -> None:
         self._client.headers["User-Agent"] = self.config.nws.user_agent
 
-    def _cache_key(self, position: Tuple[float, float]) -> str:
+    def _cache_key(self, position: tuple[float, float]) -> str:
         eq = self.config.earthquake
         lat, lon = position
         max_km = round(eq.max_distance_miles * 1.60934, 1)
@@ -77,16 +77,16 @@ class UsgsEarthquakeService:
     async def close(self) -> None:
         await self._client.aclose()
 
-    def should_poll(self, now: Optional[datetime] = None) -> bool:
+    def should_poll(self, now: datetime | None = None) -> bool:
         if not self.config.earthquake.enabled:
             return False
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         if self._last_poll_at is None:
             return True
         elapsed = (now - self._last_poll_at).total_seconds() / 60.0
         return elapsed >= self.config.earthquake.poll_interval_minutes
 
-    def get_position(self) -> Optional[Tuple[float, float]]:
+    def get_position(self) -> tuple[float, float] | None:
         pos = self.config.geo_hazard_position
         return get_monitoring_position(
             use_gps_position=pos.use_gps_position,
@@ -95,10 +95,10 @@ class UsgsEarthquakeService:
             mobile_service=self.mobile_service,
         )
 
-    def _build_query_url(self, position: Tuple[float, float]) -> str:
+    def _build_query_url(self, position: tuple[float, float]) -> str:
         eq: EarthquakeConfig = self.config.earthquake
         lat, lon = position
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         start = now - timedelta(hours=eq.lookback_hours)
         max_km = round(eq.max_distance_miles * 1.60934, 1)
         params = {
@@ -113,17 +113,17 @@ class UsgsEarthquakeService:
         }
         return f"{USGS_EVENT_API}?{urlencode(params)}"
 
-    async def fetch_events_geojson(self, position: Tuple[float, float]) -> Optional[dict[str, Any]]:
+    async def fetch_events_geojson(self, position: tuple[float, float]) -> dict[str, Any] | None:
         cache_key = self._cache_key(position)
 
-        async def _fetch() -> Optional[dict[str, Any]]:
+        async def _fetch() -> dict[str, Any] | None:
             return await self._fetch_events_geojson_uncached(position)
 
         return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
 
     async def _fetch_events_geojson_uncached(
-        self, position: Tuple[float, float]
-    ) -> Optional[dict[str, Any]]:
+        self, position: tuple[float, float]
+    ) -> dict[str, Any] | None:
         url = self._build_query_url(position)
         try:
             response = await self._client.get(url)
@@ -142,21 +142,21 @@ class UsgsEarthquakeService:
             self._last_error_message = f"USGS earthquake response invalid: {exc}"
             return None
 
-    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_error(self, state: dict[str, Any], message: str) -> None:
+        now = datetime.now(UTC)
         self._last_error_message = message
         state["usgs_last_error_at"] = now.isoformat()
         state["usgs_last_error_message"] = message
 
-    def _record_poll_success(self, state: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_success(self, state: dict[str, Any]) -> None:
+        now = datetime.now(UTC)
         self._last_fetch_ok_at = now
         self._last_error_message = None
         state["usgs_last_error_at"] = None
         state["usgs_last_error_message"] = None
 
-    def _event_within_age(self, event: ParsedEarthquake, now: Optional[datetime] = None) -> bool:
-        now = now or datetime.now(timezone.utc)
+    def _event_within_age(self, event: ParsedEarthquake, now: datetime | None = None) -> bool:
+        now = now or datetime.now(UTC)
         max_age = timedelta(hours=self.config.earthquake.max_event_age_hours)
         return (now - event.time_utc) <= max_age
 
@@ -173,13 +173,13 @@ class UsgsEarthquakeService:
             return False
         return True
 
-    def _already_announced(self, announcement_key: str, state: Dict[str, Any]) -> bool:
+    def _already_announced(self, announcement_key: str, state: dict[str, Any]) -> bool:
         announced = state.get("usgs_announced_events") or []
         if not isinstance(announced, list):
             return False
         return announcement_key in announced
 
-    def mark_announced(self, announcement_key: str, state: Dict[str, Any]) -> None:
+    def mark_announced(self, announcement_key: str, state: dict[str, Any]) -> None:
         announced = state.get("usgs_announced_events")
         if not isinstance(announced, list):
             announced = []
@@ -189,8 +189,8 @@ class UsgsEarthquakeService:
 
     def _maybe_seed_announced_history(
         self,
-        events: List[ParsedEarthquake],
-        state: Dict[str, Any],
+        events: list[ParsedEarthquake],
+        state: dict[str, Any],
     ) -> None:
         if state.get("usgs_history_seeded"):
             return
@@ -211,11 +211,11 @@ class UsgsEarthquakeService:
 
     def select_new_events(
         self,
-        events: List[ParsedEarthquake],
-        state: Dict[str, Any],
-    ) -> List[EarthquakeEvent]:
-        selected: List[EarthquakeEvent] = []
-        tracked: List[Dict[str, Any]] = []
+        events: list[ParsedEarthquake],
+        state: dict[str, Any],
+    ) -> list[EarthquakeEvent]:
+        selected: list[EarthquakeEvent] = []
+        tracked: list[dict[str, Any]] = []
 
         for event in sorted(events, key=lambda e: e.time_utc, reverse=True):
             within_filters = self._passes_filters(event)
@@ -249,9 +249,9 @@ class UsgsEarthquakeService:
         self._tracked_events = tracked
         return selected
 
-    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def check_health(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
         state = state or {}
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "min_magnitude": self.config.earthquake.min_magnitude,
             "max_distance_miles": self.config.earthquake.max_distance_miles,
             "max_event_age_hours": self.config.earthquake.max_event_age_hours,
@@ -312,12 +312,12 @@ class UsgsEarthquakeService:
             "details": details,
         }
 
-    async def refresh_tracked_events_if_stale(self, state: Dict[str, Any]) -> None:
+    async def refresh_tracked_events_if_stale(self, state: dict[str, Any]) -> None:
         if not self.config.earthquake.enabled:
             self._tracked_events = []
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._last_display_refresh_at is not None:
             elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
             if elapsed_min < DISPLAY_REFRESH_MINUTES:
@@ -328,14 +328,14 @@ class UsgsEarthquakeService:
             return
 
         data = await self.fetch_events_geojson(position)
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = datetime.now(UTC)
         if not data:
             return
 
         events = parse_earthquake_collection(data, origin_lat=position[0], origin_lon=position[1])
         self.select_new_events(events, state)
 
-    async def poll(self, state: Dict[str, Any]) -> List[EarthquakeEvent]:
+    async def poll(self, state: dict[str, Any]) -> list[EarthquakeEvent]:
         if not self.config.earthquake.enabled:
             self._tracked_events = []
             return []
@@ -358,7 +358,7 @@ class UsgsEarthquakeService:
         events = parse_earthquake_collection(data, origin_lat=position[0], origin_lon=position[1])
         self._maybe_seed_announced_history(events, state)
         selected = self.select_new_events(events, state)
-        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(UTC)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
         eq = self.config.earthquake
@@ -380,7 +380,7 @@ class UsgsEarthquakeService:
             )
         return selected
 
-    def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any]) -> dict[str, Any]:
         position = self.get_position()
         eq = self.config.earthquake
         return {

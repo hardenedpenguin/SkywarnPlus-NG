@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from aiohttp import web
 
-from skywarnplus_ng.core.models import AlertSeverity, AlertUrgency, AlertCertainty, WeatherAlert
+from skywarnplus_ng.core.models import AlertCertainty, AlertSeverity, AlertUrgency, WeatherAlert
 from skywarnplus_ng.notifications.sms import (
     SmsConfig,
     SmsNotifier,
@@ -24,9 +24,9 @@ def _sample_alert() -> WeatherAlert:
         severity=AlertSeverity.EXTREME,
         urgency=AlertUrgency.IMMEDIATE,
         certainty=AlertCertainty.OBSERVED,
-        sent=datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc),
-        effective=datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc),
-        expires=datetime(2026, 5, 18, 15, 0, tzinfo=timezone.utc),
+        sent=datetime(2026, 5, 18, 12, 0, tzinfo=UTC),
+        effective=datetime(2026, 5, 18, 12, 0, tzinfo=UTC),
+        expires=datetime(2026, 5, 18, 15, 0, tzinfo=UTC),
         area_desc="Harris County",
         sender="kwn@noaa.gov",
         sender_name="NWS Houston",

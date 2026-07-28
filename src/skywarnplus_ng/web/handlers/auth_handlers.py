@@ -5,15 +5,11 @@ Auth-related HTTP handlers mixin for the web dashboard.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
 
 from aiohttp import web
 from aiohttp.web import Request, Response
 from aiohttp_session import get_session, new_session
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +88,7 @@ class AuthHandlersMixin:
                 # Create session
                 session = await new_session(request)
                 session["user_id"] = username
-                session["login_time"] = datetime.now(timezone.utc).isoformat()
+                session["login_time"] = datetime.now(UTC).isoformat()
                 session["remember"] = remember
 
                 logger.info(f"User {username} logged in successfully")

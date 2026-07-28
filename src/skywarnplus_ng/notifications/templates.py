@@ -2,15 +2,15 @@
 Notification templates and personalization system for SkywarnPlus-NG.
 """
 
-import logging
-from datetime import datetime, timezone
 import json
+import logging
 import os
-from pathlib import Path
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
-from enum import Enum
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 from ..core.models import WeatherAlert
 
@@ -47,13 +47,13 @@ class NotificationTemplate:
     subject_template: str
     body_template: str
     enabled: bool = True
-    variables: List[str] = None
+    variables: list[str] = None
 
     def __post_init__(self):
         if self.variables is None:
             self.variables = self._extract_variables()
 
-    def _extract_variables(self) -> List[str]:
+    def _extract_variables(self) -> list[str]:
         """Extract variables from template strings."""
         variables = set()
 
@@ -67,7 +67,7 @@ class NotificationTemplate:
 
         return list(variables)
 
-    def render(self, context: Dict[str, Any]) -> Dict[str, str]:
+    def render(self, context: dict[str, Any]) -> dict[str, str]:
         """Render template with context variables."""
         try:
             subject = self._render_string(self.subject_template, context)
@@ -79,7 +79,7 @@ class NotificationTemplate:
             logger.error(f"Failed to render template {self.template_id}: {e}")
             raise
 
-    def _render_string(self, template: str, context: Dict[str, Any]) -> str:
+    def _render_string(self, template: str, context: dict[str, Any]) -> str:
         """Render a single template string."""
         result = template
 
@@ -130,8 +130,8 @@ class NotificationTemplate:
 class TemplateEngine:
     """Template engine for notification rendering."""
 
-    def __init__(self, storage_path: Optional[Path] = None):
-        self.templates: Dict[str, NotificationTemplate] = {}
+    def __init__(self, storage_path: Path | None = None):
+        self.templates: dict[str, NotificationTemplate] = {}
         self.logger = logging.getLogger(__name__)
         self.storage_path = (
             storage_path
@@ -328,7 +328,7 @@ class TemplateEngine:
             return
 
         try:
-            with open(self.storage_path, "r", encoding="utf-8") as f:
+            with open(self.storage_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             for entry in data.get("templates", []):
@@ -353,7 +353,7 @@ class TemplateEngine:
 
     def _serialize_template(
         self, template: NotificationTemplate, include_content: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         data = {
             "id": template.template_id,
             "template_id": template.template_id,
@@ -386,7 +386,7 @@ class TemplateEngine:
                     }
                     for template in self.templates.values()
                 ],
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
             with open(self.storage_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
@@ -399,11 +399,11 @@ class TemplateEngine:
         self._save_templates()
         self.logger.debug(f"Added template: {template.template_id}")
 
-    def get_template(self, template_id: str) -> Optional[NotificationTemplate]:
+    def get_template(self, template_id: str) -> NotificationTemplate | None:
         """Get a template by ID."""
         return self.templates.get(template_id)
 
-    def get_templates_by_type(self, template_type: TemplateType) -> List[NotificationTemplate]:
+    def get_templates_by_type(self, template_type: TemplateType) -> list[NotificationTemplate]:
         """Get templates by type."""
         return [
             template
@@ -411,14 +411,14 @@ class TemplateEngine:
             if template.template_type == template_type
         ]
 
-    def get_available_templates(self) -> List[Dict[str, Any]]:
+    def get_available_templates(self) -> list[dict[str, Any]]:
         """Get summaries of all templates."""
         return [
             self._serialize_template(template, include_content=False)
             for template in sorted(self.templates.values(), key=lambda tpl: tpl.name.lower())
         ]
 
-    def get_template_data(self, template_id: str) -> Optional[Dict[str, Any]]:
+    def get_template_data(self, template_id: str) -> dict[str, Any] | None:
         """Get detailed template information."""
         template = self.get_template(template_id)
         if not template:
@@ -442,8 +442,8 @@ class TemplateEngine:
         return True
 
     def render_alert_template(
-        self, template_id: str, alert: WeatherAlert, custom_context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, str]:
+        self, template_id: str, alert: WeatherAlert, custom_context: dict[str, Any] | None = None
+    ) -> dict[str, str]:
         """Render an alert template."""
         template = self.get_template(template_id)
         if not template:
@@ -463,8 +463,8 @@ class TemplateEngine:
         template_id: str,
         title: str,
         message: str,
-        custom_context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, str]:
+        custom_context: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
         """Render a notification template."""
         template = self.get_template(template_id)
         if not template:
@@ -474,7 +474,7 @@ class TemplateEngine:
         context = {
             "title": title,
             "message": message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Add custom context
@@ -483,7 +483,7 @@ class TemplateEngine:
 
         return template.render(context)
 
-    def _create_alert_context(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _create_alert_context(self, alert: WeatherAlert) -> dict[str, Any]:
         """Create context dictionary from weather alert."""
         return {
             "alert_id": alert.id,

@@ -5,17 +5,17 @@ Supports Gmail and other major email providers with user credentials.
 
 import asyncio
 import html
+import logging
 import smtplib
 import ssl
-import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-from enum import Enum
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
+from datetime import UTC, datetime
 from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from enum import Enum
+from typing import Any
 
 from ..core.models import WeatherAlert
 
@@ -45,7 +45,7 @@ class EmailConfig:
     password: str = ""
     from_name: str = "SkywarnPlus-NG"
     from_email: str = ""
-    reply_to: Optional[str] = None
+    reply_to: str | None = None
 
     # Provider-specific settings
     app_password: bool = False  # For Gmail with 2FA
@@ -106,10 +106,10 @@ class EmailNotifier:
     async def send_alert_email(
         self,
         alert: WeatherAlert,
-        recipients: List[str],
-        template: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        recipients: list[str],
+        template: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """
         Send weather alert email.
 
@@ -134,7 +134,7 @@ class EmailNotifier:
                 "sent_count": success_count,
                 "total_recipients": len(recipients),
                 "alert_id": alert.id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -143,17 +143,17 @@ class EmailNotifier:
                 "success": False,
                 "error": str(e),
                 "alert_id": alert.id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def send_notification_email(
         self,
         subject: str,
         body: str,
-        recipients: List[str],
-        html_body: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        recipients: list[str],
+        html_body: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """
         Send general notification email.
 
@@ -197,7 +197,7 @@ class EmailNotifier:
                 "success": True,
                 "sent_count": success_count,
                 "total_recipients": len(recipients),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -205,15 +205,15 @@ class EmailNotifier:
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     def _create_alert_message(
         self,
         alert: WeatherAlert,
-        recipients: List[str],
-        template: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None,
+        recipients: list[str],
+        template: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> MIMEMultipart:
         """Create email message for weather alert."""
         message = MIMEMultipart("alternative")
@@ -362,7 +362,7 @@ For more information, visit your local National Weather Service office.
         # For now, just use the default content
         return self._generate_default_content(alert)
 
-    def _add_attachments(self, message: MIMEMultipart, attachments: List[Dict[str, Any]]) -> None:
+    def _add_attachments(self, message: MIMEMultipart, attachments: list[dict[str, Any]]) -> None:
         """Add attachments to email message."""
         for attachment in attachments:
             filename = attachment.get("filename", "attachment")
@@ -377,11 +377,11 @@ For more information, visit your local National Weather Service office.
 
     SMTP_TIMEOUT_SECONDS = 30.0
 
-    async def _send_message(self, message: MIMEMultipart, recipients: List[str]) -> int:
+    async def _send_message(self, message: MIMEMultipart, recipients: list[str]) -> int:
         """Send email message via SMTP (in a worker thread; smtplib blocks)."""
         return await asyncio.to_thread(self._send_message_blocking, message, recipients)
 
-    def _send_message_blocking(self, message: MIMEMultipart, recipients: List[str]) -> int:
+    def _send_message_blocking(self, message: MIMEMultipart, recipients: list[str]) -> int:
         """Blocking SMTP send. Must not run on the event loop."""
         success_count = 0
 

@@ -4,9 +4,9 @@ Script execution manager for SkywarnPlus-NG.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 from ..core.config import ScriptConfig, ScriptsConfig
 from ..core.models import WeatherAlert
@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 class ScriptExecutionError(Exception):
     """Script execution error."""
-
-    pass
 
 
 class ScriptManager:
@@ -31,7 +29,7 @@ class ScriptManager:
             config: Scripts configuration
         """
         self.config = config
-        self._execution_history: List[Dict[str, Any]] = []
+        self._execution_history: list[dict[str, Any]] = []
 
     async def execute_alert_script(self, alert: WeatherAlert) -> bool:
         """
@@ -59,7 +57,7 @@ class ScriptManager:
 
         return await self._execute_script(script_config, alert, "alert")
 
-    def _resolve_script_args(self, args: List[str], alert: Optional[WeatherAlert]) -> List[str]:
+    def _resolve_script_args(self, args: list[str], alert: WeatherAlert | None) -> list[str]:
         if not args:
             return []
         if alert is None:
@@ -71,7 +69,7 @@ class ScriptManager:
             "{alert_counties}": ",".join(alert.county_codes or []),
             "{alert_severity}": alert.severity.value,
         }
-        resolved: List[str] = []
+        resolved: list[str] = []
         for arg in args:
             text = str(arg)
             for placeholder, value in replacements.items():
@@ -100,7 +98,7 @@ class ScriptManager:
 
         return await self._execute_script(self.config.all_clear_script, None, "all_clear")
 
-    def _find_script_for_alert(self, alert: WeatherAlert) -> Optional[ScriptConfig]:
+    def _find_script_for_alert(self, alert: WeatherAlert) -> ScriptConfig | None:
         """
         Find script configuration for an alert.
 
@@ -137,7 +135,7 @@ class ScriptManager:
         return fnmatch.fnmatch(text, pattern)
 
     async def _execute_script(
-        self, script_config: ScriptConfig, alert: Optional[WeatherAlert], script_type: str
+        self, script_config: ScriptConfig, alert: WeatherAlert | None, script_type: str
     ) -> bool:
         """
         Execute a script with the given configuration.
@@ -173,7 +171,7 @@ class ScriptManager:
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(f"Script timed out after {timeout}s: {script_config.command}")
                 process.kill()
                 await process.wait()
@@ -226,8 +224,8 @@ class ScriptManager:
             return False
 
     def _prepare_environment(
-        self, script_config: ScriptConfig, alert: Optional[WeatherAlert]
-    ) -> Dict[str, str]:
+        self, script_config: ScriptConfig, alert: WeatherAlert | None
+    ) -> dict[str, str]:
         """
         Prepare environment variables for script execution.
 
@@ -269,14 +267,14 @@ class ScriptManager:
                 env["ALERT_ENDS"] = alert.ends.isoformat()
 
         # Add timestamp
-        env["TIMESTAMP"] = datetime.now(timezone.utc).isoformat()
+        env["TIMESTAMP"] = datetime.now(UTC).isoformat()
 
         return env
 
     def _record_execution(
         self,
         script_config: ScriptConfig,
-        alert: Optional[WeatherAlert],
+        alert: WeatherAlert | None,
         script_type: str,
         success: bool,
         error_msg: str,
@@ -294,7 +292,7 @@ class ScriptManager:
             output: Script output
         """
         execution_record = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "script_type": script_type,
             "command": script_config.command,
             "args": script_config.args,
@@ -311,7 +309,7 @@ class ScriptManager:
         if len(self._execution_history) > 100:
             self._execution_history = self._execution_history[-100:]
 
-    def get_execution_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_execution_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """
         Get script execution history.
 
@@ -323,7 +321,7 @@ class ScriptManager:
         """
         return self._execution_history[-limit:]
 
-    def get_script_status(self) -> Dict[str, Any]:
+    def get_script_status(self) -> dict[str, Any]:
         """
         Get script manager status.
 

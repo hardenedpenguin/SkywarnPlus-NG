@@ -3,25 +3,23 @@ Database manager for SkywarnPlus-NG.
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from .models import Base, AlertRecord, MetricRecord, HealthCheckRecord, ScriptExecutionRecord
-from ..core.models import WeatherAlert
 from ..core.config import AppConfig
+from ..core.models import WeatherAlert
+from .models import AlertRecord, Base, HealthCheckRecord, MetricRecord, ScriptExecutionRecord
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseError(Exception):
     """Database operation error."""
-
-    pass
 
 
 class DatabaseManager:
@@ -39,7 +37,7 @@ class DatabaseManager:
         self.async_session_factory = None
         self._is_initialized = False
 
-    async def initialize(self, database_url: Optional[str] = None) -> None:
+    async def initialize(self, database_url: str | None = None) -> None:
         """
         Initialize database connection and create tables.
 
@@ -97,7 +95,7 @@ class DatabaseManager:
         alert: WeatherAlert,
         announced: bool = False,
         script_executed: bool = False,
-        announcement_nodes: List[int] = None,
+        announcement_nodes: list[int] = None,
     ) -> None:
         """
         Store a weather alert in the database.
@@ -135,7 +133,7 @@ class DatabaseManager:
                     existing.announced = announced
                     existing.script_executed = script_executed
                     existing.announcement_nodes = announcement_nodes or []
-                    existing.processed_at = datetime.now(timezone.utc)
+                    existing.processed_at = datetime.now(UTC)
                     existing.additional_data = {"original_alert": alert.model_dump(mode="json")}
                 else:
                     # Create new record
@@ -174,7 +172,7 @@ class DatabaseManager:
             logger.error(f"Failed to store alert {alert.id}: {e}")
             raise DatabaseError(f"Failed to store alert: {e}") from e
 
-    async def get_alert(self, alert_id: str) -> Optional[AlertRecord]:
+    async def get_alert(self, alert_id: str) -> AlertRecord | None:
         """
         Get an alert by ID.
 
@@ -191,7 +189,7 @@ class DatabaseManager:
             logger.error(f"Failed to get alert {alert_id}: {e}")
             raise DatabaseError(f"Failed to get alert: {e}") from e
 
-    async def get_recent_alerts(self, limit: int = 100, hours: int = 24) -> List[AlertRecord]:
+    async def get_recent_alerts(self, limit: int = 100, hours: int = 24) -> list[AlertRecord]:
         """
         Get recent alerts.
 
@@ -204,7 +202,7 @@ class DatabaseManager:
         """
         try:
             async with await self.get_session() as session:
-                cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+                cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
 
                 result = await session.execute(
                     text("""
@@ -222,7 +220,7 @@ class DatabaseManager:
             raise DatabaseError(f"Failed to get recent alerts: {e}") from e
 
     async def store_metric(
-        self, name: str, value: float, unit: str = None, metadata: Dict[str, Any] = None
+        self, name: str, value: float, unit: str = None, metadata: dict[str, Any] = None
     ) -> None:
         """
         Store a metric.
@@ -250,8 +248,8 @@ class DatabaseManager:
         self,
         overall_status: str,
         uptime_seconds: float,
-        components: List[Dict[str, Any]],
-        metadata: Dict[str, Any] = None,
+        components: list[dict[str, Any]],
+        metadata: dict[str, Any] = None,
     ) -> None:
         """
         Store a health check result.
@@ -282,7 +280,7 @@ class DatabaseManager:
         self,
         script_type: str,
         command: str,
-        args: List[str],
+        args: list[str],
         success: bool,
         return_code: int = None,
         execution_time_ms: float = None,
@@ -290,7 +288,7 @@ class DatabaseManager:
         output: str = None,
         alert_id: str = None,
         alert_event: str = None,
-        metadata: Dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ) -> None:
         """
         Store a script execution record.
@@ -321,7 +319,7 @@ class DatabaseManager:
                     output=output,
                     alert_id=alert_id,
                     alert_event=alert_event,
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                     metadata=metadata or {},
                 )
                 session.add(script_record)
@@ -332,7 +330,7 @@ class DatabaseManager:
             logger.error(f"Failed to store script execution: {e}")
             raise DatabaseError(f"Failed to store script execution: {e}") from e
 
-    async def get_alert_statistics(self, hours: int = 24) -> Dict[str, Any]:
+    async def get_alert_statistics(self, hours: int = 24) -> dict[str, Any]:
         """
         Get alert statistics for the specified time period.
 
@@ -344,7 +342,7 @@ class DatabaseManager:
         """
         try:
             async with await self.get_session() as session:
-                cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+                cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
 
                 # Get total alerts
                 total_result = await session.execute(
@@ -407,7 +405,7 @@ class DatabaseManager:
             logger.error(f"Failed to get alert statistics: {e}")
             raise DatabaseError(f"Failed to get alert statistics: {e}") from e
 
-    async def cleanup_old_data(self, days: int = 30) -> Dict[str, int]:
+    async def cleanup_old_data(self, days: int = 30) -> dict[str, int]:
         """
         Clean up old data from the database.
 
@@ -418,7 +416,7 @@ class DatabaseManager:
             Dictionary with cleanup statistics
         """
         try:
-            cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_time = datetime.now(UTC) - timedelta(days=days)
             cleanup_stats = {}
 
             async with await self.get_session() as session:
@@ -459,7 +457,7 @@ class DatabaseManager:
             logger.error(f"Failed to cleanup old data: {e}")
             raise DatabaseError(f"Failed to cleanup old data: {e}") from e
 
-    async def optimize_database(self) -> Dict[str, Any]:
+    async def optimize_database(self) -> dict[str, Any]:
         """
         Optimize the database by running VACUUM and ANALYZE operations.
 
@@ -512,7 +510,7 @@ class DatabaseManager:
             logger.error(f"Failed to optimize database: {e}")
             raise DatabaseError(f"Failed to optimize database: {e}") from e
 
-    async def get_database_stats(self) -> Dict[str, Any]:
+    async def get_database_stats(self) -> dict[str, Any]:
         """
         Get database statistics.
 
@@ -550,7 +548,7 @@ class DatabaseManager:
             logger.error(f"Failed to get database stats: {e}")
             raise DatabaseError(f"Failed to get database stats: {e}") from e
 
-    async def backup_database(self, backup_path: Optional[Path] = None) -> Path:
+    async def backup_database(self, backup_path: Path | None = None) -> Path:
         """
         Create a backup of the database.
 
@@ -568,7 +566,7 @@ class DatabaseManager:
             if not backup_path:
                 backup_dir = self.config.data_dir / "backups"
                 backup_dir.mkdir(parents=True, exist_ok=True)
-                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
                 backup_path = backup_dir / f"skywarnplus_ng_backup_{timestamp}.db"
 
             # Get the database file path

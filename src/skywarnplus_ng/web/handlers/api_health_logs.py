@@ -6,13 +6,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
 
 from aiohttp import web
 from aiohttp.web import Request, Response
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +195,7 @@ class HealthLogsApiMixin:
             if not log_file or not log_file.exists():
                 return web.json_response({"logs": [], "count": 0})
 
-            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(log_file, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
             parsed = []

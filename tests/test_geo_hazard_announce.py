@@ -1,5 +1,7 @@
 """Tests for monitor-only vs voice geo hazard settings."""
 
+from datetime import UTC, datetime
+
 import pytest
 
 from skywarnplus_ng.core.config import (
@@ -13,7 +15,6 @@ from skywarnplus_ng.usgs.earthquake_service import UsgsEarthquakeService
 from skywarnplus_ng.usgs.parser import ParsedEarthquake
 from skywarnplus_ng.wildfire.parser import ParsedWildfire
 from skywarnplus_ng.wildfire.wfigs_service import WfigsWildfireService
-from datetime import datetime, timezone
 
 
 def test_earthquake_config_defaults_announce_enabled_true():
@@ -51,7 +52,7 @@ async def test_earthquake_poll_skips_voice_cap_when_monitor_only(monkeypatch):
             latitude=34.1,
             longitude=-118.1,
             depth_km=10.0,
-            time_utc=datetime.now(timezone.utc),
+            time_utc=datetime.now(UTC),
             status="reviewed",
             tsunami=False,
             distance_miles=10,
@@ -97,7 +98,7 @@ async def test_wildfire_poll_skips_voice_cap_when_monitor_only(monkeypatch):
             name=f"Fire {i}",
             acres=500.0,
             percent_contained=10,
-            discovery_utc=datetime.now(timezone.utc),
+            discovery_utc=datetime.now(UTC),
             incident_type_kind="WF",
             feature_category="Wildfire",
             latitude=34.1,

@@ -1,6 +1,6 @@
 """Tests for shared geo-hazard helpers."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -70,7 +70,7 @@ def _sample_event(**overrides):
         latitude=34.1,
         longitude=-118.1,
         depth_km=10.0,
-        time_utc=datetime.now(timezone.utc),
+        time_utc=datetime.now(UTC),
         status="reviewed",
         tsunami=False,
         distance_miles=10,
@@ -82,7 +82,7 @@ def _sample_event(**overrides):
 
 def test_select_new_events_respects_max_event_age():
     service = UsgsEarthquakeService(_eq_config())
-    old = _sample_event(time_utc=datetime.now(timezone.utc) - timedelta(hours=12))
+    old = _sample_event(time_utc=datetime.now(UTC) - timedelta(hours=12))
     assert service.select_new_events([old], {}) == []
 
 
@@ -140,7 +140,7 @@ def test_wildfire_discovery_age_filter():
         name="Old Fire",
         acres=1000,
         percent_contained=None,
-        discovery_utc=datetime.now(timezone.utc) - timedelta(hours=72),
+        discovery_utc=datetime.now(UTC) - timedelta(hours=72),
         incident_type_kind="WF",
         feature_category="Wildfire",
         latitude=34.1,

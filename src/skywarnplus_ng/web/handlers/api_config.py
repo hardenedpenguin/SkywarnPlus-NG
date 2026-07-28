@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
+from datetime import UTC
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,6 @@ from aiohttp.web import Request, Response
 
 from ...audio.tts_voices import build_voices_payload, list_voice_models
 from ..auth_security import incoming_sets_non_default_password
-from ..setup_status import is_dashboard_configured
 from ..config_merge import (
     deep_merge_dict,
     model_dump_for_merge,
@@ -23,6 +23,7 @@ from ..config_merge import (
     redact_config_for_api,
     resolve_config_path,
 )
+from ..setup_status import is_dashboard_configured
 
 if TYPE_CHECKING:
     from ...core.config import AppConfig
@@ -119,7 +120,7 @@ class ConfigApiMixin:
             self.app.apply_runtime_config(new_config)
         return config_path
 
-    def _write_config_yaml(self, updated_config: "AppConfig", config_path: Path) -> None:
+    def _write_config_yaml(self, updated_config: AppConfig, config_path: Path) -> None:
         """Serialize AppConfig to YAML on disk (hash auth password, preserve quotes)."""
         from ruamel.yaml import YAML
 
@@ -557,7 +558,7 @@ class ConfigApiMixin:
             except Exception as validation_error:
                 logger.error(f"Configuration validation failed: {validation_error}")
                 return web.json_response(
-                    {"success": False, "error": f"Invalid configuration: {str(validation_error)}"},
+                    {"success": False, "error": f"Invalid configuration: {validation_error!s}"},
                     status=400,
                 )
 
@@ -603,14 +604,14 @@ class ConfigApiMixin:
     async def api_config_backup_handler(self, request: Request) -> Response:
         """Handle API config backup endpoint."""
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
             from shutil import copy2
 
             config_path = resolve_config_path(self.config)
             if not config_path.is_file():
                 return web.json_response({"error": "Config file not found"}, status=404)
 
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+            stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
             backup_path = config_path.with_name(f"{config_path.name}.backup.{stamp}")
             copy2(config_path, backup_path)
             return web.json_response(
@@ -670,7 +671,7 @@ class ConfigApiMixin:
                     yaml.preserve_quotes = True
                     config_path = resolve_config_path(self.config)
 
-                    with open(config_path, "r") as f:
+                    with open(config_path) as f:
                         config_data = yaml.load(f)
 
                     # Update the county in config

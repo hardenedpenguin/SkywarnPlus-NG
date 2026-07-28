@@ -4,18 +4,18 @@ Alert validation and verification system for SkywarnPlus-NG.
 
 import logging
 import re
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
+from typing import Any
 
 from ..core.models import (
-    WeatherAlert,
-    AlertSeverity,
-    AlertUrgency,
-    AlertCertainty,
-    AlertStatus,
     AlertCategory,
+    AlertCertainty,
+    AlertSeverity,
+    AlertStatus,
+    AlertUrgency,
+    WeatherAlert,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,14 +48,14 @@ class ValidationResult:
     status: ValidationStatus
     confidence: ConfidenceLevel
     confidence_score: float
-    validation_checks: List[Dict[str, Any]]
-    issues: List[str]
-    recommendations: List[str]
+    validation_checks: list[dict[str, Any]]
+    issues: list[str]
+    recommendations: list[str]
     validated_at: datetime
 
     def __post_init__(self):
         if not self.validated_at:
-            self.validated_at = datetime.now(timezone.utc)
+            self.validated_at = datetime.now(UTC)
 
 
 @dataclass
@@ -64,13 +64,13 @@ class ConfidenceScore:
 
     alert: WeatherAlert
     overall_confidence: float
-    component_scores: Dict[str, float]
-    factors: List[str]
+    component_scores: dict[str, float]
+    factors: list[str]
     calculated_at: datetime
 
     def __post_init__(self):
         if not self.calculated_at:
-            self.calculated_at = datetime.now(timezone.utc)
+            self.calculated_at = datetime.now(UTC)
 
 
 class AlertValidator:
@@ -143,7 +143,7 @@ class AlertValidator:
                     {
                         "check": check.__name__,
                         "passed": False,
-                        "issues": [f"Check failed: {str(e)}"],
+                        "issues": [f"Check failed: {e!s}"],
                         "recommendations": ["Review alert data quality"],
                     }
                 )
@@ -163,10 +163,10 @@ class AlertValidator:
             validation_checks=validation_checks,
             issues=issues,
             recommendations=recommendations,
-            validated_at=datetime.now(timezone.utc),
+            validated_at=datetime.now(UTC),
         )
 
-    def validate_alerts(self, alerts: List[WeatherAlert]) -> List[ValidationResult]:
+    def validate_alerts(self, alerts: list[WeatherAlert]) -> list[ValidationResult]:
         """
         Validate a list of alerts.
 
@@ -245,10 +245,10 @@ class AlertValidator:
                 "content_quality": content_quality,
             },
             factors=factors,
-            calculated_at=datetime.now(timezone.utc),
+            calculated_at=datetime.now(UTC),
         )
 
-    def _validate_alert_id(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_alert_id(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate alert ID format."""
         issues = []
         recommendations = []
@@ -274,7 +274,7 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_basic_fields(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_basic_fields(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate basic required fields."""
         issues = []
         recommendations = []
@@ -302,7 +302,7 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_enum_values(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_enum_values(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate enum field values."""
         issues = []
         recommendations = []
@@ -334,12 +334,12 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_dates(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_dates(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate date fields."""
         issues = []
         recommendations = []
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Check sent date
         if not alert.sent:
@@ -385,7 +385,7 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_geographic_data(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_geographic_data(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate geographic data."""
         issues = []
         recommendations = []
@@ -413,7 +413,7 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_content_quality(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_content_quality(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate content quality."""
         issues = []
         recommendations = []
@@ -454,7 +454,7 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_consistency(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_consistency(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate data consistency."""
         issues = []
         recommendations = []
@@ -489,7 +489,7 @@ class AlertValidator:
             "recommendations": recommendations,
         }
 
-    def _validate_anomalies(self, alert: WeatherAlert) -> Dict[str, Any]:
+    def _validate_anomalies(self, alert: WeatherAlert) -> dict[str, Any]:
         """Validate for anomalies."""
         issues = []
         recommendations = []
@@ -510,7 +510,7 @@ class AlertValidator:
             recommendations.append("Include safety instructions for extreme alerts")
 
         # Check for suspicious timing
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if alert.sent and (now - alert.sent).total_seconds() < 60:
             issues.append("Alert sent very recently (within 1 minute)")
             recommendations.append("Verify alert timing")
@@ -523,7 +523,7 @@ class AlertValidator:
         }
 
     def _calculate_confidence_score(
-        self, alert: WeatherAlert, validation_checks: List[Dict[str, Any]]
+        self, alert: WeatherAlert, validation_checks: list[dict[str, Any]]
     ) -> float:
         """Calculate overall confidence score."""
         if not validation_checks:
@@ -548,7 +548,7 @@ class AlertValidator:
             adjustments.append(0.1)
 
         # Temporal validity adjustment
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if alert.sent and (now - alert.sent).total_seconds() < 3600:  # Within 1 hour
             adjustments.append(0.1)
 
@@ -571,7 +571,7 @@ class AlertValidator:
             return ConfidenceLevel.VERY_LOW
 
     def _determine_validation_status(
-        self, confidence_score: float, issues: List[str]
+        self, confidence_score: float, issues: list[str]
     ) -> ValidationStatus:
         """Determine validation status."""
         if confidence_score >= self.min_confidence_threshold and len(issues) == 0:
@@ -646,7 +646,7 @@ class AlertValidator:
 
     def _calculate_temporal_validity(self, alert: WeatherAlert) -> float:
         """Calculate temporal validity score."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = 1.0
 
         # Check if alert is too old
@@ -692,8 +692,8 @@ class AlertValidator:
         return max(score, 0.0)
 
     def _identify_confidence_factors(
-        self, alert: WeatherAlert, scores: Dict[str, float]
-    ) -> List[str]:
+        self, alert: WeatherAlert, scores: dict[str, float]
+    ) -> list[str]:
         """Identify factors affecting confidence."""
         factors = []
 

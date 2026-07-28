@@ -2,7 +2,7 @@
 
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,7 +19,7 @@ from skywarnplus_ng.nhc.parser import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "nhc_cyclone_sample.xml"
-FROZEN_NOW = datetime(2026, 6, 5, 6, 0, tzinfo=timezone.utc)
+FROZEN_NOW = datetime(2026, 6, 5, 6, 0, tzinfo=UTC)
 
 
 @contextmanager
@@ -80,7 +80,7 @@ def test_is_cyclone_current_recent_advisory():
 
 def test_parse_cyclone_datetime_cdt_converts_to_utc():
     dt = parse_cyclone_datetime("10:00 AM CDT Tue Jun 16 2026")
-    assert dt == datetime(2026, 6, 16, 15, 0, tzinfo=timezone.utc)
+    assert dt == datetime(2026, 6, 16, 15, 0, tzinfo=UTC)
 
 
 def test_is_cyclone_current_cdt_advisory_within_max_age():
@@ -88,7 +88,7 @@ def test_is_cyclone_current_cdt_advisory_within_max_age():
         parse_nhc_cyclone_xml(FIXTURE.read_text())[0],
         datetime_raw="10:00 AM CDT Tue Jun 16 2026",
     )
-    now = datetime(2026, 6, 16, 16, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 6, 16, 16, 12, tzinfo=UTC)
     with frozen_time(now):
         assert is_cyclone_current(cyclone, max_age_hours=4) is True
 
@@ -158,7 +158,7 @@ def test_select_tracks_stale_advisory_but_does_not_announce():
         pressure="1010 mb",
     )
     # 6 hours after advisory — older than max_advisory_age_hours=4
-    now = datetime(2026, 6, 16, 21, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 6, 16, 21, 0, tzinfo=UTC)
     with frozen_time(now):
         advisories = service.select_new_advisories([cyclone], {}, (29.42, -95.26))
     assert advisories == []
@@ -194,7 +194,7 @@ def test_select_new_advisories_cdt_advisory_within_four_hour_window():
         name="One",
         type="Potential Tropical Cyclone",
     )
-    now = datetime(2026, 6, 16, 16, 12, tzinfo=timezone.utc)
+    now = datetime(2026, 6, 16, 16, 12, tzinfo=UTC)
     with frozen_time(now):
         advisories = service.select_new_advisories([cyclone], {}, (29.42, -95.26))
     assert len(advisories) == 1

@@ -3,8 +3,8 @@ Simple HTTP server for health monitoring and metrics.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+
 from aiohttp import web
 from aiohttp.web import Request, Response
 
@@ -27,9 +27,9 @@ class MonitoringServer:
         self.host = host
         self.port = port
         self.logger = logging.getLogger(__name__)
-        self.app: Optional[web.Application] = None
-        self.runner: Optional[web.AppRunner] = None
-        self.site: Optional[web.TCPSite] = None
+        self.app: web.Application | None = None
+        self.runner: web.AppRunner | None = None
+        self.site: web.TCPSite | None = None
 
     def create_app(self) -> web.Application:
         """Create the web application."""
@@ -74,7 +74,7 @@ class MonitoringServer:
             return web.json_response(
                 {
                     "status": "unhealthy",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "error": str(e),
                 },
                 status=500,

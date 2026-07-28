@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from skywarnplus_ng.core.models import AlertSeverity, AlertUrgency, WeatherAlert
 from skywarnplus_ng.processing.deduplication import (
@@ -70,9 +70,9 @@ def test_different_events_both_kept() -> None:
         description="Surf",
         severity=AlertSeverity.MODERATE,
         urgency=AlertUrgency.EXPECTED,
-        sent=datetime(2026, 5, 20, 6, 36, tzinfo=timezone.utc),
-        effective=datetime(2026, 5, 20, 6, 36, tzinfo=timezone.utc),
-        expires=datetime(2026, 5, 20, 22, 0, tzinfo=timezone.utc),
+        sent=datetime(2026, 5, 20, 6, 36, tzinfo=UTC),
+        effective=datetime(2026, 5, 20, 6, 36, tzinfo=UTC),
+        expires=datetime(2026, 5, 20, 22, 0, tzinfo=UTC),
         county_codes=["TXC039"],
         area_desc="Brazoria, TX",
         sender="test",
@@ -113,7 +113,7 @@ def test_same_issuance_disjoint_counties_merge_for_supermon() -> None:
         urgency=AlertUrgency.FUTURE,
         sent=datetime.fromisoformat(sent),
         effective=datetime.fromisoformat(sent),
-        expires=datetime(2026, 6, 16, 18, 45, tzinfo=timezone.utc),
+        expires=datetime(2026, 6, 16, 18, 45, tzinfo=UTC),
         county_codes=["TXC039"],
         area_desc="Brazoria Islands",
         sender="test",
@@ -127,7 +127,7 @@ def test_same_issuance_disjoint_counties_merge_for_supermon() -> None:
         urgency=AlertUrgency.FUTURE,
         sent=datetime.fromisoformat(sent),
         effective=datetime.fromisoformat(sent),
-        expires=datetime(2026, 6, 16, 18, 45, tzinfo=timezone.utc),
+        expires=datetime(2026, 6, 16, 18, 45, tzinfo=UTC),
         county_codes=["TXC167"],
         area_desc="Bolivar Peninsula",
         sender="test",

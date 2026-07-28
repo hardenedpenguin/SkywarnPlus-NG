@@ -10,8 +10,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .audio_utils import AudioSegment
 from ..core.config import TTSConfig
+from .audio_utils import AudioSegment
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,6 @@ except ImportError:
 
 class TTSEngineError(Exception):
     """TTS engine error."""
-
-    pass
 
 
 def _resolve_asl_tts_binary(config: TTSConfig) -> Path:

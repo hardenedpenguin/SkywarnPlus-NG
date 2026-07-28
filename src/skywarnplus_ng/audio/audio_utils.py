@@ -8,7 +8,6 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import soundfile as sf
@@ -232,7 +231,7 @@ class AudioData:
 
         return AudioData(combined_data, self.sample_rate, self.channels)
 
-    def export(self, file_path: str, format: Optional[str] = None) -> None:
+    def export(self, file_path: str, format: str | None = None) -> None:
         """
         Export audio to file.
 

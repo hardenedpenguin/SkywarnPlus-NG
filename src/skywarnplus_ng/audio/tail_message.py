@@ -6,16 +6,15 @@ played automatically after transmissions to keep listeners informed about
 current weather conditions.
 """
 
-import logging
 import fnmatch
+import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
-from .audio_utils import AudioSegment
 
-from ..core.config import AudioConfig, AlertConfig, FilteringConfig
+from ..core.config import AlertConfig, AudioConfig, FilteringConfig
 from ..core.models import WeatherAlert
+from .audio_utils import AudioSegment
 from .manager import AudioManager
 
 logger = logging.getLogger(__name__)
@@ -23,8 +22,6 @@ logger = logging.getLogger(__name__)
 
 class TailMessageError(Exception):
     """Tail message error."""
-
-    pass
 
 
 class TailMessageManager:
@@ -38,7 +35,7 @@ class TailMessageManager:
         tail_message_path: Path,
         audio_delay_ms: int = 0,
         with_county_names: bool = False,
-        suffix_file: Optional[str] = None,
+        suffix_file: str | None = None,
     ):
         """
         Initialize tail message manager.
@@ -93,7 +90,7 @@ class TailMessageManager:
 
         return True
 
-    def _load_audio_file(self, file_path: Path) -> Optional[AudioSegment]:
+    def _load_audio_file(self, file_path: Path) -> AudioSegment | None:
         """
         Load an audio file, handling different formats.
 
@@ -116,7 +113,7 @@ class TailMessageManager:
                 return AudioSegment.from_mp3(str(file_path))
             elif ext in [".ulaw", ".ul"]:
                 # For ulaw files, convert to WAV using ffmpeg first, then load
-                temp_wav_path: Optional[Path] = None
+                temp_wav_path: Path | None = None
                 try:
                     # Create temporary WAV file
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -197,7 +194,7 @@ class TailMessageManager:
 
         return text
 
-    def build_tail_message(self, alerts: List[WeatherAlert]) -> bool:
+    def build_tail_message(self, alerts: list[WeatherAlert]) -> bool:
         """
         Build tail message audio file from active alerts.
 
@@ -332,7 +329,7 @@ class TailMessageManager:
         except Exception as e:
             logger.error(f"Error removing tail message file: {e}")
 
-    def update_tail_message(self, alerts: List[WeatherAlert]) -> bool:
+    def update_tail_message(self, alerts: list[WeatherAlert]) -> bool:
         """
         Update tail message based on current alerts.
 

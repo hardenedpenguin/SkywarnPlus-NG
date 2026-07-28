@@ -88,14 +88,21 @@ target-version = "py313"
 # Ruff 0.16 formats Markdown Python fences by default; keep docs/templates as-authored.
 extend-exclude = ["*.md"]
 
-# Keep the pre-0.16 default rule set. Ruff 0.16 expanded defaults from ~59 to
-# 413 rules; opt in gradually rather than failing CI on every release.
+# Gradual adoption of Ruff 0.16 defaults: mechanical autofixes first.
+# Judgment-heavy families (BLE, SIM, S, ASYNC, TRY, G, FURB, …) stay opted out.
 [tool.ruff.lint]
 select = [
     "E4",
     "E7",
     "E9",
     "F",
+    "I",
+    "UP",
+    "PIE",
+    "RUF010",
+    "RUF019",
+    "RUF022",
+    "TC005",
 ]
 
 [tool.mypy]

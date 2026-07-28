@@ -3,8 +3,8 @@ OpenAPI/Swagger specification generator for SkywarnPlus-NG.
 """
 
 import json
-from typing import Dict, Any, List
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -12,13 +12,13 @@ class OpenAPISpec:
     """OpenAPI specification data structure."""
 
     openapi: str = "3.0.3"
-    info: Dict[str, Any] = field(default_factory=dict)
-    servers: List[Dict[str, str]] = field(default_factory=list)
-    paths: Dict[str, Any] = field(default_factory=dict)
-    components: Dict[str, Any] = field(default_factory=dict)
-    tags: List[Dict[str, str]] = field(default_factory=list)
+    info: dict[str, Any] = field(default_factory=dict)
+    servers: list[dict[str, str]] = field(default_factory=list)
+    paths: dict[str, Any] = field(default_factory=dict)
+    components: dict[str, Any] = field(default_factory=dict)
+    tags: list[dict[str, str]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "openapi": self.openapi,
@@ -402,7 +402,7 @@ class OpenAPIGenerator:
             "/ws": self._generate_websocket_endpoint(),
         }
 
-    def _generate_status_endpoint(self) -> Dict[str, Any]:
+    def _generate_status_endpoint(self) -> dict[str, Any]:
         """Generate status endpoint specification."""
         return {
             "get": {
@@ -430,7 +430,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_alerts_endpoint(self) -> Dict[str, Any]:
+    def _generate_alerts_endpoint(self) -> dict[str, Any]:
         """Generate alerts endpoint specification."""
         return {
             "get": {
@@ -469,7 +469,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_alerts_history_endpoint(self) -> Dict[str, Any]:
+    def _generate_alerts_history_endpoint(self) -> dict[str, Any]:
         """Generate alerts history endpoint specification."""
         return {
             "get": {
@@ -544,7 +544,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_health_endpoint(self) -> Dict[str, Any]:
+    def _generate_health_endpoint(self) -> dict[str, Any]:
         """Generate health endpoint specification."""
         return {
             "get": {
@@ -564,7 +564,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_logs_endpoint(self) -> Dict[str, Any]:
+    def _generate_logs_endpoint(self) -> dict[str, Any]:
         """Generate logs endpoint specification."""
         return {
             "get": {
@@ -628,7 +628,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_metrics_endpoint(self) -> Dict[str, Any]:
+    def _generate_metrics_endpoint(self) -> dict[str, Any]:
         """Generate metrics endpoint specification."""
         return {
             "get": {
@@ -680,7 +680,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_database_stats_endpoint(self) -> Dict[str, Any]:
+    def _generate_database_stats_endpoint(self) -> dict[str, Any]:
         """Generate database stats endpoint specification."""
         return {
             "get": {
@@ -716,7 +716,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_config_endpoints(self) -> Dict[str, Any]:
+    def _generate_config_endpoints(self) -> dict[str, Any]:
         """Generate configuration endpoints specification."""
         return {
             "get": {
@@ -765,7 +765,7 @@ class OpenAPIGenerator:
             },
         }
 
-    def _generate_notifications_test_email_endpoint(self) -> Dict[str, Any]:
+    def _generate_notifications_test_email_endpoint(self) -> dict[str, Any]:
         """Generate test email endpoint specification."""
         return {
             "post": {
@@ -820,7 +820,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_subscribers_endpoints(self) -> Dict[str, Any]:
+    def _generate_subscribers_endpoints(self) -> dict[str, Any]:
         """Generate subscribers endpoints specification."""
         return {
             "get": {
@@ -871,7 +871,7 @@ class OpenAPIGenerator:
             },
         }
 
-    def _generate_templates_endpoints(self) -> Dict[str, Any]:
+    def _generate_templates_endpoints(self) -> dict[str, Any]:
         """Generate templates endpoints specification."""
         return {
             "get": {
@@ -929,7 +929,7 @@ class OpenAPIGenerator:
             },
         }
 
-    def _generate_notifications_stats_endpoint(self) -> Dict[str, Any]:
+    def _generate_notifications_stats_endpoint(self) -> dict[str, Any]:
         """Generate notifications stats endpoint specification."""
         return {
             "get": {
@@ -978,7 +978,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def _generate_websocket_endpoint(self) -> Dict[str, Any]:
+    def _generate_websocket_endpoint(self) -> dict[str, Any]:
         """Generate WebSocket endpoint specification."""
         return {
             "get": {
@@ -1002,7 +1002,7 @@ class OpenAPIGenerator:
             }
         }
 
-    def generate_spec(self) -> Dict[str, Any]:
+    def generate_spec(self) -> dict[str, Any]:
         """Generate the complete OpenAPI specification."""
         return self.spec.to_dict()
 

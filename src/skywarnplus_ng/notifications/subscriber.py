@@ -3,16 +3,16 @@ Subscriber management system for SkywarnPlus-NG.
 Handles user subscriptions and notification preferences.
 """
 
+import json
 import logging
 import os
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
-import json
 from pathlib import Path
+from typing import Any
 
-from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty
+from ..core.models import AlertCertainty, AlertSeverity, AlertUrgency, WeatherAlert
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +40,12 @@ class SubscriptionPreferences:
     """User subscription preferences."""
 
     # Geographic preferences
-    counties: List[str] = field(default_factory=list)
-    states: List[str] = field(default_factory=list)
-    custom_areas: List[str] = field(default_factory=list)
+    counties: list[str] = field(default_factory=list)
+    states: list[str] = field(default_factory=list)
+    custom_areas: list[str] = field(default_factory=list)
 
     # Alert type preferences
-    enabled_severities: Set[AlertSeverity] = field(
+    enabled_severities: set[AlertSeverity] = field(
         default_factory=lambda: {
             AlertSeverity.MINOR,
             AlertSeverity.MODERATE,
@@ -53,10 +53,10 @@ class SubscriptionPreferences:
             AlertSeverity.EXTREME,
         }
     )
-    enabled_urgencies: Set[AlertUrgency] = field(
+    enabled_urgencies: set[AlertUrgency] = field(
         default_factory=lambda: {AlertUrgency.FUTURE, AlertUrgency.EXPECTED, AlertUrgency.IMMEDIATE}
     )
-    enabled_certainties: Set[AlertCertainty] = field(
+    enabled_certainties: set[AlertCertainty] = field(
         default_factory=lambda: {
             AlertCertainty.POSSIBLE,
             AlertCertainty.LIKELY,
@@ -65,11 +65,11 @@ class SubscriptionPreferences:
     )
 
     # Event type preferences
-    enabled_events: Set[str] = field(default_factory=set)  # Empty means all events
-    blocked_events: Set[str] = field(default_factory=set)
+    enabled_events: set[str] = field(default_factory=set)  # Empty means all events
+    blocked_events: set[str] = field(default_factory=set)
 
     # Delivery preferences
-    enabled_methods: Set[NotificationMethod] = field(
+    enabled_methods: set[NotificationMethod] = field(
         default_factory=lambda: {NotificationMethod.EMAIL}
     )
     immediate_delivery: bool = True
@@ -77,8 +77,8 @@ class SubscriptionPreferences:
     batch_interval_minutes: int = 15
 
     # Time preferences
-    quiet_hours_start: Optional[str] = None  # HH:MM format
-    quiet_hours_end: Optional[str] = None  # HH:MM format
+    quiet_hours_start: str | None = None  # HH:MM format
+    quiet_hours_end: str | None = None  # HH:MM format
     timezone: str = "UTC"
 
     # Frequency limits
@@ -112,20 +112,20 @@ class Subscriber:
     preferences: SubscriptionPreferences = field(default_factory=SubscriptionPreferences)
 
     # Contact information
-    phone: Optional[str] = None
-    webhook_url: Optional[str] = None
-    push_tokens: List[str] = field(default_factory=list)
+    phone: str | None = None
+    webhook_url: str | None = None
+    push_tokens: list[str] = field(default_factory=list)
 
     # Metadata
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_notification: Optional[datetime] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_notification: datetime | None = None
     notification_count_today: int = 0
     notification_count_hour: int = 0
 
     # Rate limiting
-    last_hour_reset: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_day_reset: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_hour_reset: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_day_reset: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self):
         if not self.preferences:
@@ -169,7 +169,7 @@ class Subscriber:
 
     def _check_rate_limits(self) -> bool:
         """Check if subscriber is within rate limits."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Reset hourly counter if needed
         if (now - self.last_hour_reset).total_seconds() >= 3600:
@@ -198,7 +198,7 @@ class Subscriber:
         try:
             from datetime import time
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # Convert to subscriber's timezone (simplified - in real implementation use pytz)
             current_time = now.time()
@@ -273,10 +273,10 @@ class Subscriber:
         """Record that a notification was sent."""
         self.notification_count_hour += 1
         self.notification_count_today += 1
-        self.last_notification = datetime.now(timezone.utc)
-        self.updated_at = datetime.now(timezone.utc)
+        self.last_notification = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert subscriber to dictionary for JSON serialization."""
         return {
             "subscriber_id": self.subscriber_id,
@@ -315,7 +315,7 @@ class Subscriber:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Subscriber":
+    def from_dict(cls, data: dict[str, Any]) -> "Subscriber":
         """Create subscriber from dictionary."""
         # Convert string values back to enums
         preferences_data = data.get("preferences", {})
@@ -374,7 +374,7 @@ class Subscriber:
             subscriber.updated_at = datetime.fromisoformat(
                 data["updated_at"].replace("Z", "+00:00")
             )
-        if "last_notification" in data and data["last_notification"]:
+        if data.get("last_notification"):
             subscriber.last_notification = datetime.fromisoformat(
                 data["last_notification"].replace("Z", "+00:00")
             )
@@ -388,7 +388,7 @@ class Subscriber:
 class SubscriberManager:
     """Manages subscribers and their preferences."""
 
-    def __init__(self, data_file: Optional[Path] = None):
+    def __init__(self, data_file: Path | None = None):
         if data_file is None:
             base_dir = Path(os.environ.get("SKYWARNPLUS_NG_DATA", "/var/lib/skywarnplus-ng/data"))
             try:
@@ -400,7 +400,7 @@ class SubscriberManager:
 
         self.data_file = Path(data_file)
         self.data_file.parent.mkdir(parents=True, exist_ok=True)
-        self.subscribers: Dict[str, Subscriber] = {}
+        self.subscribers: dict[str, Subscriber] = {}
         self.logger = logging.getLogger(__name__)
         self._load_subscribers()
 
@@ -408,7 +408,7 @@ class SubscriberManager:
         """Load subscribers from file."""
         try:
             if self.data_file.exists():
-                with open(self.data_file, "r", encoding="utf-8") as f:
+                with open(self.data_file, encoding="utf-8") as f:
                     data = json.load(f)
 
                 for subscriber_data in data.get("subscribers", []):
@@ -428,7 +428,7 @@ class SubscriberManager:
         try:
             data = {
                 "subscribers": [subscriber.to_dict() for subscriber in self.subscribers.values()],
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
 
             from ..utils.atomic_json import atomic_write_json
@@ -463,7 +463,7 @@ class SubscriberManager:
                 self.logger.warning(f"Subscriber {subscriber.subscriber_id} not found")
                 return False
 
-            subscriber.updated_at = datetime.now(timezone.utc)
+            subscriber.updated_at = datetime.now(UTC)
             self.subscribers[subscriber.subscriber_id] = subscriber
             self._save_subscribers()
             self.logger.info(f"Updated subscriber {subscriber.subscriber_id}")
@@ -489,18 +489,18 @@ class SubscriberManager:
             self.logger.error(f"Failed to remove subscriber: {e}")
             return False
 
-    def get_subscriber(self, subscriber_id: str) -> Optional[Subscriber]:
+    def get_subscriber(self, subscriber_id: str) -> Subscriber | None:
         """Get a subscriber by ID."""
         return self.subscribers.get(subscriber_id)
 
-    def get_subscriber_by_email(self, email: str) -> Optional[Subscriber]:
+    def get_subscriber_by_email(self, email: str) -> Subscriber | None:
         """Get a subscriber by email address."""
         for subscriber in self.subscribers.values():
             if subscriber.email.lower() == email.lower():
                 return subscriber
         return None
 
-    def get_subscribers_for_alert(self, alert: WeatherAlert) -> List[Subscriber]:
+    def get_subscribers_for_alert(self, alert: WeatherAlert) -> list[Subscriber]:
         """Get subscribers who should receive this alert."""
         matching_subscribers = []
 
@@ -511,7 +511,7 @@ class SubscriberManager:
         self.logger.debug(f"Found {len(matching_subscribers)} subscribers for alert {alert.id}")
         return matching_subscribers
 
-    def get_all_subscribers(self) -> List[Subscriber]:
+    def get_all_subscribers(self) -> list[Subscriber]:
         """Get all subscribers."""
         return list(self.subscribers.values())
 
@@ -523,7 +523,7 @@ class SubscriberManager:
         """Get number of active subscribers."""
         return sum(1 for s in self.subscribers.values() if s.status == SubscriptionStatus.ACTIVE)
 
-    def get_subscriber_stats(self) -> Dict[str, Any]:
+    def get_subscriber_stats(self) -> dict[str, Any]:
         """Get subscriber statistics."""
         total = len(self.subscribers)
         active = sum(1 for s in self.subscribers.values() if s.status == SubscriptionStatus.ACTIVE)
@@ -543,5 +543,5 @@ class SubscriberManager:
             "inactive_subscribers": inactive,
             "suspended_subscribers": suspended,
             "unsubscribed_subscribers": unsubscribed,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
         }

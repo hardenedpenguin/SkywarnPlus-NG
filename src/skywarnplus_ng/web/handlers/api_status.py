@@ -6,15 +6,12 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Any
 
 from aiohttp import web
 from aiohttp.web import Request, Response
 
 from ..setup_status import is_dashboard_configured
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +124,7 @@ class StatusApiMixin:
                     for code in county_codes:
                         if not code:
                             continue
-                        if code in county_code_to_name and county_code_to_name[code]:
+                        if county_code_to_name.get(code):
                             name = (
                                 str(county_code_to_name[code])
                                 .replace(" County", "")
@@ -151,7 +148,7 @@ class StatusApiMixin:
                     logger.warning(f"Error formatting event with counties: {e}")
                     return event
 
-            def build_alerts_data(allowed_county_codes: Optional[Set[str]]) -> List[Dict[str, Any]]:
+            def build_alerts_data(allowed_county_codes: set[str] | None) -> list[dict[str, Any]]:
                 """Build alerts list filtered to counties allowed for this context (node or global)."""
                 allowed = (
                     allowed_county_codes
@@ -225,7 +222,7 @@ class StatusApiMixin:
             status["alerts"] = alerts_data
 
             # Per-node alerts for Supermon (per-node counties)
-            alerts_by_node: Dict[str, Dict[str, Any]] = {}
+            alerts_by_node: dict[str, dict[str, Any]] = {}
             if self.app and hasattr(self.app, "config") and self.app.config.asterisk.enabled:
                 for node in self.app.config.asterisk.get_nodes_list():
                     if mobile_service:
@@ -239,7 +236,7 @@ class StatusApiMixin:
                             set(node_counties) if node_counties else set(county_code_to_name.keys())
                         )
                     node_alerts = build_alerts_data(allowed)
-                    node_entry: Dict[str, Any] = {
+                    node_entry: dict[str, Any] = {
                         "has_alerts": len(node_alerts) > 0,
                         "alerts": node_alerts,
                         "effective_counties": sorted(allowed) if allowed else [],

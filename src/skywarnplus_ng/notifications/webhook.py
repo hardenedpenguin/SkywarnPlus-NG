@@ -5,10 +5,11 @@ Supports free webhook integrations like Slack, Discord, and Microsoft Teams.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
+
 import aiohttp
 
 from ..core.models import WeatherAlert
@@ -19,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 class WebhookDeliveryError(Exception):
     """Raised when webhook delivery fails after all retries."""
-
-    pass
 
 
 class WebhookProvider(Enum):
@@ -60,9 +59,9 @@ class WebhookConfig:
     retry_delay_seconds: int = 5
 
     # Provider-specific settings
-    channel: Optional[str] = None  # For Slack/Discord
+    channel: str | None = None  # For Slack/Discord
     username: str = "SkywarnPlus-NG"
-    icon_url: Optional[str] = None
+    icon_url: str | None = None
     color: str = "#dc3545"  # Default red color for alerts
 
 
@@ -75,7 +74,7 @@ class WebhookNotifier:
             raise ValueError(err)
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.{config.provider.value}")
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -90,8 +89,8 @@ class WebhookNotifier:
             await self.session.close()
 
     async def send_alert_webhook(
-        self, alert: WeatherAlert, custom_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, alert: WeatherAlert, custom_message: str | None = None
+    ) -> dict[str, Any]:
         """
         Send weather alert via webhook.
 
@@ -113,7 +112,7 @@ class WebhookNotifier:
                 "success": True,
                 "alert_id": alert.id,
                 "provider": self.config.provider.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 **result,
             }
 
@@ -124,16 +123,16 @@ class WebhookNotifier:
                 "error": str(e),
                 "alert_id": alert.id,
                 "provider": self.config.provider.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def send_notification_webhook(
         self,
         title: str,
         message: str,
-        color: Optional[str] = None,
-        fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        color: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """
         Send general notification via webhook.
 
@@ -156,7 +155,7 @@ class WebhookNotifier:
             return {
                 "success": True,
                 "provider": self.config.provider.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 **result,
             }
 
@@ -166,12 +165,12 @@ class WebhookNotifier:
                 "success": False,
                 "error": str(e),
                 "provider": self.config.provider.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     def _create_alert_payload(
-        self, alert: WeatherAlert, custom_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, alert: WeatherAlert, custom_message: str | None = None
+    ) -> dict[str, Any]:
         """Create webhook payload for weather alert."""
         if self.config.provider == WebhookProvider.SLACK:
             return self._create_slack_alert_payload(alert, custom_message)
@@ -183,8 +182,8 @@ class WebhookNotifier:
             return self._create_generic_alert_payload(alert, custom_message)
 
     def _create_slack_alert_payload(
-        self, alert: WeatherAlert, custom_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, alert: WeatherAlert, custom_message: str | None = None
+    ) -> dict[str, Any]:
         """Create Slack webhook payload."""
         # Determine color based on severity
         color_map = {
@@ -253,7 +252,7 @@ class WebhookNotifier:
                     "footer": "SkywarnPlus-NG",
                     "ts": int(alert.sent.timestamp())
                     if alert.sent
-                    else int(datetime.now(timezone.utc).timestamp()),
+                    else int(datetime.now(UTC).timestamp()),
                 }
             ],
         }
@@ -261,8 +260,8 @@ class WebhookNotifier:
         return payload
 
     def _create_discord_alert_payload(
-        self, alert: WeatherAlert, custom_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, alert: WeatherAlert, custom_message: str | None = None
+    ) -> dict[str, Any]:
         """Create Discord webhook payload."""
         # Determine color based on severity
         color_map = {
@@ -299,9 +298,7 @@ class WebhookNotifier:
                 },
             ],
             "footer": {"text": "SkywarnPlus-NG"},
-            "timestamp": alert.sent.isoformat()
-            if alert.sent
-            else datetime.now(timezone.utc).isoformat(),
+            "timestamp": alert.sent.isoformat() if alert.sent else datetime.now(UTC).isoformat(),
         }
 
         # Add description if available
@@ -337,8 +334,8 @@ class WebhookNotifier:
         return payload
 
     def _create_teams_alert_payload(
-        self, alert: WeatherAlert, custom_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, alert: WeatherAlert, custom_message: str | None = None
+    ) -> dict[str, Any]:
         """Create Microsoft Teams webhook payload."""
         # Create facts
         facts = [
@@ -399,8 +396,8 @@ class WebhookNotifier:
         return payload
 
     def _create_generic_alert_payload(
-        self, alert: WeatherAlert, custom_message: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, alert: WeatherAlert, custom_message: str | None = None
+    ) -> dict[str, Any]:
         """Create generic webhook payload."""
         return {
             "alert_type": "weather_alert",
@@ -416,7 +413,7 @@ class WebhookNotifier:
             "sent": alert.sent.isoformat() if alert.sent else None,
             "alert_id": alert.id,
             "message": custom_message or f"Weather alert: {alert.event} for {alert.area_desc}",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "source": "SkywarnPlus-NG",
         }
 
@@ -424,9 +421,9 @@ class WebhookNotifier:
         self,
         title: str,
         message: str,
-        color: Optional[str] = None,
-        fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        color: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Create webhook payload for general notification."""
         if self.config.provider == WebhookProvider.SLACK:
             return self._create_slack_notification_payload(title, message, color, fields)
@@ -441,9 +438,9 @@ class WebhookNotifier:
         self,
         title: str,
         message: str,
-        color: Optional[str] = None,
-        fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        color: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Create Slack notification payload."""
         payload = {
             "username": self.config.username,
@@ -456,7 +453,7 @@ class WebhookNotifier:
                     "text": message,
                     "fields": fields or [],
                     "footer": "SkywarnPlus-NG",
-                    "ts": int(datetime.now(timezone.utc).timestamp()),
+                    "ts": int(datetime.now(UTC).timestamp()),
                 }
             ],
         }
@@ -466,9 +463,9 @@ class WebhookNotifier:
         self,
         title: str,
         message: str,
-        color: Optional[str] = None,
-        fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        color: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Create Discord notification payload."""
         color_map = {
             "red": 0xDC3545,
@@ -486,7 +483,7 @@ class WebhookNotifier:
             "color": color_value,
             "fields": fields or [],
             "footer": {"text": "SkywarnPlus-NG"},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         payload = {
@@ -500,9 +497,9 @@ class WebhookNotifier:
         self,
         title: str,
         message: str,
-        color: Optional[str] = None,
-        fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        color: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Create Teams notification payload."""
         facts = fields or []
 
@@ -527,9 +524,9 @@ class WebhookNotifier:
         self,
         title: str,
         message: str,
-        color: Optional[str] = None,
-        fields: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        color: str | None = None,
+        fields: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """Create generic notification payload."""
         return {
             "notification_type": "general",
@@ -537,11 +534,11 @@ class WebhookNotifier:
             "message": message,
             "color": color,
             "fields": fields or [],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "source": "SkywarnPlus-NG",
         }
 
-    async def _send_webhook(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_webhook(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send webhook with retry logic."""
         if not self.session:
             self.session = aiohttp.ClientSession(
@@ -590,7 +587,7 @@ class WebhookNotifier:
             test_payload = {
                 "test": True,
                 "message": "SkywarnPlus-NG webhook test",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             result = await self._send_webhook(test_payload)
@@ -613,9 +610,9 @@ class WebhookNotifier:
     def create_slack_config(
         cls,
         webhook_url: str,
-        channel: Optional[str] = None,
+        channel: str | None = None,
         username: str = "SkywarnPlus-NG",
-        icon_url: Optional[str] = None,
+        icon_url: str | None = None,
     ) -> WebhookConfig:
         """Create Slack webhook configuration."""
         return WebhookConfig(
@@ -628,7 +625,7 @@ class WebhookNotifier:
 
     @classmethod
     def create_discord_config(
-        cls, webhook_url: str, username: str = "SkywarnPlus-NG", icon_url: Optional[str] = None
+        cls, webhook_url: str, username: str = "SkywarnPlus-NG", icon_url: str | None = None
     ) -> WebhookConfig:
         """Create Discord webhook configuration."""
         return WebhookConfig(
@@ -640,7 +637,7 @@ class WebhookNotifier:
 
     @classmethod
     def create_teams_config(
-        cls, webhook_url: str, username: str = "SkywarnPlus-NG", icon_url: Optional[str] = None
+        cls, webhook_url: str, username: str = "SkywarnPlus-NG", icon_url: str | None = None
     ) -> WebhookConfig:
         """Create Microsoft Teams webhook configuration."""
         return WebhookConfig(

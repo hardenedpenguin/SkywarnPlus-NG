@@ -6,8 +6,8 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +19,14 @@ class GpsFix:
     latitude: float
     longitude: float
     mode: int
-    accuracy_m: Optional[float]
+    accuracy_m: float | None
     fix_time: datetime
 
 
-def _parse_gpsd_time(raw: Any) -> Optional[datetime]:
+def _parse_gpsd_time(raw: Any) -> datetime | None:
     """Parse a gpsd timestamp; None when missing/unparseable (never fake freshness)."""
     if isinstance(raw, (int, float)):
-        return datetime.fromtimestamp(float(raw), tz=timezone.utc)
+        return datetime.fromtimestamp(float(raw), tz=UTC)
     if isinstance(raw, str) and raw.strip():
         text = raw.strip()
         if text.endswith("Z"):
@@ -42,7 +42,7 @@ async def poll_gpsd_fix(
     host: str = "127.0.0.1",
     port: int = 2947,
     timeout: float = 5.0,
-) -> Optional[GpsFix]:
+) -> GpsFix | None:
     """
     Request a one-shot fix from gpsd over its JSON interface.
 
@@ -55,7 +55,7 @@ async def poll_gpsd_fix(
             asyncio.open_connection(host, port),
             timeout=timeout,
         )
-    except (OSError, asyncio.TimeoutError) as exc:
+    except (TimeoutError, OSError) as exc:
         logger.debug("Unable to connect to gpsd at %s:%s: %s", host, port, exc)
         return None
 
@@ -72,7 +72,7 @@ async def poll_gpsd_fix(
                 break
             try:
                 line = await asyncio.wait_for(reader.readline(), timeout=remaining)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break
             if not line:
                 break
@@ -105,7 +105,7 @@ async def poll_gpsd_fix(
             pass
 
 
-def _fix_from_gpsd_message(payload: dict[str, Any]) -> Optional[GpsFix]:
+def _fix_from_gpsd_message(payload: dict[str, Any]) -> GpsFix | None:
     mode = int(payload.get("mode") or 0)
     if mode < 2:
         return None

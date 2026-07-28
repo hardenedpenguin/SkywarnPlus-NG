@@ -2,7 +2,6 @@
 
 from skywarnplus_ng.usgs.parser import parse_earthquake_collection, parse_earthquake_feature
 
-
 SAMPLE_GEOJSON = {
     "type": "FeatureCollection",
     "features": [

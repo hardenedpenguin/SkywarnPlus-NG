@@ -1,14 +1,14 @@
 """Tests for alert snapshot refresh in application state."""
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from skywarnplus_ng.core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty
+from skywarnplus_ng.core.models import AlertCertainty, AlertSeverity, AlertUrgency, WeatherAlert
 from skywarnplus_ng.core.state import ApplicationState
 from skywarnplus_ng.web.alert_payload import build_active_alerts_payload
 
 
 def _make_alert(alert_id: str, expires_hours: int = 1) -> WeatherAlert:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return WeatherAlert(
         id=alert_id,
         event="Severe Thunderstorm Warning",

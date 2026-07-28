@@ -1,6 +1,6 @@
 """Tests for NWSClient.filter_active_alerts."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -17,7 +17,7 @@ from skywarnplus_ng.core.models import (
 
 
 def _alert(**overrides):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base = dict(
         id="urn:test:1",
         event="Test Event",
@@ -56,7 +56,7 @@ def test_filter_keeps_onset_window(nws_client):
 
 
 def test_filter_drops_past_urgency_even_if_ends_future(nws_client):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     a = _alert(
         urgency=AlertUrgency.PAST,
         onset=now - timedelta(hours=2),
@@ -68,7 +68,7 @@ def test_filter_drops_past_urgency_even_if_ends_future(nws_client):
 
 
 def test_filter_drops_cancelled_headline(nws_client):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     a = _alert(
         headline="The Rip Current Statement has been cancelled.",
         onset=now - timedelta(hours=1),
@@ -80,7 +80,7 @@ def test_filter_drops_cancelled_headline(nws_client):
 
 
 def test_filter_effective_mode_uses_expires(nws_client):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     a = _alert(
         onset=now - timedelta(hours=1),
         effective=now - timedelta(hours=1),

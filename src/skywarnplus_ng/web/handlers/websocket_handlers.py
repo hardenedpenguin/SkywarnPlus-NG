@@ -7,17 +7,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import Any
 
-from aiohttp import web, WSMsgType
+from aiohttp import WSMsgType, web
 from aiohttp.web import Request, Response
 from websockets.exceptions import ConnectionClosed
 
 from ..alert_payload import build_active_alerts_payload
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +73,7 @@ class WebsocketHandlersMixin:
 
         return ws
 
-    async def _handle_websocket_message(self, ws, data: Dict[str, Any]) -> None:
+    async def _handle_websocket_message(self, ws, data: dict[str, Any]) -> None:
         """Handle WebSocket messages."""
         message_type = data.get("type")
 
@@ -91,7 +88,7 @@ class WebsocketHandlersMixin:
                 await ws.send_str(json.dumps({"type": "alerts_update", "data": alerts}))
         # Add more message types as needed
 
-    async def _get_current_alerts(self) -> List[Dict[str, Any]]:
+    async def _get_current_alerts(self) -> list[dict[str, Any]]:
         """Get current alerts for WebSocket updates."""
         try:
             config = self.config if hasattr(self, "config") else None
@@ -129,7 +126,7 @@ class WebsocketHandlersMixin:
                 {
                     "type": update_type,
                     "data": payload,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
                 default=json_serializer,
             )
@@ -152,7 +149,7 @@ class WebsocketHandlersMixin:
         # Remove disconnected clients
         self.websocket_clients -= disconnected
 
-    async def broadcast_poll_updates(self, status: Dict[str, Any]) -> None:
+    async def broadcast_poll_updates(self, status: dict[str, Any]) -> None:
         """After a successful NWS poll: status plus full alert list for live dashboard cards."""
         await self.broadcast_update("status_update", status)
         alerts = await self._get_current_alerts()

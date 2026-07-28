@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from ..geo_hazard.tts import sanitize_for_tts
 
@@ -27,15 +27,15 @@ class ParsedTsunami:
     tts_text: str
 
 
-def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+def _parse_iso_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
         text = value.replace("Z", "+00:00")
         dt = datetime.fromisoformat(text)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
     except ValueError:
         return None
 
@@ -61,7 +61,7 @@ def is_tsunami_event(event: str) -> bool:
     return bool(_TSUNAMI_EVENT_RE.search(event or ""))
 
 
-def is_tsunami_feature(feature: Dict[str, Any]) -> bool:
+def is_tsunami_feature(feature: dict[str, Any]) -> bool:
     props = feature.get("properties") if isinstance(feature, dict) else None
     if not isinstance(props, dict):
         return False
@@ -70,7 +70,7 @@ def is_tsunami_feature(feature: Dict[str, Any]) -> bool:
 
 
 def build_tsunami_tts(event: str, headline: str) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     clean_event = sanitize_for_tts(event)
     clean_headline = sanitize_for_tts(headline)
     if clean_event:
@@ -80,7 +80,7 @@ def build_tsunami_tts(event: str, headline: str) -> str:
     return " ".join(parts).strip()
 
 
-def parse_tsunami_feature(feature: Dict[str, Any]) -> Optional[ParsedTsunami]:
+def parse_tsunami_feature(feature: dict[str, Any]) -> ParsedTsunami | None:
     if not is_tsunami_feature(feature):
         return None
 
@@ -96,7 +96,7 @@ def parse_tsunami_feature(feature: Dict[str, Any]) -> Optional[ParsedTsunami]:
     issued = (
         _parse_iso_datetime(props.get("sent"))
         or _parse_iso_datetime(props.get("effective"))
-        or datetime.now(timezone.utc)
+        or datetime.now(UTC)
     )
     announcement_key = alert_id
     tts_text = build_tsunami_tts(event, headline)
@@ -116,12 +116,12 @@ def parse_tsunami_feature(feature: Dict[str, Any]) -> Optional[ParsedTsunami]:
 
 
 def parse_tsunami_features(
-    features: List[Dict[str, Any]],
+    features: list[dict[str, Any]],
     *,
     min_level: str,
-) -> List[ParsedTsunami]:
+) -> list[ParsedTsunami]:
     min_rank = level_rank(min_level)
-    parsed: List[ParsedTsunami] = []
+    parsed: list[ParsedTsunami] = []
     seen: set[str] = set()
 
     for feature in features:

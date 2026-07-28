@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
 
 
 class SlidingWindowRateLimiter:
@@ -20,10 +19,10 @@ class SlidingWindowRateLimiter:
             raise ValueError("window_seconds must be > 0")
         self.max_calls = max_calls
         self.window = float(window_seconds)
-        self._buckets: Dict[str, List[float]] = defaultdict(list)
+        self._buckets: dict[str, list[float]] = defaultdict(list)
         self._lock = asyncio.Lock()
 
-    async def check(self, key: str) -> Tuple[bool, Optional[float]]:
+    async def check(self, key: str) -> tuple[bool, float | None]:
         """
         Record one attempt for key.
 

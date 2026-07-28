@@ -7,54 +7,54 @@ import fnmatch
 import logging
 import re
 import signal
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set
+from typing import Any
 
-from .config import AppConfig
-from .state import ApplicationState
-from .models import WeatherAlert, AlertStatus
 from ..api.nws_client import NWSClient, NWSClientError
-from ..audio.manager import AudioManager, AudioManagerError
-from ..audio.tts_engine import TTSEngineError
-from ..audio.tail_message import TailMessageManager
-from ..asterisk.manager import AsteriskManager, AsteriskError
 from ..asterisk.courtesy_tone import CourtesyToneManager
 from ..asterisk.id_change import IDChangeManager
-from ..utils.script_manager import ScriptManager
-from ..utils.alertscript import AlertScriptManager
-from ..utils.logging import setup_logging, PerformanceLogger, AlertLogger
+from ..asterisk.manager import AsteriskError, AsteriskManager
+from ..audio.manager import AudioManager, AudioManagerError
+from ..audio.tail_message import TailMessageManager
+from ..audio.tts_engine import TTSEngineError
+from ..database.manager import DatabaseError, DatabaseManager
+from ..location.mobile_counties import MobileCountyService
 from ..monitoring.health import HealthMonitor
-from ..database.manager import DatabaseManager, DatabaseError
-from ..web.server import WebDashboard
-from ..processing.pipeline import AlertProcessingPipeline, ProcessingStage
-from ..processing.filters import FilterChain, GeographicFilter, TimeFilter, SeverityFilter
+from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
+from ..notifications.factory import build_notification_manager
+from ..notifications.manager import NotificationManager
+from ..playback.policy import PlaybackPolicy
+from ..processing.analytics import AlertAnalytics
 from ..processing.deduplication import (
     AlertDeduplicator,
     DuplicateDetectionStrategy,
     deduplicate_nws_active_alerts,
 )
+from ..processing.filters import FilterChain, GeographicFilter, SeverityFilter, TimeFilter
+from ..processing.pipeline import AlertProcessingPipeline, ProcessingStage
 from ..processing.prioritization import AlertPrioritizer
 from ..processing.validation import AlertValidator
 from ..processing.workflows import (
-    WorkflowEngine,
-    AlertWorkflow,
-    WorkflowStep,
-    ResponseAction,
     ActionType,
+    AlertWorkflow,
+    ResponseAction,
+    WorkflowEngine,
+    WorkflowStep,
 )
-from ..processing.analytics import AlertAnalytics
-from ..location.mobile_counties import MobileCountyService
-from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
-from ..usgs.earthquake_service import EarthquakeEvent, UsgsEarthquakeService
-from ..wildfire.wfigs_service import WildfireIncident, WfigsWildfireService
-from ..tsunami.tsunami_service import TsunamiAlert, TsunamiService
-from ..tsunami.parser import is_tsunami_event
 from ..spaceweather.swpc_service import SpaceWeatherAlert, SwpcSpaceWeatherService
+from ..tsunami.parser import is_tsunami_event
+from ..tsunami.tsunami_service import TsunamiAlert, TsunamiService
+from ..usgs.earthquake_service import EarthquakeEvent, UsgsEarthquakeService
+from ..utils.alertscript import AlertScriptManager
+from ..utils.logging import AlertLogger, PerformanceLogger, setup_logging
+from ..utils.script_manager import ScriptManager
 from ..volcano.volcano_service import VolcanoNotice, VolcanoService
-from ..playback.policy import PlaybackPolicy
-from ..notifications.factory import build_notification_manager
-from ..notifications.manager import NotificationManager
+from ..web.server import WebDashboard
+from ..wildfire.wfigs_service import WfigsWildfireService, WildfireIncident
+from .config import AppConfig
+from .models import AlertStatus, WeatherAlert
+from .state import ApplicationState
 
 logger = logging.getLogger(__name__)
 
@@ -78,41 +78,41 @@ class SkywarnPlusApplication:
                 logger.warning(f"Configuration validation: {warning}")
 
         self.state_manager = ApplicationState(state_file=config.data_dir / "state.json")
-        self.nws_client: Optional[NWSClient] = None
-        self.audio_manager: Optional[AudioManager] = None
-        self.tail_message_manager: Optional[TailMessageManager] = None
-        self.asterisk_manager: Optional[AsteriskManager] = None
-        self.courtesy_tone_manager: Optional[CourtesyToneManager] = None
-        self.id_change_manager: Optional[IDChangeManager] = None
-        self.script_manager: Optional[ScriptManager] = None
-        self.alertscript_manager: Optional[AlertScriptManager] = None
-        self._previous_alert_events: Set[str] = set()  # Track previous alert events for transitions
+        self.nws_client: NWSClient | None = None
+        self.audio_manager: AudioManager | None = None
+        self.tail_message_manager: TailMessageManager | None = None
+        self.asterisk_manager: AsteriskManager | None = None
+        self.courtesy_tone_manager: CourtesyToneManager | None = None
+        self.id_change_manager: IDChangeManager | None = None
+        self.script_manager: ScriptManager | None = None
+        self.alertscript_manager: AlertScriptManager | None = None
+        self._previous_alert_events: set[str] = set()  # Track previous alert events for transitions
         self._pushover_notifier = None
-        self.health_monitor: Optional[HealthMonitor] = None
-        self.database_manager: Optional[DatabaseManager] = None
-        self.performance_logger: Optional[PerformanceLogger] = None
-        self.alert_logger: Optional[AlertLogger] = None
-        self.web_dashboard: Optional[WebDashboard] = None
-        self.alert_pipeline: Optional[AlertProcessingPipeline] = None
-        self.filter_chain: Optional[FilterChain] = None
-        self.deduplicator: Optional[AlertDeduplicator] = None
-        self.prioritizer: Optional[AlertPrioritizer] = None
-        self.validator: Optional[AlertValidator] = None
-        self.workflow_engine: Optional[WorkflowEngine] = None
-        self.analytics: Optional[AlertAnalytics] = None
-        self.mobile_county_service: Optional[MobileCountyService] = None
-        self.playback_policy: Optional[PlaybackPolicy] = None
-        self.nhc_service: Optional[NhcCycloneService] = None
-        self.earthquake_service: Optional[UsgsEarthquakeService] = None
-        self.wildfire_service: Optional[WfigsWildfireService] = None
-        self.tsunami_service: Optional[TsunamiService] = None
-        self.space_weather_service: Optional[SwpcSpaceWeatherService] = None
-        self.volcano_service: Optional[VolcanoService] = None
-        self.notification_manager: Optional[NotificationManager] = None
-        self._delivery_processor_task: Optional[asyncio.Task] = None
+        self.health_monitor: HealthMonitor | None = None
+        self.database_manager: DatabaseManager | None = None
+        self.performance_logger: PerformanceLogger | None = None
+        self.alert_logger: AlertLogger | None = None
+        self.web_dashboard: WebDashboard | None = None
+        self.alert_pipeline: AlertProcessingPipeline | None = None
+        self.filter_chain: FilterChain | None = None
+        self.deduplicator: AlertDeduplicator | None = None
+        self.prioritizer: AlertPrioritizer | None = None
+        self.validator: AlertValidator | None = None
+        self.workflow_engine: WorkflowEngine | None = None
+        self.analytics: AlertAnalytics | None = None
+        self.mobile_county_service: MobileCountyService | None = None
+        self.playback_policy: PlaybackPolicy | None = None
+        self.nhc_service: NhcCycloneService | None = None
+        self.earthquake_service: UsgsEarthquakeService | None = None
+        self.wildfire_service: WfigsWildfireService | None = None
+        self.tsunami_service: TsunamiService | None = None
+        self.space_weather_service: SwpcSpaceWeatherService | None = None
+        self.volcano_service: VolcanoService | None = None
+        self.notification_manager: NotificationManager | None = None
+        self._delivery_processor_task: asyncio.Task | None = None
         self.running = False
         self._shutdown_event = asyncio.Event()
-        self._start_time = datetime.now(timezone.utc)
+        self._start_time = datetime.now(UTC)
 
     async def initialize(self) -> None:
         """Initialize the application components."""
@@ -634,7 +634,7 @@ class SkywarnPlusApplication:
                         self._shutdown_event.wait(), timeout=self.config.poll_interval
                     )
                     break  # Shutdown signal received
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass  # Continue to next poll cycle
 
         except Exception as e:
@@ -683,7 +683,7 @@ class SkywarnPlusApplication:
                 logger.warning(
                     "Skipping poll cycle due to fetch failure; retaining last known alert state"
                 )
-                now = datetime.now(timezone.utc).isoformat()
+                now = datetime.now(UTC).isoformat()
                 self.state["nws_last_error_at"] = now
                 self.state["nws_last_error_message"] = (
                     "NWS API fetch failed (network, timeout, or HTTP error). "
@@ -771,7 +771,7 @@ class SkywarnPlusApplication:
                 except Exception as save_exc:
                     logger.error("Failed to save state after poll cycle error: %s", save_exc)
 
-    async def _fetch_alerts(self, county_codes: List[str]) -> Optional[List[WeatherAlert]]:
+    async def _fetch_alerts(self, county_codes: list[str]) -> list[WeatherAlert] | None:
         """
         Fetch alerts from NWS API or generate test alerts.
 
@@ -816,7 +816,7 @@ class SkywarnPlusApplication:
                         failed_zones, {alert.id for alert in alerts}
                     )
                 )
-                self.state["nws_last_error_at"] = datetime.now(timezone.utc).isoformat()
+                self.state["nws_last_error_at"] = datetime.now(UTC).isoformat()
                 self.state["nws_last_error_message"] = (
                     f"NWS API fetch failed for {len(failed_zones)} of "
                     f"{len(county_codes)} zone(s): {', '.join(failed_zones)}. "
@@ -854,15 +854,15 @@ class SkywarnPlusApplication:
             return None
 
     def _previously_active_alerts_for_zones(
-        self, failed_zones: List[str], exclude_ids: Set[str]
-    ) -> List[WeatherAlert]:
+        self, failed_zones: list[str], exclude_ids: set[str]
+    ) -> list[WeatherAlert]:
         """
         Rebuild last known active alerts touching the given zones from state snapshots.
 
         Used when some NWS zone fetches fail: alerts for those zones are carried
         forward so a transient per-zone error does not expire them.
         """
-        carried: List[WeatherAlert] = []
+        carried: list[WeatherAlert] = []
         failed = {zone.strip().upper() for zone in failed_zones}
         active_ids = set(self.state.get("active_alerts", []) or [])
         last_alerts = self.state.get("last_alerts", {})
@@ -895,7 +895,7 @@ class SkywarnPlusApplication:
             )
         return carried
 
-    async def _process_alerts(self, current_alerts: List[WeatherAlert]) -> None:
+    async def _process_alerts(self, current_alerts: list[WeatherAlert]) -> None:
         """
         Process alerts and determine what actions to take.
 
@@ -979,7 +979,7 @@ class SkywarnPlusApplication:
             await self._handle_expired_alerts(expired_alerts)
 
         # Refresh stored alert snapshots (NWS may extend/update without changing alert id)
-        updated_alerts: List[WeatherAlert] = []
+        updated_alerts: list[WeatherAlert] = []
         for alert in processed_alerts:
             if self.state_manager.upsert_alert(self.state, alert):
                 if alert.id in existing_alert_ids:
@@ -1002,11 +1002,11 @@ class SkywarnPlusApplication:
 
         self.state_manager._bound_tracking_lists(self.state)
 
-    def _apply_global_alert_filters(self, alerts: List[WeatherAlert]) -> List[WeatherAlert]:
+    def _apply_global_alert_filters(self, alerts: list[WeatherAlert]) -> list[WeatherAlert]:
         """Apply configured global blocked-event patterns and max alert cap."""
         blocked = self.config.filtering.blocked_events or []
         if blocked:
-            filtered: List[WeatherAlert] = []
+            filtered: list[WeatherAlert] = []
             for alert in alerts:
                 event = (alert.event or "").strip()
                 if any(fnmatch.fnmatchcase(event, pattern) for pattern in blocked):
@@ -1031,8 +1031,8 @@ class SkywarnPlusApplication:
 
     async def _handle_new_alerts(
         self,
-        new_alerts: List[WeatherAlert],
-        all_current_alerts: Optional[List[WeatherAlert]] = None,
+        new_alerts: list[WeatherAlert],
+        all_current_alerts: list[WeatherAlert] | None = None,
     ) -> None:
         """
         Handle newly discovered alerts.
@@ -1050,7 +1050,7 @@ class SkywarnPlusApplication:
                 if self.performance_logger
                 else None
             )
-            alert_start_time = datetime.now(timezone.utc)
+            alert_start_time = datetime.now(UTC)
             alert_processing_ok = False
             script_success = False
             try:
@@ -1109,9 +1109,7 @@ class SkywarnPlusApplication:
                 await self._send_alert_notifications(alert)
 
                 # Log alert processing completion
-                processing_time = (
-                    datetime.now(timezone.utc) - alert_start_time
-                ).total_seconds() * 1000
+                processing_time = (datetime.now(UTC) - alert_start_time).total_seconds() * 1000
                 self.alert_logger.log_alert_processed(
                     alert.id,
                     alert.event,
@@ -1144,9 +1142,7 @@ class SkywarnPlusApplication:
 
                 alert_processing_ok = True
             except Exception as e:
-                processing_time = (
-                    datetime.now(timezone.utc) - alert_start_time
-                ).total_seconds() * 1000
+                processing_time = (datetime.now(UTC) - alert_start_time).total_seconds() * 1000
                 self.alert_logger.log_alert_processed(
                     alert.id, alert.event, False, processing_time, error=str(e)
                 ) if self.alert_logger else logger.error(
@@ -1159,7 +1155,7 @@ class SkywarnPlusApplication:
                 if timer_id and self.performance_logger:
                     self.performance_logger.end_timer(timer_id, success=alert_processing_ok)
 
-    async def _handle_expired_alerts(self, expired_alert_ids: List[str]) -> None:
+    async def _handle_expired_alerts(self, expired_alert_ids: list[str]) -> None:
         """
         Handle expired alerts.
 
@@ -1330,7 +1326,7 @@ class SkywarnPlusApplication:
         return fnmatch.fnmatch(text, pattern)
 
     def _filter_alert_counties(
-        self, alert: WeatherAlert, monitored_county_codes: Set[str]
+        self, alert: WeatherAlert, monitored_county_codes: set[str]
     ) -> WeatherAlert:
         """
         Filter alert to only include monitored counties.
@@ -1422,8 +1418,8 @@ class SkywarnPlusApplication:
         )
 
     def _get_county_audio_files(
-        self, county_codes: List[str], area_desc: Optional[str] = None
-    ) -> List[str]:
+        self, county_codes: list[str], area_desc: str | None = None
+    ) -> list[str]:
         """
         Get county audio file names for given county codes.
         Also tries to match by county name from area_desc if codes don't match.
@@ -1582,7 +1578,7 @@ class SkywarnPlusApplication:
         logger.info(f"Returning {len(county_audio_files)} county audio files: {county_audio_files}")
         return county_audio_files
 
-    def _generate_county_audio_if_missing(self, county_name: Optional[str]) -> Optional[str]:
+    def _generate_county_audio_if_missing(self, county_name: str | None) -> str | None:
         """
         Ensure a county audio file exists by generating it via the audio manager if necessary.
 
@@ -1609,7 +1605,7 @@ class SkywarnPlusApplication:
             )
             return None
 
-    def _find_county_audio_file(self, county_name: str) -> Optional[str]:
+    def _find_county_audio_file(self, county_name: str) -> str | None:
         """
         Find county audio file by trying multiple filename variations.
 
@@ -1705,7 +1701,7 @@ class SkywarnPlusApplication:
 
         return False
 
-    async def _handle_alerts_with_changes(self, alerts: List[WeatherAlert]) -> None:
+    async def _handle_alerts_with_changes(self, alerts: list[WeatherAlert]) -> None:
         """
         Handle alerts where county lists have changed (SayAlertsChanged).
 
@@ -1722,7 +1718,7 @@ class SkywarnPlusApplication:
                     if self.playback_policy:
                         self.playback_policy.record_announcement(alert, self.state)
 
-    async def _announce_alert(self, alert: WeatherAlert) -> List[int]:
+    async def _announce_alert(self, alert: WeatherAlert) -> list[int]:
         """
         Announce an alert using TTS and Asterisk.
 
@@ -2309,7 +2305,7 @@ class SkywarnPlusApplication:
             return
 
         interval_seconds = self.config.database.backup_interval_hours * 3600
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_raw = self.state.get("last_db_backup_at")
         if last_raw:
             last_dt = datetime.fromisoformat(str(last_raw).replace("Z", "+00:00"))
@@ -2461,7 +2457,7 @@ class SkywarnPlusApplication:
                 pass
         self._pushover_notifier = None
 
-    def _update_geographic_filter(self, allowed_counties: List[str]) -> None:
+    def _update_geographic_filter(self, allowed_counties: list[str]) -> None:
         """Keep the geographic pipeline filter aligned with the current poll counties."""
         if not self.filter_chain:
             return
@@ -2469,7 +2465,7 @@ class SkywarnPlusApplication:
             if isinstance(filter_obj, GeographicFilter):
                 filter_obj.allowed_counties = list(allowed_counties)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get current application status.
 
@@ -2499,7 +2495,7 @@ class SkywarnPlusApplication:
             "workflow_engine_available": self.workflow_engine is not None,
             "analytics_available": self.analytics is not None,
             "notification_manager_available": self.notification_manager is not None,
-            "uptime_seconds": (datetime.now(timezone.utc) - self._start_time).total_seconds(),
+            "uptime_seconds": (datetime.now(UTC) - self._start_time).total_seconds(),
         }
 
         # Add state-dependent information only if initialized

@@ -4,10 +4,10 @@ Alert workflow automation system for SkywarnPlus-NG.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
+from typing import Any
 
 from ..core.models import WeatherAlert
 
@@ -44,7 +44,7 @@ class ResponseAction:
     action_type: ActionType
     name: str
     description: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     enabled: bool = True
     timeout_seconds: int = 30
     retry_count: int = 0
@@ -62,8 +62,8 @@ class WorkflowStep:
     step_id: str
     name: str
     description: str
-    actions: List[ResponseAction]
-    conditions: List[Dict[str, Any]]
+    actions: list[ResponseAction]
+    conditions: list[dict[str, Any]]
     parallel: bool = False
     enabled: bool = True
     timeout_seconds: int = 300
@@ -82,17 +82,17 @@ class WorkflowExecution:
     workflow_id: str
     alert: WeatherAlert
     status: WorkflowStatus
-    current_step: Optional[str]
-    completed_steps: List[str]
-    failed_steps: List[str]
-    execution_log: List[Dict[str, Any]]
+    current_step: str | None
+    completed_steps: list[str]
+    failed_steps: list[str]
+    execution_log: list[dict[str, Any]]
     started_at: datetime
-    completed_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = None
+    completed_at: datetime | None = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if not self.started_at:
-            self.started_at = datetime.now(timezone.utc)
+            self.started_at = datetime.now(UTC)
         if not self.metadata:
             self.metadata = {}
 
@@ -105,8 +105,8 @@ class AlertWorkflow:
         workflow_id: str,
         name: str,
         description: str,
-        trigger_conditions: List[Dict[str, Any]],
-        steps: List[WorkflowStep],
+        trigger_conditions: list[dict[str, Any]],
+        steps: list[WorkflowStep],
         enabled: bool = True,
     ):
         self.workflow_id = workflow_id
@@ -136,7 +136,7 @@ class AlertWorkflow:
 
         return True
 
-    def _evaluate_condition(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_condition(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate a trigger condition."""
         condition_type = condition.get("type", "field_equals")
 
@@ -156,7 +156,7 @@ class AlertWorkflow:
             self.logger.warning(f"Unknown condition type: {condition_type}")
             return False
 
-    def _evaluate_field_equals(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_field_equals(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate field equals condition."""
         field = condition.get("field", "event")
         expected_value = condition.get("value", "")
@@ -164,7 +164,7 @@ class AlertWorkflow:
         actual_value = self._get_field_value(alert, field)
         return str(actual_value) == str(expected_value)
 
-    def _evaluate_field_contains(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_field_contains(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate field contains condition."""
         field = condition.get("field", "event")
         expected_value = condition.get("value", "")
@@ -180,12 +180,12 @@ class AlertWorkflow:
 
         return str(expected_value) in str(actual_value)
 
-    def _evaluate_severity_equals(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_severity_equals(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate severity equals condition."""
         expected_severity = condition.get("severity", "")
         return alert.severity.value == expected_severity
 
-    def _evaluate_severity_gte(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_severity_gte(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate severity greater than or equal condition."""
         severity_order = {"Minor": 1, "Moderate": 2, "Severe": 3, "Extreme": 4}
 
@@ -194,7 +194,7 @@ class AlertWorkflow:
 
         return alert_severity >= expected_severity
 
-    def _evaluate_regex_match(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_regex_match(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate regex match condition."""
         import re
 
@@ -214,7 +214,7 @@ class AlertWorkflow:
             self.logger.error(f"Regex error in condition: {e}")
             return False
 
-    def _evaluate_time_range(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_time_range(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate time range condition."""
         from datetime import time
 
@@ -261,8 +261,8 @@ class WorkflowEngine:
     """Executes alert workflows."""
 
     def __init__(self):
-        self.workflows: Dict[str, AlertWorkflow] = {}
-        self.executions: Dict[str, WorkflowExecution] = {}
+        self.workflows: dict[str, AlertWorkflow] = {}
+        self.executions: dict[str, WorkflowExecution] = {}
         self.logger = logging.getLogger(__name__)
 
     def register_workflow(self, workflow: AlertWorkflow) -> None:
@@ -276,7 +276,7 @@ class WorkflowEngine:
             del self.workflows[workflow_id]
             self.logger.info(f"Unregistered workflow: {workflow_id}")
 
-    async def execute_workflows(self, alert: WeatherAlert) -> List[WorkflowExecution]:
+    async def execute_workflows(self, alert: WeatherAlert) -> list[WorkflowExecution]:
         """
         Execute all applicable workflows for an alert.
 
@@ -317,7 +317,7 @@ class WorkflowEngine:
         self, workflow: AlertWorkflow, alert: WeatherAlert
     ) -> WorkflowExecution:
         """Execute a single workflow."""
-        execution_id = f"{workflow.workflow_id}_{alert.id}_{datetime.now(timezone.utc).timestamp()}"
+        execution_id = f"{workflow.workflow_id}_{alert.id}_{datetime.now(UTC).timestamp()}"
 
         execution = WorkflowExecution(
             workflow_id=workflow.workflow_id,
@@ -327,7 +327,7 @@ class WorkflowEngine:
             completed_steps=[],
             failed_steps=[],
             execution_log=[],
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
 
         self.executions[execution_id] = execution
@@ -353,7 +353,7 @@ class WorkflowEngine:
                             "step": step.step_id,
                             "status": "failed",
                             "error": str(e),
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                         }
                     )
 
@@ -378,12 +378,12 @@ class WorkflowEngine:
                     "workflow": workflow.workflow_id,
                     "status": "failed",
                     "error": str(e),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
 
         finally:
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             execution.current_step = None
 
         return execution
@@ -450,7 +450,7 @@ class WorkflowEngine:
                 {
                     "action": action.action_id,
                     "status": "completed",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
 
@@ -461,7 +461,7 @@ class WorkflowEngine:
                     "action": action.action_id,
                     "status": "failed",
                     "error": str(e),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
             raise
@@ -522,7 +522,7 @@ class WorkflowEngine:
         self.logger.info(f"Escalation action: {action.name}")
         # Placeholder implementation
 
-    def _evaluate_step_condition(self, alert: WeatherAlert, condition: Dict[str, Any]) -> bool:
+    def _evaluate_step_condition(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate a step condition."""
         # Similar to workflow trigger conditions
         condition_type = condition.get("type", "field_equals")
@@ -554,11 +554,11 @@ class WorkflowEngine:
 
         return field_mapping.get(field, "")
 
-    def get_execution_status(self, execution_id: str) -> Optional[WorkflowExecution]:
+    def get_execution_status(self, execution_id: str) -> WorkflowExecution | None:
         """Get execution status by ID."""
         return self.executions.get(execution_id)
 
-    def get_workflow_executions(self, workflow_id: Optional[str] = None) -> List[WorkflowExecution]:
+    def get_workflow_executions(self, workflow_id: str | None = None) -> list[WorkflowExecution]:
         """Get workflow executions."""
         if workflow_id:
             return [
@@ -570,7 +570,7 @@ class WorkflowEngine:
 
     def cleanup_old_executions(self, max_age_hours: int = 24) -> int:
         """Clean up old executions."""
-        cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
+        cutoff_time = datetime.now(UTC).timestamp() - (max_age_hours * 3600)
 
         old_executions = [
             exec_id

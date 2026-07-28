@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any
 
 from ..core.config import AsteriskConfig
 
@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 
 class AsteriskError(Exception):
     """Asterisk manager error."""
-
-    pass
 
 
 class AsteriskManager:
@@ -50,9 +48,9 @@ class AsteriskManager:
         self,
         command: str,
         *,
-        cwd: Optional[Path] = None,
+        cwd: Path | None = None,
         wait: bool = True,
-    ) -> Tuple[int, str, str]:
+    ) -> tuple[int, str, str]:
         """
         Run an Asterisk CLI command.
 
@@ -151,7 +149,7 @@ class AsteriskManager:
             logger.error(f"Asterisk CLI connection test error: {e}")
             return False
 
-    async def get_node_status(self, node_number: int) -> Dict[str, Any]:
+    async def get_node_status(self, node_number: int) -> dict[str, Any]:
         """
         Get status of a specific node.
 
@@ -196,7 +194,7 @@ class AsteriskManager:
                 "raw_output": "",
             }
 
-    async def get_all_nodes_status(self) -> List[Dict[str, Any]]:
+    async def get_all_nodes_status(self) -> list[dict[str, Any]]:
         """
         Get status of all configured nodes.
 
@@ -312,7 +310,7 @@ class AsteriskManager:
             logger.error(f"Error playing audio on node {node_number}: {e}", exc_info=True)
             return False
 
-    async def play_audio_on_all_nodes(self, audio_path: Path) -> List[int]:
+    async def play_audio_on_all_nodes(self, audio_path: Path) -> list[int]:
         """
         Play audio file on all configured nodes.
 
@@ -326,7 +324,7 @@ class AsteriskManager:
         all_nodes = self.config.get_nodes_list()
         return await self.play_audio_on_nodes(audio_path, all_nodes)
 
-    async def play_audio_on_nodes(self, audio_path: Path, node_numbers: List[int]) -> List[int]:
+    async def play_audio_on_nodes(self, audio_path: Path, node_numbers: list[int]) -> list[int]:
         """
         Play audio file on specific nodes.
 
@@ -383,7 +381,7 @@ class AsteriskManager:
             logger.error(f"Error stopping audio on node {node_number}: {e}")
             return False
 
-    async def stop_audio_on_all_nodes(self) -> List[int]:
+    async def stop_audio_on_all_nodes(self) -> list[int]:
         """
         Stop audio playback on all configured nodes.
 
@@ -459,7 +457,7 @@ class AsteriskManager:
             logger.error(f"Error unkeying node {node_number}: {e}")
             return False
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get Asterisk manager status.
 

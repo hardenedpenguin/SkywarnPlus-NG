@@ -2,7 +2,6 @@
 Code examples generator for SkywarnPlus-NG API.
 """
 
-from typing import Dict, List
 from dataclasses import dataclass
 
 
@@ -24,7 +23,7 @@ class CodeExampleGenerator:
     def __init__(self, base_url: str = "http://localhost:8080"):
         self.base_url = base_url
 
-    def generate_python_examples(self) -> List[CodeExample]:
+    def generate_python_examples(self) -> list[CodeExample]:
         """Generate Python code examples."""
         examples = []
 
@@ -267,7 +266,7 @@ for component, status in health['components'].items():
 
         return examples
 
-    def generate_javascript_examples(self) -> List[CodeExample]:
+    def generate_javascript_examples(self) -> list[CodeExample]:
         """Generate JavaScript/Node.js code examples."""
         examples = []
 
@@ -483,7 +482,7 @@ connectWebSocket();""",
 
         return examples
 
-    def generate_curl_examples(self) -> List[CodeExample]:
+    def generate_curl_examples(self) -> list[CodeExample]:
         """Generate cURL examples."""
         examples = []
 
@@ -579,7 +578,7 @@ connectWebSocket();""",
 
         return examples
 
-    def generate_all_examples(self) -> Dict[str, List[CodeExample]]:
+    def generate_all_examples(self) -> dict[str, list[CodeExample]]:
         """Generate all code examples."""
         return {
             "python": self.generate_python_examples(),

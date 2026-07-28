@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx
@@ -56,7 +56,7 @@ class WfigsWildfireService:
     def __init__(
         self,
         config: AppConfig,
-        mobile_service: Optional[MobileCountyService] = None,
+        mobile_service: MobileCountyService | None = None,
     ) -> None:
         self.config = config
         self.mobile_service = mobile_service
@@ -65,17 +65,17 @@ class WfigsWildfireService:
             headers={"User-Agent": config.nws.user_agent},
             follow_redirects=True,
         )
-        self._last_poll_at: Optional[datetime] = None
-        self._tracked_incidents: List[Dict[str, Any]] = []
-        self._last_fetch_ok_at: Optional[datetime] = None
-        self._last_error_message: Optional[str] = None
-        self._last_display_refresh_at: Optional[datetime] = None
+        self._last_poll_at: datetime | None = None
+        self._tracked_incidents: list[dict[str, Any]] = []
+        self._last_fetch_ok_at: datetime | None = None
+        self._last_error_message: str | None = None
+        self._last_display_refresh_at: datetime | None = None
         self._fetch_cache = GeoFetchCache.shared()
 
     def sync_http_client_user_agent(self) -> None:
         self._client.headers["User-Agent"] = self.config.nws.user_agent
 
-    def _cache_key(self, position: Tuple[float, float]) -> str:
+    def _cache_key(self, position: tuple[float, float]) -> str:
         wf = self.config.wildfire
         lat, lon = position
         max_km = round(wf.max_distance_miles * 1.60934, 1)
@@ -84,16 +84,16 @@ class WfigsWildfireService:
     async def close(self) -> None:
         await self._client.aclose()
 
-    def should_poll(self, now: Optional[datetime] = None) -> bool:
+    def should_poll(self, now: datetime | None = None) -> bool:
         if not self.config.wildfire.enabled:
             return False
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         if self._last_poll_at is None:
             return True
         elapsed = (now - self._last_poll_at).total_seconds() / 60.0
         return elapsed >= self.config.wildfire.poll_interval_minutes
 
-    def get_position(self) -> Optional[Tuple[float, float]]:
+    def get_position(self) -> tuple[float, float] | None:
         pos = self.config.geo_hazard_position
         return get_monitoring_position(
             use_gps_position=pos.use_gps_position,
@@ -102,7 +102,7 @@ class WfigsWildfireService:
             mobile_service=self.mobile_service,
         )
 
-    def _build_query_url(self, position: Tuple[float, float]) -> str:
+    def _build_query_url(self, position: tuple[float, float]) -> str:
         wf: WildfireConfig = self.config.wildfire
         lat, lon = position
         max_km = round(wf.max_distance_miles * 1.60934, 1)
@@ -125,19 +125,17 @@ class WfigsWildfireService:
         }
         return f"{WFIGS_FEATURE_SERVER}?{urlencode(params)}"
 
-    async def fetch_incidents_geojson(
-        self, position: Tuple[float, float]
-    ) -> Optional[dict[str, Any]]:
+    async def fetch_incidents_geojson(self, position: tuple[float, float]) -> dict[str, Any] | None:
         cache_key = self._cache_key(position)
 
-        async def _fetch() -> Optional[dict[str, Any]]:
+        async def _fetch() -> dict[str, Any] | None:
             return await self._fetch_incidents_geojson_uncached(position)
 
         return await self._fetch_cache.get_or_fetch(cache_key, _fetch)
 
     async def _fetch_incidents_geojson_uncached(
-        self, position: Tuple[float, float]
-    ) -> Optional[dict[str, Any]]:
+        self, position: tuple[float, float]
+    ) -> dict[str, Any] | None:
         url = self._build_query_url(position)
         try:
             response = await self._client.get(url)
@@ -156,14 +154,14 @@ class WfigsWildfireService:
             self._last_error_message = f"WFIGS wildfire response invalid: {exc}"
             return None
 
-    def _record_poll_error(self, state: Dict[str, Any], message: str) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_error(self, state: dict[str, Any], message: str) -> None:
+        now = datetime.now(UTC)
         self._last_error_message = message
         state["wildfire_last_error_at"] = now.isoformat()
         state["wildfire_last_error_message"] = message
 
-    def _record_poll_success(self, state: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc)
+    def _record_poll_success(self, state: dict[str, Any]) -> None:
+        now = datetime.now(UTC)
         self._last_fetch_ok_at = now
         self._last_error_message = None
         state["wildfire_last_error_at"] = None
@@ -172,11 +170,11 @@ class WfigsWildfireService:
     def _incident_within_discovery_age(
         self,
         incident: ParsedWildfire,
-        now: Optional[datetime] = None,
+        now: datetime | None = None,
     ) -> bool:
         if incident.discovery_utc is None:
             return True
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         max_age = timedelta(hours=self.config.wildfire.max_discovery_age_hours)
         return (now - incident.discovery_utc) <= max_age
 
@@ -195,13 +193,13 @@ class WfigsWildfireService:
             return False
         return True
 
-    def _already_announced(self, announcement_key: str, state: Dict[str, Any]) -> bool:
+    def _already_announced(self, announcement_key: str, state: dict[str, Any]) -> bool:
         announced = state.get("wildfire_announced_incidents") or []
         if not isinstance(announced, list):
             return False
         return announcement_key in announced
 
-    def mark_announced(self, announcement_key: str, state: Dict[str, Any]) -> None:
+    def mark_announced(self, announcement_key: str, state: dict[str, Any]) -> None:
         announced = state.get("wildfire_announced_incidents")
         if not isinstance(announced, list):
             announced = []
@@ -211,8 +209,8 @@ class WfigsWildfireService:
 
     def _maybe_seed_announced_history(
         self,
-        incidents: List[ParsedWildfire],
-        state: Dict[str, Any],
+        incidents: list[ParsedWildfire],
+        state: dict[str, Any],
     ) -> None:
         if state.get("wildfire_history_seeded"):
             return
@@ -238,11 +236,11 @@ class WfigsWildfireService:
 
     def select_new_incidents(
         self,
-        incidents: List[ParsedWildfire],
-        state: Dict[str, Any],
-    ) -> List[WildfireIncident]:
-        selected: List[WildfireIncident] = []
-        tracked: List[Dict[str, Any]] = []
+        incidents: list[ParsedWildfire],
+        state: dict[str, Any],
+    ) -> list[WildfireIncident]:
+        selected: list[WildfireIncident] = []
+        tracked: list[dict[str, Any]] = []
 
         for incident in sorted(incidents, key=lambda i: i.acres, reverse=True):
             within_filters = self._passes_filters(incident)
@@ -274,9 +272,9 @@ class WfigsWildfireService:
         self._tracked_incidents = tracked
         return selected
 
-    async def check_health(self, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def check_health(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
         state = state or {}
-        details: Dict[str, Any] = {
+        details: dict[str, Any] = {
             "min_acres": self.config.wildfire.min_acres,
             "max_distance_miles": self.config.wildfire.max_distance_miles,
             "max_discovery_age_hours": self.config.wildfire.max_discovery_age_hours,
@@ -337,12 +335,12 @@ class WfigsWildfireService:
             "details": details,
         }
 
-    async def refresh_tracked_incidents_if_stale(self, state: Dict[str, Any]) -> None:
+    async def refresh_tracked_incidents_if_stale(self, state: dict[str, Any]) -> None:
         if not self.config.wildfire.enabled:
             self._tracked_incidents = []
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if self._last_display_refresh_at is not None:
             elapsed_min = (now - self._last_display_refresh_at).total_seconds() / 60.0
             if elapsed_min < DISPLAY_REFRESH_MINUTES:
@@ -353,14 +351,14 @@ class WfigsWildfireService:
             return
 
         data = await self.fetch_incidents_geojson(position)
-        self._last_display_refresh_at = datetime.now(timezone.utc)
+        self._last_display_refresh_at = datetime.now(UTC)
         if not data:
             return
 
         incidents = parse_wildfire_collection(data, origin_lat=position[0], origin_lon=position[1])
         self.select_new_incidents(incidents, state)
 
-    async def poll(self, state: Dict[str, Any]) -> List[WildfireIncident]:
+    async def poll(self, state: dict[str, Any]) -> list[WildfireIncident]:
         if not self.config.wildfire.enabled:
             self._tracked_incidents = []
             return []
@@ -383,7 +381,7 @@ class WfigsWildfireService:
         incidents = parse_wildfire_collection(data, origin_lat=position[0], origin_lon=position[1])
         self._maybe_seed_announced_history(incidents, state)
         selected = self.select_new_incidents(incidents, state)
-        self._last_poll_at = datetime.now(timezone.utc)
+        self._last_poll_at = datetime.now(UTC)
         self._last_display_refresh_at = self._last_poll_at
         self._record_poll_success(state)
         wf = self.config.wildfire
@@ -405,7 +403,7 @@ class WfigsWildfireService:
             )
         return selected
 
-    def get_status(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(self, state: dict[str, Any]) -> dict[str, Any]:
         position = self.get_position()
         wf = self.config.wildfire
         return {

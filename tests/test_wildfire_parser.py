@@ -6,7 +6,6 @@ from skywarnplus_ng.wildfire.parser import (
     parse_wildfire_collection,
 )
 
-
 SAMPLE_GEOJSON = {
     "type": "FeatureCollection",
     "features": [

@@ -1,13 +1,13 @@
 """Tests for alert ID alias handling in application state."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from skywarnplus_ng.core.models import AlertSeverity, AlertUrgency, WeatherAlert
 from skywarnplus_ng.core.state import ApplicationState
 
 
 def _alert(alert_id: str) -> WeatherAlert:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return WeatherAlert(
         id=alert_id,
         event="Flood Advisory",
@@ -27,7 +27,7 @@ def _alert(alert_id: str) -> WeatherAlert:
 def test_expired_skips_when_alias_target_still_active(tmp_path):
     state_mgr = ApplicationState(tmp_path / "state.json")
     state = state_mgr.load_state()
-    state["last_alerts"] = {"old-id": {"added_at": datetime.now(timezone.utc).isoformat()}}
+    state["last_alerts"] = {"old-id": {"added_at": datetime.now(UTC).isoformat()}}
     state_mgr.update_alert_id_aliases(state, {"old-id": "new-id"})
 
     expired = state_mgr.get_expired_alerts(state, [_alert("new-id")])

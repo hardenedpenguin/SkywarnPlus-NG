@@ -5,8 +5,8 @@ from pathlib import Path
 
 from skywarnplus_ng.core.config import (
     AppConfig,
-    NotificationsConfig,
     NotificationEmailConfig,
+    NotificationsConfig,
     NotificationSmsConfig,
 )
 from skywarnplus_ng.notifications.factory import build_notification_manager

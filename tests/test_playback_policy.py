@@ -1,6 +1,6 @@
 """Tests for playback policy (quiet hours and announcement hold)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -17,7 +17,7 @@ from skywarnplus_ng.playback.policy import PlaybackPolicy
 
 
 def _alert(**overrides):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base = dict(
         id="urn:test:1",
         event="Tornado Warning",
@@ -62,7 +62,7 @@ def policy():
 
 def test_quiet_hours_blocks_minor_alerts(policy):
     alert = _alert(severity=AlertSeverity.MINOR)
-    now = datetime(2026, 5, 18, 3, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 18, 3, 0, tzinfo=UTC)
     allowed, reason = policy.should_announce_voice(alert, {}, now=now)
     assert allowed is False
     assert reason == "quiet_hours"
@@ -70,7 +70,7 @@ def test_quiet_hours_blocks_minor_alerts(policy):
 
 def test_quiet_hours_allows_severe_when_configured(policy):
     alert = _alert(severity=AlertSeverity.SEVERE)
-    now = datetime(2026, 5, 18, 3, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 18, 3, 0, tzinfo=UTC)
     allowed, reason = policy.should_announce_voice(alert, {}, now=now)
     assert allowed is True
     assert reason is None
@@ -78,7 +78,7 @@ def test_quiet_hours_allows_severe_when_configured(policy):
 
 def test_announcement_hold_blocks_repeat(policy):
     alert = _alert()
-    now = datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 18, 12, 0, tzinfo=UTC)
     state = {"announcement_cooldown": {}}
     policy.record_announcement(alert, state, now=now)
     allowed, reason = policy.should_announce_voice(alert, state, now=now + timedelta(minutes=10))
@@ -88,7 +88,7 @@ def test_announcement_hold_blocks_repeat(policy):
 
 def test_announcement_hold_expires(policy):
     alert = _alert()
-    now = datetime(2026, 5, 18, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 18, 12, 0, tzinfo=UTC)
     state = {"announcement_cooldown": {}}
     policy.record_announcement(alert, state, now=now)
     allowed, reason = policy.should_announce_voice(alert, state, now=now + timedelta(minutes=31))
@@ -97,7 +97,7 @@ def test_announcement_hold_expires(policy):
 
 
 def test_cyclone_respects_quiet_hours(policy):
-    now = datetime(2026, 5, 18, 3, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 18, 3, 0, tzinfo=UTC)
     allowed, reason = policy.should_announce_cyclone(now=now)
     assert allowed is False
     assert reason == "quiet_hours"

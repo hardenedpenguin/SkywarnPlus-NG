@@ -2,15 +2,15 @@
 Comprehensive API documentation generator for SkywarnPlus-NG.
 """
 
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Any
-from datetime import datetime, timezone
+from typing import Any
 
-from .openapi import OpenAPIGenerator
-from .interactive_docs import InteractiveDocsGenerator
 from .code_examples import CodeExampleGenerator
-from .sdk_generator import SDKGenerator
+from .interactive_docs import InteractiveDocsGenerator
+from .openapi import OpenAPIGenerator
 from .postman import PostmanCollectionGenerator
+from .sdk_generator import SDKGenerator
 
 
 class APIDocumentationGenerator:
@@ -136,7 +136,7 @@ class APIDocumentationGenerator:
         extensions = {"python": "py", "javascript": "js", "curl": "sh"}
         return extensions.get(language, "txt")
 
-    def _generate_examples_readme(self, all_examples: Dict[str, Any]) -> str:
+    def _generate_examples_readme(self, all_examples: dict[str, Any]) -> str:
         """Generate README for examples directory."""
         return f"""# SkywarnPlus-NG API Examples
 
@@ -176,7 +176,7 @@ This directory contains code examples for the SkywarnPlus-NG API in multiple pro
 
 ---
 
-**Generated on:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
+**Generated on:** {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}
 """
 
     def _generate_documentation_index(self, output_dir: Path) -> None:
@@ -310,7 +310,7 @@ curl {self.base_url}/api/alerts
 
 ---
 
-**Generated on:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}  
+**Generated on:** {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}  
 **API Version:** {self.version}  
 **Base URL:** {self.base_url}
 """
@@ -469,7 +469,7 @@ curl {self.base_url}/api/alerts
             
             <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="color: #6b7280; margin: 0;">
-                    Generated on {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")} | 
+                    Generated on {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")} | 
                     <a href="https://github.com/skywarnplus-ng/skywarnplus-ng" style="color: #3b82f6;">GitHub Repository</a>
                 </p>
             </div>

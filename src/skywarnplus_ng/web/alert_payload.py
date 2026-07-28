@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import copy
 import re
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from ..core.config import AppConfig
 
 
-def _county_name_to_code_map(config: AppConfig) -> Dict[str, str]:
-    mapping: Dict[str, str] = {}
+def _county_name_to_code_map(config: AppConfig) -> dict[str, str]:
+    mapping: dict[str, str] = {}
     for county in config.counties:
         if not county.enabled or not county.name:
             continue
@@ -29,10 +29,10 @@ def _county_name_to_code_map(config: AppConfig) -> Dict[str, str]:
     return mapping
 
 
-def _match_county_codes_from_area(area_desc: str, county_name_to_code: Dict[str, str]) -> List[str]:
+def _match_county_codes_from_area(area_desc: str, county_name_to_code: dict[str, str]) -> list[str]:
     if not area_desc:
         return []
-    matched_codes: List[str] = []
+    matched_codes: list[str] = []
     area_parts = [part.strip() for part in re.split(r"[;,]", area_desc)]
     for area_part in area_parts:
         normalized_area = (
@@ -58,10 +58,10 @@ def _match_county_codes_from_area(area_desc: str, county_name_to_code: Dict[str,
 
 
 def _filter_alert_for_monitored_counties(
-    alert_data: Dict[str, Any],
-    monitored_county_codes: Set[str],
+    alert_data: dict[str, Any],
+    monitored_county_codes: set[str],
     config: AppConfig,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Return a copy of alert_data scoped to monitored counties, or None to omit."""
     if not monitored_county_codes:
         return copy.deepcopy(alert_data)
@@ -89,7 +89,7 @@ def _filter_alert_for_monitored_counties(
             county.code: county.name for county in config.counties if county.enabled and county.name
         }
         area_parts = [part.strip() for part in re.split(r"[;,]", area_desc)]
-        filtered_parts: List[str] = []
+        filtered_parts: list[str] = []
 
         for part in area_parts:
             if not part:
@@ -127,7 +127,7 @@ def _filter_alert_for_monitored_counties(
     return filtered_alert
 
 
-def _enrich_alert_payload(alert_data: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
+def _enrich_alert_payload(alert_data: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
     alert_id = alert_data.get("id")
     payload = copy.deepcopy(alert_data)
     last_sayalert = state.get("last_sayalert") or []
@@ -138,9 +138,9 @@ def _enrich_alert_payload(alert_data: Dict[str, Any], state: Dict[str, Any]) -> 
 
 
 def build_active_alerts_payload(
-    state: Dict[str, Any],
-    config: Optional[AppConfig] = None,
-) -> List[Dict[str, Any]]:
+    state: dict[str, Any],
+    config: AppConfig | None = None,
+) -> list[dict[str, Any]]:
     """
     Build the active alert list for API and WebSocket clients.
 
@@ -149,9 +149,9 @@ def build_active_alerts_payload(
     """
     active_alert_ids = state.get("active_alerts", [])
     last_alerts = state.get("last_alerts", {})
-    alerts_data: List[Dict[str, Any]] = []
+    alerts_data: list[dict[str, Any]] = []
 
-    monitored_county_codes: Set[str] = set()
+    monitored_county_codes: set[str] = set()
     if config is not None:
         monitored_county_codes = {county.code for county in config.counties if county.enabled}
 
