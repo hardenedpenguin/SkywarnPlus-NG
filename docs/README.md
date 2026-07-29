@@ -18,5 +18,6 @@ Guides for optional features beyond the install steps in the main [README](../RE
 
 | Guide | What it covers |
 |-------|----------------|
+| [HTTP API](api.md) | Auth, `base_path`, curl examples, and full route catalog for integrations |
 | [County codes](../CountyCodes.md) | NWS county codes for **Configuration → Counties** |
 | [Nginx Proxy Manager](../nginx-proxy-manager-guide.md) | HTTPS reverse proxy and WebSocket timeouts |

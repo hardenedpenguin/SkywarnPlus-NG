@@ -160,6 +160,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 |-------|--------|
 | Debian / APT install, upgrade, migrate from tarball | **[docs/debian.md](docs/debian.md)** |
 | Push alerts, email, Discord, subscribers | **[docs/](docs/README.md)** |
+| Dashboard HTTP API (status, alerts, config, subscribers) | **[docs/api.md](docs/api.md)** |
 | Earthquakes, wildfires, NHC by position | **[docs/geo-hazards.md](docs/geo-hazards.md)** |
 | NWS county codes | [CountyCodes.md](CountyCodes.md) |
 | nginx / NPM reverse proxy | [nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md) |

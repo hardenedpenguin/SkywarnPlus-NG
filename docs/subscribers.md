@@ -64,6 +64,6 @@ These limits apply when the notification subsystem delivers to subscribers.
 
 ## API
 
-Subscribers can also be managed via the dashboard API (`/api/notifications/subscribers` and related routes) if you automate provisioning.
+Subscribers can also be managed via the dashboard API (`/api/notifications/subscribers` and related routes) if you automate provisioning — see [HTTP API](api.md).
 
 See also: [Notifications overview](notifications-overview.md)

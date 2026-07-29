@@ -78,7 +78,6 @@ skywarnplus_ng = [
     "web/templates/**/*.html",
     "web/static/*",
     "web/static/**/*",
-    "api_docs/templates/*",
     "data/*.json",
 ]
 
