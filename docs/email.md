@@ -61,12 +61,15 @@ Subscriber records live in `/var/lib/skywarnplus-ng/data/subscribers.json`.
 
 ## Current alert delivery behavior
 
-**Important:** SMTP settings and **Test Email Connection** work today. Subscriber email on **live NWS alerts** is implemented in `NotificationManager` but that manager is **not yet hooked into** the main alert processing loop.
+When SMTP is configured and subscribers have **Email** enabled, new NWS alerts and all-clear events are sent through `NotificationManager` in the main alert loop (same path as Discord webhooks and SMS).
 
-Automatic email on new alerts is planned; until then:
+Also available without subscribers:
 
-- Use **PushOver** or **Discord** for automatic mobile/channel alerts — see [PushOver](pushover.md) and [Discord webhooks](discord-webhooks.md).
-- Use **AlertScripts** to call `mail`, `sendmail`, or a custom script when specific events fire — see **Configuration → Scripts** and examples in `config/default.yaml`.
+- **PushOver** (global) — see [PushOver](pushover.md)
+- **Global webhooks** under Notifications
+- **AlertScripts** for custom `mail`/`sendmail` hooks — see **Configuration → Scripts** and `config/default.yaml`
+
+**Note:** Firebase FCM (server-key / legacy HTTP) is **not** active; Google retired that API. Prefer PushOver, email, SMS, or webhooks until FCM HTTP v1 is implemented.
 
 ## Troubleshooting SMTP test
 
@@ -74,6 +77,6 @@ Automatic email on new alerts is planned; until then:
 |---------|-----|
 | Authentication failed (Gmail) | Enable 2FA and create an app password; “Less secure apps” is no longer supported |
 | Connection timeout | Outbound port 587 blocked on firewall; try provider’s SSL port with `use_ssl: true` |
-| Test passes, no alert emails | Expected until subscriber email is wired to the alert loop — use Discord/PushOver or scripts |
+| Test passes, no alert emails | Confirm a subscriber exists with **Email** enabled and filters that match the alert; check `journalctl -u skywarnplus-ng` for `Alert notifications sent` |
 
 See also: [Subscribers](subscribers.md) · [Notifications overview](notifications-overview.md)

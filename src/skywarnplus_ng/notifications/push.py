@@ -1,9 +1,13 @@
 """
 Push notification system for SkywarnPlus-NG.
-Uses Firebase Cloud Messaging (FCM) free tier.
+
+FCM legacy HTTP (server key → fcm/send) was retired by Google. Config fields remain
+for forward-compatible UI storage; delivery is disabled until HTTP v1 lands.
+Web Push remains unimplemented.
 """
 
-import asyncio
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -16,12 +20,17 @@ from ..core.models import WeatherAlert
 
 logger = logging.getLogger(__name__)
 
+LEGACY_FCM_RETIRED_MSG = (
+    "FCM legacy HTTP API (server key / fcm/send) was retired by Google. "
+    "SkywarnPlus-NG does not yet support FCM HTTP v1; use PushOver, email, SMS, or webhooks."
+)
+
 
 class PushProvider(Enum):
     """Supported push notification providers."""
 
-    FCM = "fcm"  # Firebase Cloud Messaging (free)
-    WEB_PUSH = "web_push"  # Web Push Protocol (free)
+    FCM = "fcm"
+    WEB_PUSH = "web_push"
 
 
 @dataclass
@@ -34,7 +43,7 @@ class PushConfig:
     retry_count: int = 3
     retry_delay_seconds: int = 5
 
-    # FCM-specific settings
+    # Legacy FCM fields (no longer usable for send)
     fcm_server_key: str | None = None
     fcm_project_id: str | None = None
 
@@ -45,7 +54,7 @@ class PushConfig:
 
 
 class PushNotifier:
-    """Push notification system using free services."""
+    """Push notification system (FCM legacy disabled; Web Push not implemented)."""
 
     def __init__(self, config: PushConfig):
         self.config = config
@@ -71,27 +80,15 @@ class PushNotifier:
         custom_title: str | None = None,
         custom_body: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Send weather alert push notification.
-
-        Args:
-            alert: Weather alert to send
-            device_tokens: List of device tokens/registration IDs
-            custom_title: Custom notification title (optional)
-            custom_body: Custom notification body (optional)
-
-        Returns:
-            Delivery result
-        """
+        """Send weather alert push notification."""
         try:
             if self.config.provider == PushProvider.FCM:
                 return await self._send_fcm_alert(alert, device_tokens, custom_title, custom_body)
-            elif self.config.provider == PushProvider.WEB_PUSH:
+            if self.config.provider == PushProvider.WEB_PUSH:
                 return await self._send_web_push_alert(
                     alert, device_tokens, custom_title, custom_body
                 )
-            else:
-                raise ValueError(f"Unsupported push provider: {self.config.provider}")
+            raise ValueError(f"Unsupported push provider: {self.config.provider}")
 
         except Exception as e:
             self.logger.error(f"Failed to send push notification: {e}")
@@ -106,25 +103,13 @@ class PushNotifier:
     async def send_notification_push(
         self, title: str, body: str, device_tokens: list[str], data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """
-        Send general push notification.
-
-        Args:
-            title: Notification title
-            body: Notification body
-            device_tokens: List of device tokens/registration IDs
-            data: Additional data payload (optional)
-
-        Returns:
-            Delivery result
-        """
+        """Send general push notification."""
         try:
             if self.config.provider == PushProvider.FCM:
                 return await self._send_fcm_notification(title, body, device_tokens, data)
-            elif self.config.provider == PushProvider.WEB_PUSH:
+            if self.config.provider == PushProvider.WEB_PUSH:
                 return await self._send_web_push_notification(title, body, device_tokens, data)
-            else:
-                raise ValueError(f"Unsupported push provider: {self.config.provider}")
+            raise ValueError(f"Unsupported push provider: {self.config.provider}")
 
         except Exception as e:
             self.logger.error(f"Failed to send push notification: {e}")
@@ -142,168 +127,16 @@ class PushNotifier:
         custom_title: str | None = None,
         custom_body: str | None = None,
     ) -> dict[str, Any]:
-        """Send FCM alert notification."""
-        if not self.config.fcm_server_key:
-            raise ValueError("FCM server key not configured")
-
-        if not self.session:
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=self.config.timeout_seconds)
-            )
-
-        # Create FCM payload
-        title = custom_title or f"Weather Alert: {alert.event}"
-        body = custom_body or f"{alert.area_desc} - {alert.severity.value} severity"
-
-        # Determine notification icon and color based on severity
-        icon_map = {"Minor": "⚠️", "Moderate": "⚠️", "Severe": "🚨", "Extreme": "🚨"}
-        color_map = {
-            "Minor": "#ffc107",
-            "Moderate": "#fd7e14",
-            "Severe": "#dc3545",
-            "Extreme": "#6f42c1",
-        }
-
-        icon = icon_map.get(alert.severity.value, "⚠️")
-        color = color_map.get(alert.severity.value, "#dc3545")
-
-        payload = {
-            "registration_ids": device_tokens,
-            "notification": {
-                "title": f"{icon} {title}",
-                "body": body,
-                "icon": "ic_weather_alert",
-                "color": color,
-                "sound": "default",
-                "click_action": "WEATHER_ALERT_ACTIVITY",
-            },
-            "data": {
-                "alert_id": alert.id,
-                "event": alert.event,
-                "area": alert.area_desc,
-                "severity": alert.severity.value,
-                "urgency": alert.urgency.value,
-                "certainty": alert.certainty.value,
-                "effective": alert.effective.isoformat() if alert.effective else None,
-                "expires": alert.expires.isoformat() if alert.expires else None,
-                "description": alert.description or "",
-                "instruction": alert.instruction or "",
-                "type": "weather_alert",
-            },
-            "priority": "high",
-            "time_to_live": 3600,  # 1 hour
-        }
-
-        # Send to FCM
-        headers = {
-            "Authorization": f"key={self.config.fcm_server_key}",
-            "Content-Type": "application/json",
-        }
-
-        url = "https://fcm.googleapis.com/fcm/send"
-
-        last_error = None
-        for attempt in range(self.config.retry_count + 1):
-            try:
-                async with self.session.post(url, json=payload, headers=headers) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        self.logger.debug(
-                            f"FCM notification sent successfully (attempt {attempt + 1})"
-                        )
-                        return {
-                            "success": True,
-                            "sent_count": result.get("success", 0),
-                            "failed_count": result.get("failure", 0),
-                            "attempt": attempt + 1,
-                            "fcm_response": result,
-                        }
-                    else:
-                        error_text = await response.text()
-                        last_error = f"HTTP {response.status}: {error_text}"
-                        self.logger.warning(
-                            f"FCM request failed with status {response.status} (attempt {attempt + 1})"
-                        )
-
-            except Exception as e:
-                last_error = str(e)
-                self.logger.warning(f"FCM attempt {attempt + 1} failed: {e}")
-
-            # Wait before retry (except on last attempt)
-            if attempt < self.config.retry_count:
-                await asyncio.sleep(self.config.retry_delay_seconds)
-
-        # All attempts failed
-        raise Exception(
-            f"FCM notification failed after {self.config.retry_count + 1} attempts. Last error: {last_error}"
-        )
+        """FCM alert send — legacy API retired."""
+        del alert, device_tokens, custom_title, custom_body
+        raise RuntimeError(LEGACY_FCM_RETIRED_MSG)
 
     async def _send_fcm_notification(
         self, title: str, body: str, device_tokens: list[str], data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Send FCM general notification."""
-        if not self.config.fcm_server_key:
-            raise ValueError("FCM server key not configured")
-
-        if not self.session:
-            self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=self.config.timeout_seconds)
-            )
-
-        payload = {
-            "registration_ids": device_tokens,
-            "notification": {
-                "title": title,
-                "body": body,
-                "icon": "ic_notification",
-                "sound": "default",
-            },
-            "data": data or {},
-            "priority": "normal",
-        }
-
-        headers = {
-            "Authorization": f"key={self.config.fcm_server_key}",
-            "Content-Type": "application/json",
-        }
-
-        url = "https://fcm.googleapis.com/fcm/send"
-
-        last_error = None
-        for attempt in range(self.config.retry_count + 1):
-            try:
-                async with self.session.post(url, json=payload, headers=headers) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        self.logger.debug(
-                            f"FCM notification sent successfully (attempt {attempt + 1})"
-                        )
-                        return {
-                            "success": True,
-                            "sent_count": result.get("success", 0),
-                            "failed_count": result.get("failure", 0),
-                            "attempt": attempt + 1,
-                            "fcm_response": result,
-                        }
-                    else:
-                        error_text = await response.text()
-                        last_error = f"HTTP {response.status}: {error_text}"
-                        self.logger.warning(
-                            f"FCM request failed with status {response.status} (attempt {attempt + 1})"
-                        )
-
-            except Exception as e:
-                last_error = str(e)
-                self.logger.warning(f"FCM attempt {attempt + 1} failed: {e}")
-
-            # Wait before retry (except on last attempt)
-            if attempt < self.config.retry_count:
-                await asyncio.sleep(self.config.retry_delay_seconds)
-
-        # All attempts failed
-        raise Exception(
-            f"FCM notification failed after {self.config.retry_count + 1} attempts. Last error: {last_error}"
-        )
+        """FCM notification send — legacy API retired."""
+        del title, body, device_tokens, data
+        raise RuntimeError(LEGACY_FCM_RETIRED_MSG)
 
     async def _send_web_push_alert(
         self,
@@ -313,8 +146,7 @@ class PushNotifier:
         custom_body: str | None = None,
     ) -> dict[str, Any]:
         """Send Web Push alert notification."""
-        # Web Push implementation would go here
-        # This is a placeholder for future implementation
+        del device_tokens, custom_title, custom_body
         self.logger.warning("Web Push notifications not yet implemented")
         return {
             "success": False,
@@ -327,8 +159,7 @@ class PushNotifier:
         self, title: str, body: str, device_tokens: list[str], data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Send Web Push general notification."""
-        # Web Push implementation would go here
-        # This is a placeholder for future implementation
+        del title, body, device_tokens, data
         self.logger.warning("Web Push notifications not yet implemented")
         return {
             "success": False,
@@ -351,11 +182,10 @@ class PushNotifier:
                     f"Push notification test successful for {self.config.provider.value}"
                 )
                 return True
-            else:
-                self.logger.error(
-                    f"Push notification test failed: {result.get('error', 'Unknown error')}"
-                )
-                return False
+            self.logger.error(
+                f"Push notification test failed: {result.get('error', 'Unknown error')}"
+            )
+            return False
 
         except Exception as e:
             self.logger.error(
@@ -367,7 +197,7 @@ class PushNotifier:
     def create_fcm_config(
         cls, fcm_server_key: str, fcm_project_id: str | None = None
     ) -> PushConfig:
-        """Create FCM push notification configuration."""
+        """Create FCM config object (delivery still disabled until HTTP v1)."""
         return PushConfig(
             provider=PushProvider.FCM, fcm_server_key=fcm_server_key, fcm_project_id=fcm_project_id
         )

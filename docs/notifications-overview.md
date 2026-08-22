@@ -11,10 +11,10 @@ When a **new** alert is processed (or all-clear is issued), these channels are w
 | **PushOver** | **Configuration → Monitoring → PushOver** | Every new alert for all monitored counties | Yes |
 | **Email (SMTP)** | **Configuration → Notifications → Email** + **Subscribers** | Per subscriber (filters apply) | Yes (subscribers) |
 | **Discord / Slack / Teams / generic webhook** | **Subscribers** (per-recipient URL) or **Notifications → Webhooks** (global URLs) | Per subscriber or global broadcast | Yes |
-| **FCM push** | **Configuration → Notifications → Push** + subscriber device tokens | Per subscriber | Yes (subscribers) |
+| **FCM push** | **Not active** — Google retired legacy FCM HTTP; HTTP v1 not implemented yet. Use PushOver / email / SMS / webhooks. | — | — |
 | **SMS (Twilio)** | **Configuration → Notifications → SMS** + subscriber phone | Per subscriber | Optional (off by default) |
 
-PushOver remains a separate global destination (one user key). Email, webhooks, FCM, and SMS use the shared **NotificationManager**, which also runs the delivery queue for batch/retry delivery.
+PushOver remains a separate global destination (one user key). Email, webhooks, and SMS use the shared **NotificationManager**, which also runs the delivery queue for batch/retry delivery.
 
 ## Dashboard sections
 
@@ -32,7 +32,7 @@ Subscriber data is stored at:
 /var/lib/skywarnplus-ng/data/subscribers.json
 ```
 
-Delivery queue and templates live alongside it under `data_dir`. Secrets (SMTP password, FCM key) are stored in `/etc/skywarnplus-ng/config.yaml` and redacted in the dashboard API.
+Delivery queue and templates live alongside it under `data_dir`. Secrets (SMTP password, Twilio auth token) are stored in `/etc/skywarnplus-ng/config.yaml` and redacted in the dashboard API.
 
 ## Delivery queue and batch mode
 

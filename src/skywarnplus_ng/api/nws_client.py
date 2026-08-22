@@ -107,11 +107,23 @@ class NWSClient:
         self.client = httpx.AsyncClient(
             base_url=config.base_url,
             timeout=config.timeout,
-            headers={"User-Agent": config.user_agent},
+            headers=self._request_headers(config.user_agent),
             follow_redirects=True,
         )
         self._point_county_cache: dict[tuple[float, float], tuple[str, str]] = {}
         self._point_forecast_zone_cache: dict[tuple[float, float], tuple[str, str]] = {}
+
+    @staticmethod
+    def _request_headers(user_agent: str) -> dict[str, str]:
+        """Headers expected by api.weather.gov (identifying UA + GeoJSON Accept)."""
+        return {
+            "User-Agent": user_agent,
+            "Accept": "application/geo+json",
+        }
+
+    def sync_http_client_headers(self) -> None:
+        """Apply current config User-Agent (and Accept) to the live httpx client."""
+        self.client.headers.update(self._request_headers(self.config.user_agent))
 
     async def close(self) -> None:
         """Close the HTTP client."""

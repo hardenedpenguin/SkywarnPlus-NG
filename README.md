@@ -63,7 +63,7 @@ Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatica
 4. Pick **asl-tts** (local ASL3 Piper, default) or **gTTS** under **Audio / TTS**.
 5. Save — the service reloads config from the UI.
 
-Optional **geo hazards** (position-based voice alerts, separate from NWS county codes) are under **Configuration** — see [Geo hazards](#geo-hazards-dashboard) below. All three default to **off** until you enable them.
+Optional **geo hazards** (position-based voice alerts, separate from NWS county codes) are under **Configuration** — see [Geo hazards](#geo-hazards-dashboard) below. All geo-hazard types default to **off** until you enable them.
 
 The dashboard shows the **running version** so you can confirm what's live.
 

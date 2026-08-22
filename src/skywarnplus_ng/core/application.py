@@ -349,7 +349,7 @@ class SkywarnPlusApplication:
             logger.warning("Alert processing pipeline will be disabled")
             self.alert_pipeline = None
 
-        # Initialize notification manager (email, webhooks, FCM, subscribers)
+        # Initialize notification manager (email, webhooks, SMS, subscribers; FCM legacy disabled)
         self.notification_manager = build_notification_manager(self.config)
         if self.notification_manager:
             logger.info("Notification manager initialized")
@@ -2359,6 +2359,7 @@ class SkywarnPlusApplication:
 
         if self.nws_client:
             self.nws_client.config = config.nws
+            self.nws_client.sync_http_client_headers()
         if self.mobile_county_service:
             self.mobile_county_service.config = config
         if self.playback_policy:

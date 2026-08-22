@@ -10,7 +10,7 @@ from ..core.config import AppConfig
 from .delivery import RetryPolicy
 from .email import EmailConfig, EmailProvider
 from .manager import NotificationConfig, NotificationManager
-from .push import PushConfig, PushProvider
+from .push import LEGACY_FCM_RETIRED_MSG, PushConfig
 from .sms import SmsConfig
 from .webhook import WebhookConfig, webhook_provider_for_url
 
@@ -73,16 +73,8 @@ def build_notification_manager(config: AppConfig) -> NotificationManager | None:
 
     push_configs: list[PushConfig] = []
     if _non_empty(push_cfg.fcm_server_key):
-        push_configs.append(
-            PushConfig(
-                provider=PushProvider.FCM,
-                fcm_server_key=push_cfg.fcm_server_key,
-                fcm_project_id=push_cfg.fcm_project_id,
-                timeout_seconds=delivery_cfg.timeout_seconds,
-                retry_count=delivery_cfg.max_retries,
-                retry_delay_seconds=delivery_cfg.retry_delay,
-            )
-        )
+        # Do not register a notifier: legacy FCM HTTP is retired and would only fail.
+        logger.warning("%s", LEGACY_FCM_RETIRED_MSG)
 
     sms_configs: list[SmsConfig] = []
     if (

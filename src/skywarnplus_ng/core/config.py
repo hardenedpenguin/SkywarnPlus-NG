@@ -42,7 +42,12 @@ class NWSApiConfig(BaseModel):
 
     base_url: str = Field("https://api.weather.gov", description="NWS API base URL")
     timeout: int = Field(30, description="Request timeout in seconds")
-    user_agent: str = Field("SkywarnPlus-NG", description="User agent for API requests")
+    user_agent: str = Field(
+        "SkywarnPlus-NG/1.6.4 (+https://github.com/hardenedpenguin/SkywarnPlus-NG)",
+        description=(
+            "User-Agent for api.weather.gov (must identify the app and a contact URL or email)"
+        ),
+    )
 
 
 class CountyConfig(BaseModel):
@@ -763,7 +768,13 @@ class HttpServerConfig(BaseModel):
     enabled: bool = Field(True, description="Enable HTTP server")
     host: str = Field("0.0.0.0", description="Server host")
     port: int = Field(8100, description="Server port")
-    base_path: str = Field("", description="Base path for reverse proxy (e.g., '/skywarnplus-ng')")
+    base_path: str = Field(
+        "",
+        description=(
+            "URL prefix when behind a reverse proxy (packaged default in config/default.yaml "
+            "is '/skywarnplus-ng'). Leave empty only when exposing the app port directly."
+        ),
+    )
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
 
@@ -879,7 +890,13 @@ class NotificationWebhookConfig(BaseModel):
 class NotificationPushConfig(BaseModel):
     """FCM push notification settings."""
 
-    fcm_server_key: str | None = Field(None, description="Firebase Cloud Messaging server key")
+    fcm_server_key: str | None = Field(
+        None,
+        description=(
+            "Legacy FCM server key (unsupported: Google retired the legacy HTTP API; "
+            "HTTP v1 migration pending)"
+        ),
+    )
     fcm_project_id: str | None = Field(None, description="Firebase project ID")
 
     @field_validator("fcm_server_key", "fcm_project_id", mode="before")

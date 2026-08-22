@@ -92,6 +92,22 @@ def test_build_notification_manager_returns_none_when_unconfigured(tmp_path: Pat
     assert build_notification_manager(config) is None
 
 
+def test_build_notification_manager_skips_legacy_fcm_only(tmp_path: Path, caplog) -> None:
+    """Legacy FCM server keys must not register a push notifier or enable the manager alone."""
+    from skywarnplus_ng.core.config import NotificationPushConfig
+
+    config = AppConfig(
+        data_dir=tmp_path,
+        notifications=NotificationsConfig(
+            push=NotificationPushConfig(fcm_server_key="AAAA-legacy-key", fcm_project_id="proj")
+        ),
+    )
+    with caplog.at_level("WARNING"):
+        manager = build_notification_manager(config)
+    assert manager is None
+    assert any("FCM legacy" in r.message or "retired" in r.message.lower() for r in caplog.records)
+
+
 def test_notifications_config_accepts_empty_dashboard_strings() -> None:
     config = AppConfig(
         notifications={

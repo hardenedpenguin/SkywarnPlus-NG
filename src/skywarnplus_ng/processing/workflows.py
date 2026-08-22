@@ -469,47 +469,54 @@ class WorkflowEngine:
     async def _execute_notification_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
-        """Execute notification action."""
-        # This would integrate with notification systems
-        self.logger.info(f"Notification action: {action.name}")
-        # Placeholder implementation
+        """Execute notification action.
+
+        Stub: real email/SMS/webhook/PushOver delivery runs via NotificationManager
+        in the alert loop (``_send_alert_notifications``), not this workflow engine.
+        """
+        del alert, execution
+        self.logger.warning(
+            "Workflow notification action %r is not implemented; "
+            "use NotificationManager / PushOver / AlertScripts for delivery",
+            action.name,
+        )
 
     async def _execute_script_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
-        """Execute script action."""
-        # This would integrate with the script execution system
-        self.logger.info(f"Script action: {action.name}")
-        # Placeholder implementation
+        """Execute script action (stub — AlertScripts run outside this engine)."""
+        del alert, execution
+        self.logger.warning(
+            "Workflow script action %r is not implemented; use Scripts / AlertScript config",
+            action.name,
+        )
 
     async def _execute_database_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
-        """Execute database action."""
-        # This would integrate with the database system
-        self.logger.info(f"Database action: {action.name}")
-        # Placeholder implementation
+        """Execute database action (stub)."""
+        del alert, execution
+        self.logger.warning("Workflow database action %r is not implemented", action.name)
 
     async def _execute_api_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
-        """Execute API call action."""
-        # This would make HTTP API calls
-        self.logger.info(f"API action: {action.name}")
-        # Placeholder implementation
+        """Execute API call action (stub)."""
+        del alert, execution
+        self.logger.warning("Workflow API action %r is not implemented", action.name)
 
     async def _execute_conditional_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
-        """Execute conditional action."""
-        # This would evaluate conditions and execute sub-actions
-        self.logger.info(f"Conditional action: {action.name}")
-        # Placeholder implementation
+        """Execute conditional action (stub)."""
+        del alert, execution
+        self.logger.warning("Workflow conditional action %r is not implemented", action.name)
 
     async def _execute_delay_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
         """Execute delay action."""
+        del alert, execution
         delay_seconds = action.parameters.get("delay_seconds", 0)
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
@@ -517,10 +524,9 @@ class WorkflowEngine:
     async def _execute_escalation_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
-        """Execute escalation action."""
-        # This would escalate the alert to higher priority workflows
-        self.logger.info(f"Escalation action: {action.name}")
-        # Placeholder implementation
+        """Execute escalation action (stub)."""
+        del alert, execution
+        self.logger.warning("Workflow escalation action %r is not implemented", action.name)
 
     def _evaluate_step_condition(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate a step condition."""

@@ -1,78 +1,55 @@
 # SkywarnPlus-NG Scripts
 
-This directory contains development and utility scripts for SkywarnPlus-NG.
+Development and utility scripts. Run from the project root unless noted.
 
-## Scripts
+## Packaging / Debian
 
-### `generate_asterisk_config.py`
-Generates Asterisk configuration files for DTMF integration.
+| Script | Purpose |
+|--------|---------|
+| `scripts/build_deb.sh` / `build_debs_all.sh` | Build `.deb` packages |
+| `scripts/debian/*` | Suite prep, venv staging, `base_path` migration, changelog sync |
 
-**Usage:**
+## Asterisk / DTMF
+
+### `generate_dtmf_conf.py`
+
+Generates Asterisk custom DTMF include files (used by the Debian postinst).
+
 ```bash
-# Generate rpt.conf functions for app_rpt
-python3 scripts/generate_asterisk_config.py --type rpt --output /etc/asterisk/custom/skywarnplus_functions.conf
-
-# Generate extensions.conf dialplan for standard Asterisk
-python3 scripts/generate_asterisk_config.py --type extensions --output /etc/asterisk/custom/skywarnplus_extensions.conf
-
-# Show generated config without writing to file
-python3 scripts/generate_asterisk_config.py --type rpt --show
+python3 scripts/generate_dtmf_conf.py --help
 ```
 
 ### `test_asterisk_integration.py`
-Tests various aspects of the Asterisk integration including DTMF commands and configuration.
 
-**Usage:**
+Checks config, sound files, and DTMF-related wiring.
+
 ```bash
 python3 scripts/test_asterisk_integration.py
 ```
 
-**Tests:**
-- Configuration validation
-- Sound file availability
-- DTMF command processing
+Service restarts use systemd: `sudo systemctl restart skywarnplus-ng`.
 
-**Note:** Service management is handled via systemd. Use `sudo systemctl restart skywarnplus-ng` to restart the service.
+## Notifications
 
 ### `test_pushover.py`
-Tests PushOver notification functionality.
 
-**Usage:**
 ```bash
 python3 scripts/test_pushover.py <API_TOKEN> <USER_KEY>
 ```
 
-**What it tests:**
-- Simple notification delivery
-- Weather alert notification with proper formatting
-- Priority and sound selection based on alert severity
+Create an application at https://pushover.net/apps/build. You can also configure PushOver in the dashboard under **Monitoring → PushOver**.
 
-**To get your credentials:**
-1. Create a PushOver application at: https://pushover.net/apps/build
-2. Get your user key from: https://pushover.net/
-3. Use the API token from your application in the test script
+## Other
 
-**Note:** You can also configure PushOver through the web dashboard at `/configuration` under the Monitoring tab.
-
-## Requirements
-
-These scripts require the SkywarnPlus-NG source code to be available in the parent directory. They are designed to be run from the project root directory.
-
-## Integration with Asterisk
-
-### For app_rpt (Repeater Nodes)
-1. Generate functions: `python3 scripts/generate_asterisk_config.py --type rpt --output /etc/asterisk/custom/skywarnplus_functions.conf`
-2. Include in rpt.conf: `#include /etc/asterisk/custom/skywarnplus_functions.conf`
-3. Test with DTMF codes on your repeater
-
-### For Standard Asterisk (PBX/Phone Systems)
-1. Generate dialplan: `python3 scripts/generate_asterisk_config.py --type extensions --output /etc/asterisk/custom/skywarnplus_extensions.conf`
-2. Include in extensions.conf: `#include custom/skywarnplus_extensions.conf`
-3. Add to context: `include => skywarnplus-ng`
-4. Test with DTMF codes from connected phones/devices
+| Script | Purpose |
+|--------|---------|
+| `parse_county_codes.py` | County code list helpers |
+| `set_config_asl_tts.py` | Point TTS at asl-tts / Piper |
+| `test_asl_tts.py` | TTS smoke test |
+| `custom_alertscript.py` | Example AlertScript |
+| `install-tts-voice.sh` | Privileged Piper voice install helper |
 
 ## Notes
 
-- All scripts are designed to work with the default configuration in `config/default.yaml`
-- Scripts can be customized by modifying the configuration file
-- Ensure `skywarnplus-ng` command is in PATH for the asterisk user
+- Prefer configuration via the web dashboard and `/etc/skywarnplus-ng/config.yaml` on packaged installs.
+- Ensure `skywarnplus-ng` is on `PATH` for the `asterisk` user when testing DTMF from the node.
