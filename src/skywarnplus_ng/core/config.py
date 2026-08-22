@@ -43,7 +43,7 @@ class NWSApiConfig(BaseModel):
     base_url: str = Field("https://api.weather.gov", description="NWS API base URL")
     timeout: int = Field(30, description="Request timeout in seconds")
     user_agent: str = Field(
-        "SkywarnPlus-NG/1.6.4 (+https://github.com/hardenedpenguin/SkywarnPlus-NG)",
+        "SkywarnPlus-NG/1.6.5 (+https://github.com/hardenedpenguin/SkywarnPlus-NG)",
         description=(
             "User-Agent for api.weather.gov (must identify the app and a contact URL or email)"
         ),

@@ -1,3 +1,23 @@
+skywarnplus-ng (1.6.5-1) unstable; urgency=medium
+
+  * NWS API client: send Accept: application/geo+json and a contact-bearing
+    User-Agent by default; refresh client headers on config reload.
+  * Notifications: stop using Google's retired legacy FCM HTTP API (server key
+    / fcm/send); warn and skip FCM registration; clarify UI and docs to use
+    PushOver, email, SMS, or webhooks until FCM HTTP v1 is available.
+  * Workflows: unimplemented action stubs raise NotImplementedError so failures
+    are recorded instead of false "completed" status.
+  * Remove unused MonitoringServer module; raise cryptography floor to >=42.
+  * Docs: add full dashboard HTTP API guide (docs/api.md); remove stale
+    api_docs generator; fix email delivery claims; correct geo-hazard count
+    and debian package filename examples; sync scripts/README.
+  * Docs: update APT keyring install URL to hardenedpenguin-archive-keyring
+    v1.2 (fixes #14).
+  * CI/tooling: adopt Ruff 0.16 mechanical autofixes; align pre-commit ruff
+    pin with CI.
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Sat, 22 Aug 2026 13:34:48 -0500
+
 skywarnplus-ng (1.6.4-1) unstable; urgency=medium
 
   * NHC: poll all basins by default (Atlantic + East/Central Pacific); sanitize

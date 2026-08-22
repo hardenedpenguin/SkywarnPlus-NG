@@ -10,7 +10,7 @@ dashboard_setup_complete: false  # Set true automatically after first configurat
 nws:
   base_url: "https://api.weather.gov"
   timeout: 30
-  user_agent: "SkywarnPlus-NG/1.6.4 (+https://github.com/hardenedpenguin/SkywarnPlus-NG)"  # NWS requires identifying UA + contact
+  user_agent: "SkywarnPlus-NG/1.6.5 (+https://github.com/hardenedpenguin/SkywarnPlus-NG)"  # NWS requires identifying UA + contact
 
 # County configuration (add your counties here)
 counties:
