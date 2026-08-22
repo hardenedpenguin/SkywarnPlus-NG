@@ -475,10 +475,9 @@ class WorkflowEngine:
         in the alert loop (``_send_alert_notifications``), not this workflow engine.
         """
         del alert, execution
-        self.logger.warning(
-            "Workflow notification action %r is not implemented; "
-            "use NotificationManager / PushOver / AlertScripts for delivery",
-            action.name,
+        raise NotImplementedError(
+            f"Workflow notification action {action.name!r} is not implemented; "
+            "use NotificationManager / PushOver / AlertScripts for delivery"
         )
 
     async def _execute_script_action(
@@ -486,9 +485,9 @@ class WorkflowEngine:
     ) -> None:
         """Execute script action (stub — AlertScripts run outside this engine)."""
         del alert, execution
-        self.logger.warning(
-            "Workflow script action %r is not implemented; use Scripts / AlertScript config",
-            action.name,
+        raise NotImplementedError(
+            f"Workflow script action {action.name!r} is not implemented; "
+            "use Scripts / AlertScript config"
         )
 
     async def _execute_database_action(
@@ -496,21 +495,21 @@ class WorkflowEngine:
     ) -> None:
         """Execute database action (stub)."""
         del alert, execution
-        self.logger.warning("Workflow database action %r is not implemented", action.name)
+        raise NotImplementedError(f"Workflow database action {action.name!r} is not implemented")
 
     async def _execute_api_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
         """Execute API call action (stub)."""
         del alert, execution
-        self.logger.warning("Workflow API action %r is not implemented", action.name)
+        raise NotImplementedError(f"Workflow API action {action.name!r} is not implemented")
 
     async def _execute_conditional_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
     ) -> None:
         """Execute conditional action (stub)."""
         del alert, execution
-        self.logger.warning("Workflow conditional action %r is not implemented", action.name)
+        raise NotImplementedError(f"Workflow conditional action {action.name!r} is not implemented")
 
     async def _execute_delay_action(
         self, action: ResponseAction, alert: WeatherAlert, execution: WorkflowExecution
@@ -526,7 +525,7 @@ class WorkflowEngine:
     ) -> None:
         """Execute escalation action (stub)."""
         del alert, execution
-        self.logger.warning("Workflow escalation action %r is not implemented", action.name)
+        raise NotImplementedError(f"Workflow escalation action {action.name!r} is not implemented")
 
     def _evaluate_step_condition(self, alert: WeatherAlert, condition: dict[str, Any]) -> bool:
         """Evaluate a step condition."""
