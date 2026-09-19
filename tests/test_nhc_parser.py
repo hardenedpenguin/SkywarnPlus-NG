@@ -231,6 +231,27 @@ def test_select_new_advisories_within_range():
     assert tracked[0]["announced"] is False
 
 
+def test_select_new_advisories_excludes_out_of_range_from_tracked():
+    """Dashboard tracked list must only include storms within max_distance_miles."""
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        nhc=NhcConfig(
+            enabled=True,
+            max_distance_miles=50,
+            max_advisory_age_hours=48,
+            hurricanes_only=False,
+        ),
+    )
+    service = NhcCycloneService(config)
+    # New Orleans area; fixture ALPHA is near there (~hundreds of miles for tiny radius)
+    cyclones = parse_nhc_cyclone_xml(FIXTURE.read_text())
+    # Far from any Gulf storm: North Pole-ish won't match; use Tokyo
+    with frozen_nhc_time():
+        advisories = service.select_new_advisories(cyclones, {}, (35.68, 139.76))
+    assert advisories == []
+    assert service._tracked_storms == []
+
+
 def test_select_skips_already_announced():
     config = AppConfig(
         nws=NWSApiConfig(user_agent="test"),

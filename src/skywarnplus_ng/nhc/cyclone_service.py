@@ -305,6 +305,10 @@ class NhcCycloneService:
                 continue
             distance = haversine_miles(lat, lon, coords[0], coords[1])
             within_range = distance <= nhc.max_distance_miles
+            # Dashboard and voice both use max_distance_miles — skip far storms entirely.
+            if not within_range:
+                continue
+
             announced = self._already_announced(cyclone.advisory_key, state)
             current = is_cyclone_current(cyclone, nhc.max_advisory_age_hours)
             movement = normalize_cyclone_movement(cyclone.movement, cyclone.headline)
@@ -321,17 +325,15 @@ class NhcCycloneService:
                     "headline": cyclone.headline,
                     "datetime": cyclone.datetime_raw,
                     "center": cyclone.center,
-                    "within_range": within_range,
+                    "within_range": True,
                     "announced": announced,
                     "advisory_current": current,
                 }
             )
-            # Age / hurricane filters apply to voice only — keep dashboard complete.
+            # Age / hurricane filters apply to voice only — keep in-range storms on the dashboard.
             if not current:
                 continue
             if nhc.hurricanes_only and not is_hurricane(cyclone.type):
-                continue
-            if not within_range:
                 continue
             if announced:
                 continue

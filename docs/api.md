@@ -394,7 +394,7 @@ Activity types include `alert_processed`, `alert_announced`, `system_status`, `s
 ```json
 {
   "check_enabled": true,
-  "installed_version": "1.6.5",
+  "installed_version": "1.6.6",
   "update_available": false,
   "latest_version": null,
   "latest_tag": null,

@@ -266,13 +266,19 @@ class StatusApiMixin:
 
             status["alerts_by_node"] = alerts_by_node
 
-            if mobile_service:
+            if mobile_service and self.config.gpsd.enabled:
                 status["gps"] = mobile_service.get_status()
+            else:
+                status.pop("gps", None)
 
             # Ensure asterisk_nodes is JSON-serializable (int | NodeConfig -> int | dict)
-            status["asterisk_nodes"] = self._serialize_asterisk_nodes(
-                status.get("asterisk_nodes", [])
-            )
+            if self.config.asterisk.enabled:
+                status["asterisk_nodes"] = self._serialize_asterisk_nodes(
+                    status.get("asterisk_nodes", [])
+                )
+            else:
+                status["asterisk_nodes"] = []
+                # alerts_by_node may still be filled via ?nodes= for supermon-ng
 
             # Convert datetime/path in status to JSON-friendly types
             def _json_friendly(obj):

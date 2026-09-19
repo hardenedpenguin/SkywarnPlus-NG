@@ -134,6 +134,39 @@ async def test_get_health_status_skips_nhc_when_disabled():
     assert "nhc_api" not in names
 
 
+@pytest.mark.asyncio
+async def test_get_health_status_omits_disabled_optional_subsystems():
+    """Asterisk/scripts/database/geo hazards stay off the component list when disabled."""
+    from skywarnplus_ng.core.config import AsteriskConfig, DatabaseConfig, ScriptsConfig
+
+    config = AppConfig(
+        nws=NWSApiConfig(user_agent="test"),
+        nhc=NhcConfig(enabled=False),
+        asterisk=AsteriskConfig(enabled=False),
+        scripts=ScriptsConfig(enabled=False),
+        database=DatabaseConfig(enabled=False),
+    )
+    monitor = HealthMonitor(config, MagicMock())
+    monitor.nws_client = MagicMock()
+    monitor.nws_client.test_connection = AsyncMock(return_value=True)
+    monitor.audio_manager = MagicMock()
+    monitor.audio_manager.tts_engine = MagicMock()
+    monitor.audio_manager.tts_engine.is_available.return_value = True
+    monitor.asterisk_manager = MagicMock()
+    monitor.script_manager = MagicMock()
+    monitor.database_manager = MagicMock()
+
+    status = await monitor.get_health_status({})
+    names = {c.name for c in status.components}
+    assert "nws_api" in names
+    assert "audio_system" in names
+    assert "asterisk_system" not in names
+    assert "script_system" not in names
+    assert "database_system" not in names
+    assert "nhc_api" not in names
+    assert status.overall_status == ComponentStatus.HEALTHY
+
+
 def test_rollup_overall_status_ignores_unknown_components():
     statuses = [
         ComponentStatus.HEALTHY,
@@ -161,3 +194,7 @@ async def test_get_health_status_healthy_when_optional_components_unknown():
 
     status = await monitor.get_health_status({})
     assert status.overall_status == ComponentStatus.HEALTHY
+    # Managers missing for still-enabled defaults → UNKNOWN checks are omitted from the list
+    names = {c.name for c in status.components}
+    assert "unknown" not in names or all(c.status != ComponentStatus.UNKNOWN for c in status.components)
+    assert all(c.status != ComponentStatus.UNKNOWN for c in status.components)

@@ -372,7 +372,7 @@
             var feedLabel = nhc.feed_path === 'all' ? 'All basins' : nhc.feed_path;
             metaParts.push(escHtml(feedLabel));
         }
-        if (nhc.max_distance_miles) metaParts.push('Voice within ' + escHtml(nhc.max_distance_miles) + ' mi');
+        if (nhc.max_distance_miles) metaParts.push('Within ' + escHtml(nhc.max_distance_miles) + ' mi');
         if (nhc.last_poll_at) metaParts.push('Last poll ' + escHtml(formatRelativeTime(nhc.last_poll_at)));
         if (meta) meta.innerHTML = metaParts.join(' · ');
 
@@ -387,7 +387,7 @@
         });
 
         if (storms.length === 0) {
-            var emptyMsg = 'No active tropical cyclones in the NHC feed.';
+            var emptyMsg = 'No active tropical cyclones within ' + escHtml(nhc.max_distance_miles || '?') + ' mi of your position.';
             if (nhc.last_fetch_ok_at) {
                 emptyMsg += ' Feed checked ' + escHtml(formatRelativeTime(nhc.last_fetch_ok_at)) + '.';
             }
@@ -917,7 +917,11 @@
 
     function renderHealthComponents(components) {
         const container = document.getElementById('health-components');
-        if (!components || !Array.isArray(components) || components.length === 0) {
+        const visible = (components || []).filter(function (comp) {
+            var st = (comp && comp.status != null) ? String(comp.status).toLowerCase() : '';
+            return st && st !== 'unknown';
+        });
+        if (!visible.length) {
             container.innerHTML = `
                 <div class="text-center py-4">
                     <p class="text-sm text-gray-500 dark:text-gray-400">No health check data yet</p>
@@ -925,7 +929,7 @@
             return;
         }
 
-        const componentsHtml = components.map(comp => `
+        const componentsHtml = visible.map(comp => `
             <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                 <div class="flex items-center space-x-3 min-w-0">
                     <div class="status-indicator status-${comp.status.toLowerCase()} shrink-0"></div>

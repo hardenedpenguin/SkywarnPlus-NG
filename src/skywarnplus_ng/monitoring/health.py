@@ -632,17 +632,21 @@ class HealthMonitor:
             )
 
     async def get_health_status(self, state: dict[str, Any] | None = None) -> HealthStatus:
-        """Get comprehensive health status."""
+        """Get comprehensive health status for enabled components only."""
         start_time = datetime.now(UTC)
 
-        # Check all components concurrently
+        # Only check subsystems that are configured on — disabled features stay off
+        # the dashboard/health UI instead of appearing as UNKNOWN noise.
         check_coroutines = [
             self.check_nws_health(),
             self.check_audio_health(),
-            self.check_asterisk_health(),
-            self.check_scripts_health(),
-            self.check_database_health(),
         ]
+        if self.config.asterisk.enabled:
+            check_coroutines.append(self.check_asterisk_health())
+        if self.config.scripts.enabled:
+            check_coroutines.append(self.check_scripts_health())
+        if self.config.database.enabled:
+            check_coroutines.append(self.check_database_health())
         if self.config.nhc.enabled:
             check_coroutines.append(self.check_nhc_health(state))
         if self.config.earthquake.enabled:
@@ -661,7 +665,7 @@ class HealthMonitor:
             return_exceptions=True,
         )
 
-        # Process results
+        # Process results (skip UNKNOWN — e.g. manager missing for an enabled feature)
         components = []
         for check in health_checks:
             if isinstance(check, Exception):
@@ -673,7 +677,7 @@ class HealthMonitor:
                         last_check=start_time,
                     )
                 )
-            else:
+            elif check.status != ComponentStatus.UNKNOWN:
                 components.append(check)
 
         # Determine overall status (disabled/uninitialized components are UNKNOWN and ignored)

@@ -2509,22 +2509,29 @@ class SkywarnPlusApplication:
                     "last_all_clear": self.state.get("last_all_clear"),
                     "nws_last_error_at": self.state.get("nws_last_error_at"),
                     "nws_last_error_message": self.state.get("nws_last_error_message"),
-                    "nhc_last_error_at": self.state.get("nhc_last_error_at"),
-                    "nhc_last_error_message": self.state.get("nhc_last_error_message"),
-                    "usgs_last_error_at": self.state.get("usgs_last_error_at"),
-                    "usgs_last_error_message": self.state.get("usgs_last_error_message"),
-                    "wildfire_last_error_at": self.state.get("wildfire_last_error_at"),
-                    "wildfire_last_error_message": self.state.get("wildfire_last_error_message"),
-                    "tsunami_last_error_at": self.state.get("tsunami_last_error_at"),
-                    "tsunami_last_error_message": self.state.get("tsunami_last_error_message"),
-                    "spaceweather_last_error_at": self.state.get("spaceweather_last_error_at"),
-                    "spaceweather_last_error_message": self.state.get(
-                        "spaceweather_last_error_message"
-                    ),
-                    "volcano_last_error_at": self.state.get("volcano_last_error_at"),
-                    "volcano_last_error_message": self.state.get("volcano_last_error_message"),
                 }
             )
+            # Hazard error fields only when that monitor is enabled (dashboard warnings)
+            if self.config.nhc.enabled:
+                status["nhc_last_error_at"] = self.state.get("nhc_last_error_at")
+                status["nhc_last_error_message"] = self.state.get("nhc_last_error_message")
+            if self.config.earthquake.enabled:
+                status["usgs_last_error_at"] = self.state.get("usgs_last_error_at")
+                status["usgs_last_error_message"] = self.state.get("usgs_last_error_message")
+            if self.config.wildfire.enabled:
+                status["wildfire_last_error_at"] = self.state.get("wildfire_last_error_at")
+                status["wildfire_last_error_message"] = self.state.get("wildfire_last_error_message")
+            if self.config.tsunami.enabled:
+                status["tsunami_last_error_at"] = self.state.get("tsunami_last_error_at")
+                status["tsunami_last_error_message"] = self.state.get("tsunami_last_error_message")
+            if self.config.space_weather.enabled:
+                status["spaceweather_last_error_at"] = self.state.get("spaceweather_last_error_at")
+                status["spaceweather_last_error_message"] = self.state.get(
+                    "spaceweather_last_error_message"
+                )
+            if self.config.volcano.enabled:
+                status["volcano_last_error_at"] = self.state.get("volcano_last_error_at")
+                status["volcano_last_error_message"] = self.state.get("volcano_last_error_message")
         else:
             status.update(
                 {
@@ -2534,23 +2541,11 @@ class SkywarnPlusApplication:
                     "last_all_clear": None,
                     "nws_last_error_at": None,
                     "nws_last_error_message": None,
-                    "nhc_last_error_at": None,
-                    "nhc_last_error_message": None,
-                    "usgs_last_error_at": None,
-                    "usgs_last_error_message": None,
-                    "wildfire_last_error_at": None,
-                    "wildfire_last_error_message": None,
-                    "tsunami_last_error_at": None,
-                    "tsunami_last_error_message": None,
-                    "spaceweather_last_error_at": None,
-                    "spaceweather_last_error_message": None,
-                    "volcano_last_error_at": None,
-                    "volcano_last_error_message": None,
                 }
             )
 
-        # Add script manager status if available
-        if self.script_manager:
+        # Add script manager status if scripts are enabled
+        if self.config.scripts.enabled and self.script_manager:
             try:
                 status["script_status"] = self.script_manager.get_script_status()
             except Exception as e:
@@ -2590,12 +2585,13 @@ class SkywarnPlusApplication:
                 logger.error(f"Failed to get performance metrics: {e}")
                 status["performance_metrics"] = {}
 
-        if self.mobile_county_service:
+        # GPS block only when gpsd is enabled (position-controlled nodes / geo hazards)
+        if self.config.gpsd.enabled and self.mobile_county_service:
             try:
                 status["gps"] = self.mobile_county_service.get_status()
             except Exception as e:
                 logger.error(f"Failed to get GPS status: {e}")
-                status["gps"] = {"enabled": self.config.gpsd.enabled, "active": False}
+                status["gps"] = {"enabled": True, "active": False}
 
         if self.playback_policy and initialized:
             try:
@@ -2604,58 +2600,59 @@ class SkywarnPlusApplication:
                 logger.error(f"Failed to get playback status: {e}")
                 status["playback"] = {}
 
-        if self.nhc_service and initialized:
+        # Geo-hazard dashboard blocks only when that monitor is enabled
+        if self.config.nhc.enabled and self.nhc_service and initialized:
             try:
                 nhc_status = self.nhc_service.get_status(self.state)
-                nhc_status["enabled"] = self.config.nhc.enabled
+                nhc_status["enabled"] = True
                 status["nhc"] = nhc_status
             except Exception as e:
                 logger.error(f"Failed to get NHC status: {e}")
-                status["nhc"] = {"enabled": self.config.nhc.enabled}
+                status["nhc"] = {"enabled": True}
 
-        if self.earthquake_service and initialized:
+        if self.config.earthquake.enabled and self.earthquake_service and initialized:
             try:
                 eq_status = self.earthquake_service.get_status(self.state)
-                eq_status["enabled"] = self.config.earthquake.enabled
+                eq_status["enabled"] = True
                 status["earthquake"] = eq_status
             except Exception as e:
                 logger.error(f"Failed to get earthquake status: {e}")
-                status["earthquake"] = {"enabled": self.config.earthquake.enabled}
+                status["earthquake"] = {"enabled": True}
 
-        if self.wildfire_service and initialized:
+        if self.config.wildfire.enabled and self.wildfire_service and initialized:
             try:
                 wf_status = self.wildfire_service.get_status(self.state)
-                wf_status["enabled"] = self.config.wildfire.enabled
+                wf_status["enabled"] = True
                 status["wildfire"] = wf_status
             except Exception as e:
                 logger.error(f"Failed to get wildfire status: {e}")
-                status["wildfire"] = {"enabled": self.config.wildfire.enabled}
+                status["wildfire"] = {"enabled": True}
 
-        if self.tsunami_service and initialized:
+        if self.config.tsunami.enabled and self.tsunami_service and initialized:
             try:
                 ts_status = self.tsunami_service.get_status(self.state)
-                ts_status["enabled"] = self.config.tsunami.enabled
+                ts_status["enabled"] = True
                 status["tsunami"] = ts_status
             except Exception as e:
                 logger.error(f"Failed to get tsunami status: {e}")
-                status["tsunami"] = {"enabled": self.config.tsunami.enabled}
+                status["tsunami"] = {"enabled": True}
 
-        if self.space_weather_service and initialized:
+        if self.config.space_weather.enabled and self.space_weather_service and initialized:
             try:
                 sw_status = self.space_weather_service.get_status(self.state)
-                sw_status["enabled"] = self.config.space_weather.enabled
+                sw_status["enabled"] = True
                 status["space_weather"] = sw_status
             except Exception as e:
                 logger.error(f"Failed to get space weather status: {e}")
-                status["space_weather"] = {"enabled": self.config.space_weather.enabled}
+                status["space_weather"] = {"enabled": True}
 
-        if self.volcano_service and initialized:
+        if self.config.volcano.enabled and self.volcano_service and initialized:
             try:
                 vo_status = self.volcano_service.get_status(self.state)
-                vo_status["enabled"] = self.config.volcano.enabled
+                vo_status["enabled"] = True
                 status["volcano"] = vo_status
             except Exception as e:
                 logger.error(f"Failed to get volcano status: {e}")
-                status["volcano"] = {"enabled": self.config.volcano.enabled}
+                status["volcano"] = {"enabled": True}
 
         return status

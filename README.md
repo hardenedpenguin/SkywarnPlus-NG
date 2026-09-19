@@ -18,7 +18,7 @@ Weather alerts for Asterisk / app_rpt nodes — voice announcements, DTMF SkyDes
 
 Modern rewrite of [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) by Mason Nelson (N5LSN/WRKF394). Release notes: [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases).
 
-**Current release:** [v1.6.5](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.5)
+**Current release:** [v1.6.6](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases/tag/v1.6.6)
 
 > **Install and upgrades:** SkywarnPlus-NG installs as a **Debian `.deb` package**. Use the [hardenedpenguin APT repository](https://hardenedpenguin.github.io/hardenedpenguin-apt/) (`apt install skywarnplus-ng`) or install a `.deb` from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). See **[docs/debian.md](docs/debian.md)**. Sites still running the old release-tarball installer should [migrate to apt](docs/debian.md#migrating-from-a-tarball-install-to-apt).
 

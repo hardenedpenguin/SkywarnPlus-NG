@@ -190,8 +190,19 @@
 
     function renderComponents(components) {
         const container = document.getElementById('components-container');
-        
-        const componentsHtml = components.map(comp => `
+        const visible = (components || []).filter(function (comp) {
+            var st = (comp && comp.status != null) ? String(comp.status).toLowerCase() : '';
+            return st && st !== 'unknown';
+        });
+        if (!visible.length) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <p class="text-gray-500 dark:text-gray-400">No health components for the current configuration</p>
+                </div>`;
+            return;
+        }
+
+        const componentsHtml = visible.map(comp => `
             <div class="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                 <div class="flex items-center space-x-3">
                     <div class="status-indicator ${getStatusClasses(comp.status)}"></div>

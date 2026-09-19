@@ -150,7 +150,7 @@ volcano:
 
 ## Dashboard and health
 
-- **Dashboard** — sections appear when each feature is enabled; warnings show if the last poll failed.
+- **Dashboard** — sections appear when each feature is enabled; warnings show if the last poll failed. NHC storm cards are limited to cyclones within `max_distance_miles` of your geo-hazard position (same radius as voice).
 - **Health** — `usgs_api`, `wfigs_api`, `tsunami_api`, `swpc_api`, and `volcano_api` checks run when the corresponding feature is enabled.
 
 ## Testing
