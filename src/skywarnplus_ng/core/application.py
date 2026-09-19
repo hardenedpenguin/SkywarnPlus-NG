@@ -2520,7 +2520,9 @@ class SkywarnPlusApplication:
                 status["usgs_last_error_message"] = self.state.get("usgs_last_error_message")
             if self.config.wildfire.enabled:
                 status["wildfire_last_error_at"] = self.state.get("wildfire_last_error_at")
-                status["wildfire_last_error_message"] = self.state.get("wildfire_last_error_message")
+                status["wildfire_last_error_message"] = self.state.get(
+                    "wildfire_last_error_message"
+                )
             if self.config.tsunami.enabled:
                 status["tsunami_last_error_at"] = self.state.get("tsunami_last_error_at")
                 status["tsunami_last_error_message"] = self.state.get("tsunami_last_error_message")

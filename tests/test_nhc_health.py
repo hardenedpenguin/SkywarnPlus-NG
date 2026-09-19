@@ -196,5 +196,7 @@ async def test_get_health_status_healthy_when_optional_components_unknown():
     assert status.overall_status == ComponentStatus.HEALTHY
     # Managers missing for still-enabled defaults → UNKNOWN checks are omitted from the list
     names = {c.name for c in status.components}
-    assert "unknown" not in names or all(c.status != ComponentStatus.UNKNOWN for c in status.components)
+    assert "unknown" not in names or all(
+        c.status != ComponentStatus.UNKNOWN for c in status.components
+    )
     assert all(c.status != ComponentStatus.UNKNOWN for c in status.components)
