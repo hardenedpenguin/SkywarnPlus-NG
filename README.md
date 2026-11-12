@@ -58,7 +58,7 @@ Replace `amd64` with `arm64` on ARM nodes. Apache proxy is configured automatica
 ## After install
 
 1. Set a new dashboard password.
-2. Add your [NWS county codes](CountyCodes.md) under **Configuration → Counties** — default monitoring uses whole counties (`TXC###`).
+2. Add your [NWS county codes](CountyCodes.md) under **Configuration → Counties** — default monitoring uses whole counties (`TXC###`). Lake and coastal nodes can also add [marine zones](#marine-zones-lakes-and-coastal-waters) (`LEZ###`, `ANZ###`, etc.).
 3. Set **Asterisk node number(s)** and per-node counties if you run multiple nodes. For **forecast-zone** monitoring instead of entire counties, see [Position-based NWS alerts](#position-based-nws-alerts-forecast-zones) below.
 4. Pick **asl-tts** (local ASL3 Piper, default) or **gTTS** under **Audio / TTS**.
 5. Save — the service reloads config from the UI.
@@ -85,6 +85,14 @@ SkywarnPlus-NG resolves your coordinates through the NWS `/points` API and polls
 | County (default) | — | — | Position controlled off | County codes from **Configuration → Counties** |
 
 **Note:** **Position controlled** and **Position only** apply to **NWS county weather alerts** (tornado, flood, heat advisory, etc.). They share **Geo Hazard Position** with earthquakes, wildfire, NHC, tsunami, and volcano monitoring, but those geo hazards are configured separately under their own **Configuration** sections.
+
+## Marine zones (lakes and coastal waters)
+
+Marine alerts (Small Craft Advisory, Special Marine Warning, Gale Warning, etc.) are issued for NWS **marine zones**, not counties, so a county code alone will not pick them up. Add the marine zone code alongside your counties:
+
+1. Find your zone code in the NWS zone list for your body of water — e.g. [Lake Erie](https://api.weather.gov/zones?type=marine&area=LE) (`area=LM` Lake Michigan, `LH` Lake Huron, `LS` Lake Superior, `LO` Lake Ontario, `AN`/`AM`/`GM`/`PZ` for coastal waters). Each entry lists the `id` (e.g. `LEZ145`) and its name (e.g. *Vermilion to Avon Point OH*).
+2. Under **Configuration → Counties**, click **Manually Add County** and enter the zone code and a name. **Search & Add County** only lists land counties.
+3. If your nodes monitor specific counties, add the zone code to each node's county list too.
 
 ## Geo hazards (dashboard)
 
@@ -163,6 +171,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 | Dashboard HTTP API (status, alerts, config, subscribers) | **[docs/api.md](docs/api.md)** |
 | Earthquakes, wildfires, NHC by position | **[docs/geo-hazards.md](docs/geo-hazards.md)** |
 | NWS county codes | [CountyCodes.md](CountyCodes.md) |
+| NWS marine zones (lakes, coastal waters) | [Marine zones](#marine-zones-lakes-and-coastal-waters) |
 | nginx / NPM reverse proxy | [nginx-proxy-manager-guide.md](nginx-proxy-manager-guide.md) |
 
 ## Features
