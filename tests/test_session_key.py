@@ -1,7 +1,7 @@
 """Dashboard session key persists across restarts when not configured."""
 
 import stat
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -69,3 +69,19 @@ def test_invalid_configured_key_uses_persisted_key(tmp_path):
 
     dashboard._configure_dashboard_app(web.Application(), "", "")
     assert dashboard.config.monitoring.http_server.auth.secret_key == persisted
+
+
+@pytest.mark.asyncio
+async def test_stop_is_idempotent_and_cleans_runner_once(tmp_path, caplog):
+    # Live shutdown logged "Site ... is not registered in runner" from stopping twice
+    dashboard = WebDashboard(MagicMock(), _config(tmp_path))
+    runner = MagicMock()
+    runner.cleanup = AsyncMock()
+    site = MagicMock()
+    site.stop = AsyncMock(side_effect=RuntimeError("not registered in runner"))
+    dashboard.runner, dashboard.site = runner, site
+    await dashboard.stop()
+    await dashboard.stop()
+    runner.cleanup.assert_awaited_once()
+    site.stop.assert_not_awaited()
+    assert "Error stopping web dashboard" not in caplog.text

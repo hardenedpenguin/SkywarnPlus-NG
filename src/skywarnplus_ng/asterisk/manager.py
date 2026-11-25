@@ -5,6 +5,8 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 import asyncio
 import logging
 import os
+import time
+import wave
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 # Seconds to wait for ``asterisk -rx "rpt localplay ..."`` to return.
 PLAYBACK_COMMAND_TIMEOUT_SECONDS = 15.0
+
+# Seconds to reuse the ``rpt localnodes`` list before asking Asterisk again.
+LOCAL_NODES_CACHE_SECONDS = 60.0
 
 # CLI output that means Asterisk did not queue the playback even though the exit code is 0.
 _PLAYBACK_CLI_ERRORS = (
@@ -39,6 +44,32 @@ class AsteriskError(Exception):
     """Asterisk manager error."""
 
 
+# Asterisk's format_wav only reads 16-bit mono PCM at 8 kHz or 16 kHz. Anything else
+# fails inside Asterisk ("Unable to open ... (format (slin))") while "rpt localplay"
+# still exits 0, so playback would be reported as accepted with nothing on air.
+ASTERISK_WAV_RATES = (8000, 16000)
+
+
+def _asterisk_wav_problem(audio_path: Path) -> str | None:
+    """Return why Asterisk cannot play a WAV file, or None if it looks playable."""
+    if audio_path.suffix.lower() != ".wav":
+        return None
+    try:
+        with wave.open(str(audio_path), "rb") as wav:
+            rate, channels, width = wav.getframerate(), wav.getnchannels(), wav.getsampwidth()
+    except (wave.Error, EOFError, OSError) as e:
+        # Non-PCM WAVs (e.g. WAV49/GSM) are not readable by the wave module; let Asterisk try.
+        logger.debug("Could not inspect WAV header of %s: %s", audio_path, e)
+        return None
+    if rate not in ASTERISK_WAV_RATES or channels != 1 or width != 2:
+        return (
+            f"WAV is {rate} Hz, {channels} channel(s), {width * 8}-bit; Asterisk needs "
+            "16-bit mono at 8000 or 16000 Hz (convert it, e.g. "
+            "sox in.wav -r 8000 -c 1 -b 16 out.wav)"
+        )
+    return None
+
+
 class AsteriskManager:
     """Manages Asterisk integration for radio repeater control."""
 
@@ -53,6 +84,7 @@ class AsteriskManager:
         self.asterisk_path = Path("/usr/sbin/asterisk")
         # Optional callback(attempted_nodes, successful_nodes) after each multi-node playback
         self.delivery_observer: Callable[[list[int], list[int]], None] | None = None
+        self._local_nodes_cache: tuple[float, set[int]] | None = None
         self._validate_asterisk()
 
     def _validate_asterisk(self) -> None:
@@ -250,6 +282,32 @@ class AsteriskManager:
 
         return node_statuses
 
+    async def get_local_nodes(self) -> set[int] | None:
+        """
+        Node numbers app_rpt hosts on this Asterisk (``rpt localnodes``), cached briefly.
+
+        Returns:
+            The node set, or ``None`` when it cannot be determined (callers then skip
+            the check rather than block playback).
+        """
+        now = time.monotonic()
+        cache = self._local_nodes_cache
+        if cache and now - cache[0] < LOCAL_NODES_CACHE_SECONDS:
+            return cache[1]
+        try:
+            return_code, stdout, _ = await self._run_asterisk_command(
+                "rpt localnodes", timeout=PLAYBACK_COMMAND_TIMEOUT_SECONDS
+            )
+        except AsteriskError:
+            return None
+        if return_code != 0:
+            return None
+        nodes = {int(line.strip()) for line in stdout.splitlines() if line.strip().isdigit()}
+        if not nodes:
+            return None
+        self._local_nodes_cache = (now, nodes)
+        return nodes
+
     async def play_audio_on_node(self, node_number: int, audio_path: Path) -> bool:
         """
         Play audio file on a specific node.
@@ -268,6 +326,22 @@ class AsteriskManager:
         # Verify file is not empty
         if audio_path.stat().st_size == 0:
             logger.error(f"Audio file is empty: {audio_path}")
+            return False
+
+        wav_problem = _asterisk_wav_problem(audio_path)
+        if wav_problem:
+            logger.error("Asterisk cannot play %s: %s", audio_path, wav_problem)
+            return False
+
+        # app_rpt silently ignores "rpt localplay" for a node it does not host (exit 0, no
+        # output), so check the node exists before reporting playback as started.
+        local_nodes = await self.get_local_nodes()
+        if local_nodes is not None and int(node_number) not in local_nodes:
+            logger.error(
+                "Node %s is not hosted by this Asterisk (rpt localnodes: %s); not playing",
+                node_number,
+                sorted(local_nodes),
+            )
             return False
 
         # Log file extension for debugging

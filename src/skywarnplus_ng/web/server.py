@@ -752,12 +752,14 @@ class WebDashboard(
             except asyncio.CancelledError:
                 pass
             self._update_check_task = None
+        # runner.cleanup() stops every registered site. Stopping the site separately
+        # (or calling stop() twice during shutdown) raises "Site ... is not
+        # registered in runner", so clear the references to make stop() idempotent.
+        runner, self.runner, self.site = self.runner, None, None
         try:
-            if self.site:
-                await self.site.stop()
-            if self.runner:
-                await self.runner.cleanup()
-            logger.info("Web dashboard stopped")
+            if runner:
+                await runner.cleanup()
+                logger.info("Web dashboard stopped")
         except Exception as e:
             logger.error(f"Error stopping web dashboard: {e}")
         finally:
