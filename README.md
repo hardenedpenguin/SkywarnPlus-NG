@@ -121,7 +121,7 @@ NWS **county alerts** (tornado, severe thunderstorm, flood, **fire weather** / R
 - **Space weather:** G/R/S scale floors, watch/warning/alert/summary toggles, announce history on first enable
 - **Volcano:** minimum color code, observatory filter (e.g. HVO), lookback days, announce history on first enable
 
-When enabled, tracked events appear on the **Dashboard** and in **Health** (`nhc`, `usgs_api`, `wfigs_api`, `tsunami_api`, `swpc_api`, `volcano_api` checks). Voice announcements respect **quiet hours** (same as NWS). Optional **Pushover / email / webhooks** can broadcast when a geo hazard is announced on the air.
+When enabled, tracked events appear on the **Dashboard** and in **Health** (`nhc`, `usgs_api`, `wfigs_api`, `tsunami_api`, `swpc_api`, `volcano_api` checks). Voice announcements respect **quiet hours** (same as NWS). If playback reaches only some nodes, the missed nodes are retried with the same backoff as NWS alerts (up to 5 attempts; dropped if quiet hours begin or announcements are turned off). Optional **Pushover / email / webhooks** can broadcast when a geo hazard is announced on the air.
 
 Full YAML reference and tuning notes: **[docs/geo-hazards.md](docs/geo-hazards.md)**.
 

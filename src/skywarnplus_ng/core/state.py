@@ -160,6 +160,8 @@ class ApplicationState:
             "node_delivery": {},
             # alert id -> {held_at}: NWS alerts held during quiet hours, voiced when they end
             "quiet_hours_held": {},
+            # "kind:key" -> geo-hazard speech + nodes that missed playback (retry with backoff)
+            "geo_hazard_retries": {},
             "version": "1.0.4",  # State file version
         }
 
