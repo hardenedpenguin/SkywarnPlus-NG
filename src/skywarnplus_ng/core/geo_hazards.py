@@ -304,7 +304,8 @@ class GeoHazardAnnouncerMixin:
                 drop_reason = "voice delivery is not configured"
             elif not self._geo_hazard_voice_enabled(str(entry.get("kind"))):
                 drop_reason = "announcements disabled"
-            elif not self._geo_hazard_still_current(entry, now):
+            # Fresh clock: earlier retries in this loop may have spent time on TTS/playback.
+            elif not self._geo_hazard_still_current(entry, datetime.now(UTC)):
                 drop_reason = "no longer current"
             elif self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_geo_hazard()

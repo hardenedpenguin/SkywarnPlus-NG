@@ -332,3 +332,92 @@ def test_existing_session_key_permissions_are_tightened(tmp_path):
 
     assert load_or_create_session_key(path) == key
     assert path.stat().st_mode & 0o777 == 0o600
+
+
+# --- CodeRabbit PR #22 follow-ups --------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_expired_retry_keeps_nodes_that_already_played(tmp_path):
+    app = _make_alert_app(tmp_path, [[1999]])
+    alert = _alert()
+    await app._process_alerts([alert])
+    assert _outcome(app, alert.id)["status"] == "partial"
+
+    # The retry for node 2000 finds the alert expired after TTS
+    app._last_announce_failure = "expired"
+    app._last_announce_targets = None
+    app._record_announcement_outcome(alert, [], attempted_nodes=[2000])
+
+    outcome = _outcome(app, alert.id)
+    assert outcome["status"] == "partial"
+    assert outcome["reason"] == "expired"
+    assert outcome["played_nodes"] == [1999]
+    assert outcome["failed_nodes"] == [2000]
+    assert "retry" not in outcome
+    assert alert.id not in app.state["announcement_retries"]
+
+
+@pytest.mark.asyncio
+async def test_geo_retry_age_check_uses_a_fresh_clock(tmp_path, monkeypatch):
+    app = _make_geo_app(tmp_path, [])
+    max_age = app.config.earthquake.max_event_age_hours
+    start = datetime.now(UTC)
+    later = start + timedelta(minutes=10)
+    issued = start - timedelta(hours=max_age) + timedelta(minutes=5)
+    app.state["geo_hazard_retries"] = {
+        "earthquake:a": {
+            "kind": "earthquake",
+            "tts_text": "a",
+            "audio_prefix": "a",
+            "label": "a",
+            "pending_nodes": [2000],
+            "delivered_nodes": [1999],
+            "attempts": 1,
+            "issued_at": issued.isoformat(),
+            "next_retry_at": (start - timedelta(seconds=1)).isoformat(),
+        }
+    }
+    clock = iter([start, later])
+
+    class FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return next(clock, later)
+
+    monkeypatch.setattr("skywarnplus_ng.core.geo_hazards.datetime", FakeDatetime)
+    app._announce_position_hazard = AsyncMock(return_value=[2000])
+
+    await app._retry_geo_hazard_nodes()
+
+    # Current at the loop's start time, but expired by the time its turn came
+    app._announce_position_hazard.assert_not_awaited()
+    assert app.state["geo_hazard_retries"] == {}
+
+
+@pytest.mark.asyncio
+async def test_alias_merged_retry_with_nothing_pending_records_delivered_nodes(tmp_path):
+    app = _make_alert_app(tmp_path, [[1999]])
+    app.database_manager = MagicMock()
+    app.database_manager.store_alert = AsyncMock()
+    alert = _alert()
+    await app._process_alerts([alert])
+
+    # An alias merge reports node 2000 delivered under the other alert ID
+    entry = app.state["announcement_retries"][alert.id]
+    entry["delivered_nodes"] = [1999, 2000]
+    entry["pending_nodes"] = []
+    _make_retry_due(app, alert.id)
+    app.database_manager.store_alert.reset_mock()
+    await app._process_alerts([alert])
+
+    outcome = _outcome(app, alert.id)
+    assert outcome["status"] == "played"
+    assert outcome["played_nodes"] == NODES
+    assert alert.id not in app.state["announcement_retries"]
+    stored = [
+        c.kwargs
+        for c in app.database_manager.store_alert.await_args_list
+        if c.kwargs.get("announcement_nodes")
+    ]
+    assert stored[0]["announcement_nodes"] == NODES

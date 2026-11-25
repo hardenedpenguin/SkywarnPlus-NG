@@ -104,7 +104,12 @@ class AnnouncementTrackingMixin:
             return
         if not successful_nodes and failure_reason == SKIP_EXPIRED:
             self.state_manager.clear_announcement_retry(self.state, alert.id)
-            self._set_skipped_outcome(alert, SKIP_EXPIRED)
+            previous = self.state_manager.get_announcement_outcome(self.state, alert.id) or {}
+            if previous.get("status") != "skipped" and previous.get("played_nodes"):
+                # Keep nodes that already played; the rest expired before their retry.
+                self._set_delivery_outcome(alert, {}, SKIP_EXPIRED)
+            else:
+                self._set_skipped_outcome(alert, SKIP_EXPIRED)
             return
         played_targets = getattr(self, "_last_announce_targets", None)
         if played_targets is not None:
@@ -338,6 +343,13 @@ class AnnouncementTrackingMixin:
             ]
             if not pending:
                 self.state_manager.clear_announcement_retry(self.state, alert_id)
+                delivered = sorted({int(n) for n in entry.get("delivered_nodes") or []})
+                if delivered:
+                    # Delivered nodes may include ones merged in from an alias of this alert.
+                    self._set_delivery_outcome(
+                        alert, {str(n): "played" for n in delivered}, FAIL_PLAYBACK
+                    )
+                    await self._store_announcement_result(alert, delivered)
                 continue
             logger.info(
                 "Retrying voice announcement for %s (%s) on nodes %s (attempt %s)",
