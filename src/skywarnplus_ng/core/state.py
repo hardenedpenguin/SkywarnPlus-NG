@@ -22,6 +22,17 @@ ANNOUNCEMENT_RETRY_MAX_ATTEMPTS = 5
 ANNOUNCEMENT_RETRY_BASE_SECONDS = 30
 ANNOUNCEMENT_RETRY_MAX_SECONDS = 600
 
+# Announcement outcome reason codes (stored in state/DB, rendered by the dashboard).
+SKIP_VOICE_DISABLED = "voice_disabled"
+SKIP_ALREADY_ANNOUNCED = "already_announced"
+SKIP_GEO_HAZARD_TSUNAMI = "geo_hazard_tsunami"
+SKIP_BLOCKED_EVENT = "blocked_event"
+FAIL_DELIVERY_NOT_CONFIGURED = "delivery_not_configured"
+FAIL_NO_MATCHING_NODE = "no_matching_node"
+FAIL_AUDIO = "audio_failed"
+FAIL_PLAYBACK = "playback_failed"
+FAIL_ERROR = "announce_error"
+
 
 class ApplicationState:
     """Manages persistent application state."""
@@ -142,6 +153,10 @@ class ApplicationState:
             "alert_id_aliases": {},  # collapsed NWS alert id -> canonical active id
             # alert id -> {attempts, next_retry_at, pending_nodes, delivered_nodes}
             "announcement_retries": {},
+            # alert id -> last voice announcement outcome (status, reason, per-node results)
+            "announcement_outcomes": {},
+            # node number (str) -> playback stats (last success/failure, consecutive failures)
+            "node_delivery": {},
             "version": "1.0.4",  # State file version
         }
 
@@ -174,6 +189,10 @@ class ApplicationState:
                 pending = set(canonical.get("pending_nodes") or [])
                 pending |= set(alias_entry.get("pending_nodes") or []) - delivered
                 canonical["pending_nodes"] = sorted(int(n) for n in pending)
+        outcomes = state.get("announcement_outcomes")
+        if isinstance(outcomes, dict) and old_id in outcomes:
+            alias_outcome = outcomes.pop(old_id)
+            outcomes.setdefault(new_id, alias_outcome)
         for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts", "active_alerts"):
             items = state.get(key)
             if not isinstance(items, list):
@@ -207,9 +226,10 @@ class ApplicationState:
             items = state.get(key)
             if isinstance(items, list) and alert_id in items:
                 state[key] = [item for item in items if item != alert_id]
-        retries = state.get("announcement_retries")
-        if isinstance(retries, dict):
-            retries.pop(alert_id, None)
+        for key in ("announcement_retries", "announcement_outcomes"):
+            tracked = state.get(key)
+            if isinstance(tracked, dict):
+                tracked.pop(alert_id, None)
         aliases = state.get("alert_id_aliases")
         if isinstance(aliases, dict):
             aliases.pop(alert_id, None)
@@ -230,10 +250,11 @@ class ApplicationState:
         if isinstance(cooldown, dict) and len(cooldown) > TRACKING_LIST_MAX:
             keys = list(cooldown.keys())[-TRACKING_LIST_MAX:]
             state["announcement_cooldown"] = {k: cooldown[k] for k in keys}
-        retries = state.get("announcement_retries")
-        if isinstance(retries, dict) and len(retries) > TRACKING_LIST_MAX:
-            keys = list(retries.keys())[-TRACKING_LIST_MAX:]
-            state["announcement_retries"] = {k: retries[k] for k in keys}
+        for key in ("announcement_retries", "announcement_outcomes"):
+            tracked = state.get(key)
+            if isinstance(tracked, dict) and len(tracked) > TRACKING_LIST_MAX:
+                keys = list(tracked.keys())[-TRACKING_LIST_MAX:]
+                state[key] = {k: tracked[k] for k in keys}
 
     def get_alert_ids(self, state: dict[str, Any]) -> set[str]:
         """
@@ -570,6 +591,60 @@ class ApplicationState:
             if when <= now:
                 due[alert_id] = entry
         return due
+
+    def set_announcement_outcome(
+        self, state: dict[str, Any], alert_id: str, outcome: dict[str, Any]
+    ) -> None:
+        """Store the latest voice announcement outcome for an alert."""
+        outcomes = state.get("announcement_outcomes")
+        if not isinstance(outcomes, dict):
+            outcomes = {}
+            state["announcement_outcomes"] = outcomes
+        outcomes[alert_id] = outcome
+
+    def get_announcement_outcome(
+        self, state: dict[str, Any], alert_id: str
+    ) -> dict[str, Any] | None:
+        """Return the latest voice announcement outcome for an alert, if any."""
+        outcomes = state.get("announcement_outcomes")
+        if isinstance(outcomes, dict) and isinstance(outcomes.get(alert_id), dict):
+            return outcomes[alert_id]
+        return None
+
+    def record_node_delivery(
+        self,
+        state: dict[str, Any],
+        attempted_nodes: list[int],
+        successful_nodes: list[int],
+        now: datetime | None = None,
+    ) -> None:
+        """
+        Update per-node playback stats after an Asterisk playback attempt.
+
+        Args:
+            state: Current state dictionary
+            attempted_nodes: Nodes playback was requested on
+            successful_nodes: Nodes where playback started
+            now: Current time (for tests)
+        """
+        now_iso = (now or datetime.now(UTC)).isoformat()
+        delivery = state.get("node_delivery")
+        if not isinstance(delivery, dict):
+            delivery = {}
+            state["node_delivery"] = delivery
+        ok = {int(n) for n in successful_nodes}
+        for node in attempted_nodes:
+            key = str(int(node))
+            entry = delivery.get(key) if isinstance(delivery.get(key), dict) else {}
+            if int(node) in ok:
+                entry["last_success_at"] = now_iso
+                entry["consecutive_failures"] = 0
+                entry["total_success"] = int(entry.get("total_success", 0)) + 1
+            else:
+                entry["last_failure_at"] = now_iso
+                entry["consecutive_failures"] = int(entry.get("consecutive_failures", 0)) + 1
+                entry["total_failures"] = int(entry.get("total_failures", 0)) + 1
+            delivery[key] = entry
 
     def mark_alert_script_triggered(self, state: dict[str, Any], alert_id: str) -> None:
         """

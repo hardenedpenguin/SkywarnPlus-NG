@@ -5,6 +5,7 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 import asyncio
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,8 @@ class AsteriskManager:
         """
         self.config = config
         self.asterisk_path = Path("/usr/sbin/asterisk")
+        # Optional callback(attempted_nodes, successful_nodes) after each multi-node playback
+        self.delivery_observer: Callable[[list[int], list[int]], None] | None = None
         self._validate_asterisk()
 
     def _validate_asterisk(self) -> None:
@@ -353,6 +356,11 @@ class AsteriskManager:
                 successful_nodes.append(node_numbers[i])
 
         logger.info(f"Audio playback started on {len(successful_nodes)}/{len(node_numbers)} nodes")
+        if self.delivery_observer:
+            try:
+                self.delivery_observer(list(node_numbers), list(successful_nodes))
+            except Exception as e:
+                logger.warning("Playback delivery observer failed: %s", e)
         return successful_nodes
 
     async def stop_audio_on_node(self, node_number: int) -> bool:

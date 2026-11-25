@@ -162,6 +162,7 @@
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${escHtml(alert.event)}</h3>
                         </div>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escHtml(alert.area_desc)}</p>
+                        ${alert.announcement_outcome ? `<div class="mb-2">${renderAnnouncementOutcome(alert.announcement_outcome)}</div>` : ''}
                         <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                             <span>Processed: ${formatTimestamp(alert.processed_at)}</span>
                             <span>Effective: ${formatTimestamp(alert.effective_time)}</span>

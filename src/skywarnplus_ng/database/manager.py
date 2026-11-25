@@ -96,6 +96,7 @@ class DatabaseManager:
         announced: bool = False,
         script_executed: bool = False,
         announcement_nodes: list[int] | None = None,
+        announcement_outcome: dict[str, Any] | None = None,
     ) -> None:
         """
         Store a weather alert in the database.
@@ -106,6 +107,8 @@ class DatabaseManager:
             script_executed: Whether a script was executed
             announcement_nodes: List of nodes that announced this alert. ``None`` keeps the
                 list already stored for an existing alert (snapshot refreshes).
+            announcement_outcome: Voice announcement outcome (status, reason, per-node
+                results), kept in ``additional_data``. ``None`` keeps the stored outcome.
         """
         try:
             async with await self.get_session() as session:
@@ -136,7 +139,19 @@ class DatabaseManager:
                     if announcement_nodes is not None:
                         existing.announcement_nodes = announcement_nodes
                     existing.processed_at = datetime.now(UTC)
-                    existing.additional_data = {"original_alert": alert.model_dump(mode="json")}
+                    previous_data = existing.additional_data or {}
+                    additional_data: dict[str, Any] = {
+                        "original_alert": alert.model_dump(mode="json")
+                    }
+                    if announcement_outcome is not None:
+                        additional_data["announcement_outcome"] = announcement_outcome
+                    elif isinstance(previous_data, dict) and previous_data.get(
+                        "announcement_outcome"
+                    ):
+                        additional_data["announcement_outcome"] = previous_data[
+                            "announcement_outcome"
+                        ]
+                    existing.additional_data = additional_data
                 else:
                     # Create new record
                     alert_record = AlertRecord(
@@ -163,7 +178,14 @@ class DatabaseManager:
                         announced=announced,
                         script_executed=script_executed,
                         announcement_nodes=announcement_nodes or [],
-                        additional_data={"original_alert": alert.model_dump(mode="json")},
+                        additional_data={
+                            "original_alert": alert.model_dump(mode="json"),
+                            **(
+                                {"announcement_outcome": announcement_outcome}
+                                if announcement_outcome is not None
+                                else {}
+                            ),
+                        },
                     )
                     session.add(alert_record)
 

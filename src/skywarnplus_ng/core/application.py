@@ -54,7 +54,19 @@ from ..web.server import WebDashboard
 from ..wildfire.wfigs_service import WfigsWildfireService, WildfireIncident
 from .config import AppConfig
 from .models import AlertSeverity, AlertStatus, WeatherAlert
-from .state import ApplicationState
+from .state import (
+    ANNOUNCEMENT_RETRY_MAX_ATTEMPTS,
+    FAIL_AUDIO,
+    FAIL_DELIVERY_NOT_CONFIGURED,
+    FAIL_ERROR,
+    FAIL_NO_MATCHING_NODE,
+    FAIL_PLAYBACK,
+    SKIP_ALREADY_ANNOUNCED,
+    SKIP_BLOCKED_EVENT,
+    SKIP_GEO_HAZARD_TSUNAMI,
+    SKIP_VOICE_DISABLED,
+    ApplicationState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +207,7 @@ class SkywarnPlusApplication:
         if self.config.asterisk.enabled:
             try:
                 self.asterisk_manager = AsteriskManager(self.config.asterisk)
+                self.asterisk_manager.delivery_observer = self._record_node_delivery
 
                 # Test Asterisk connection
                 if await self.asterisk_manager.test_connection():
@@ -995,6 +1008,9 @@ class SkywarnPlusApplication:
                         alert=alert,
                         announced=alert.id in self.state.get("last_sayalert", []),
                         script_executed=alert.id in self.state.get("alertscript_alerts", []),
+                        announcement_outcome=self.state_manager.get_announcement_outcome(
+                            self.state, alert.id
+                        ),
                     )
                 except DatabaseError as e:
                     logger.error("Failed to refresh alert %s in database: %s", alert.id, e)
@@ -1074,13 +1090,16 @@ class SkywarnPlusApplication:
 
                 # Check if alert should be announced
                 announcement_nodes = []
-                if self._should_announce_alert(alert):
+                skip_reason = self._announce_skip_reason(alert)
+                if skip_reason is None:
                     announcement_nodes = await self._announce_alert(alert)
                     if announcement_nodes:
                         self.state_manager.mark_alert_announced(self.state, alert.id)
                         if self.playback_policy:
                             self.playback_policy.record_announcement(alert, self.state)
                     self._record_announcement_outcome(alert, announcement_nodes)
+                elif skip_reason != SKIP_ALREADY_ANNOUNCED:
+                    self._set_skipped_outcome(alert, skip_reason)
 
                 # Execute alert script
                 if self.script_manager:
@@ -1133,6 +1152,9 @@ class SkywarnPlusApplication:
                             announced=bool(announcement_nodes),
                             script_executed=script_success if self.script_manager else False,
                             announcement_nodes=announcement_nodes,
+                            announcement_outcome=self.state_manager.get_announcement_outcome(
+                                self.state, alert.id
+                            ),
                         )
                     except DatabaseError as e:
                         logger.error(f"Failed to store alert in database: {e}")
@@ -1272,9 +1294,18 @@ class SkywarnPlusApplication:
         Returns:
             True if alert should be announced
         """
+        return self._announce_skip_reason(alert) is None
+
+    def _announce_skip_reason(self, alert: WeatherAlert) -> str | None:
+        """
+        Return why an alert should not be voiced, or None if it should be announced.
+
+        Reason codes: ``voice_disabled``, ``already_announced``, ``geo_hazard_tsunami``,
+        ``blocked_event``, ``quiet_hours``, ``announcement_hold``.
+        """
         # Check if alerts are enabled
         if not self.config.alerts.say_alert:
-            return False
+            return SKIP_VOICE_DISABLED
 
         # Check if this alert was already announced (prevent duplicates)
         last_sayalert = self.state.get("last_sayalert", [])
@@ -1282,7 +1313,7 @@ class SkywarnPlusApplication:
             logger.debug(
                 f"Alert {alert.id} ({alert.event}) already announced, skipping duplicate announcement"
             )
-            return False
+            return SKIP_ALREADY_ANNOUNCED
 
         if self.config.tsunami.enabled and self.tsunami_service and is_tsunami_event(alert.event):
             logger.debug(
@@ -1291,7 +1322,7 @@ class SkywarnPlusApplication:
                 alert.id,
                 alert.event,
             )
-            return False
+            return SKIP_GEO_HAZARD_TSUNAMI
 
         # Check if this event type is blocked from announcement
         for blocked_event in self.config.filtering.say_alert_blocked:
@@ -1299,7 +1330,7 @@ class SkywarnPlusApplication:
                 logger.debug(
                     f"Alert {alert.event} blocked from announcement by pattern: {blocked_event}"
                 )
-                return False
+                return SKIP_BLOCKED_EVENT
 
         if self.playback_policy and hasattr(self, "state") and self.state is not None:
             allowed, reason = self.playback_policy.should_announce_voice(alert, self.state)
@@ -1310,9 +1341,9 @@ class SkywarnPlusApplication:
                     alert.id,
                     reason,
                 )
-                return False
+                return reason or "policy"
 
-        return True
+        return None
 
     def _matches_pattern(self, text: str, pattern: str) -> bool:
         """
@@ -1746,24 +1777,96 @@ class SkywarnPlusApplication:
         attempted_nodes: list[int] | None = None,
     ) -> None:
         """
-        Schedule a retry for target nodes that did not start playback.
+        Record what happened to an announcement attempt and schedule retries for missed nodes.
 
-        Without this, an alert whose first announcement failed (TTS error, missing audio,
+        Without the retry, an alert whose first announcement failed (TTS error, missing audio,
         Asterisk unavailable) is stored in state and never voiced on later polls.
         """
+        failure_reason = getattr(self, "_last_announce_failure", None) or FAIL_PLAYBACK
         if not self._announcement_delivery_configured():
             self.state_manager.clear_announcement_retry(self.state, alert.id)
+            self._set_skipped_outcome(alert, FAIL_DELIVERY_NOT_CONFIGURED)
             return
         targets = (
             attempted_nodes if attempted_nodes is not None else self._target_nodes_for_alert(alert)
         )
         pending = sorted(set(targets) - set(successful_nodes))
+        gave_up = False
         if pending:
-            self.state_manager.schedule_announcement_retry(
+            scheduled = self.state_manager.schedule_announcement_retry(
                 self.state, alert.id, pending, delivered_nodes=successful_nodes
             )
+            gave_up = not scheduled
         else:
             self.state_manager.clear_announcement_retry(self.state, alert.id)
+        node_results = {str(int(n)): "played" for n in successful_nodes}
+        node_results.update({str(int(n)): "failed" for n in pending})
+        reason = FAIL_NO_MATCHING_NODE if not targets else failure_reason
+        self._set_delivery_outcome(alert, node_results, reason, gave_up=gave_up)
+
+    def _set_delivery_outcome(
+        self,
+        alert: WeatherAlert,
+        node_results: dict[str, str],
+        failure_reason: str,
+        gave_up: bool = False,
+    ) -> None:
+        """Merge per-node results into the alert's outcome and derive its overall status."""
+        previous = self.state_manager.get_announcement_outcome(self.state, alert.id) or {}
+        nodes = dict(previous.get("nodes") or {}) if previous.get("status") != "skipped" else {}
+        for node, result in node_results.items():
+            # A node that already played stays "played"
+            if nodes.get(node) != "played":
+                nodes[node] = result
+        played = sorted(int(n) for n, r in nodes.items() if r == "played")
+        failed = sorted(int(n) for n, r in nodes.items() if r != "played")
+        if played and not failed:
+            status, reason = "played", None
+        elif played:
+            status, reason = "partial", failure_reason
+        else:
+            status, reason = "failed", failure_reason
+        outcome: dict[str, Any] = {
+            "status": status,
+            "reason": reason,
+            "nodes": nodes,
+            "played_nodes": played,
+            "failed_nodes": failed,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        retry = self.state_manager.get_announcement_retry(self.state, alert.id)
+        if retry:
+            outcome["retry"] = {
+                "attempt": int(retry.get("attempts", 0)),
+                "max_attempts": ANNOUNCEMENT_RETRY_MAX_ATTEMPTS,
+                "next_retry_at": retry.get("next_retry_at"),
+            }
+        if gave_up:
+            outcome["gave_up"] = True
+        self.state_manager.set_announcement_outcome(self.state, alert.id, outcome)
+
+    def _set_skipped_outcome(self, alert: WeatherAlert, reason: str) -> None:
+        """Record that an alert was intentionally not voiced (policy or configuration)."""
+        self.state_manager.set_announcement_outcome(
+            self.state,
+            alert.id,
+            {
+                "status": "skipped",
+                "reason": reason,
+                "nodes": {},
+                "played_nodes": [],
+                "failed_nodes": [],
+                "updated_at": datetime.now(UTC).isoformat(),
+            },
+        )
+
+    def _record_node_delivery(
+        self, attempted_nodes: list[int], successful_nodes: list[int]
+    ) -> None:
+        """AsteriskManager observer: track per-node playback health in state."""
+        if getattr(self, "state", None) is None:
+            return
+        self.state_manager.record_node_delivery(self.state, attempted_nodes, successful_nodes)
 
     def _retry_allowed_now(self, alert: WeatherAlert) -> tuple[bool, bool]:
         """
@@ -1774,11 +1877,14 @@ class SkywarnPlusApplication:
             voiced at all (announcements disabled or event blocked).
         """
         if not self.config.alerts.say_alert:
+            self._set_skipped_outcome(alert, SKIP_VOICE_DISABLED)
             return False, False
         for blocked_event in self.config.filtering.say_alert_blocked:
             if self._matches_pattern(alert.event, blocked_event):
+                self._set_skipped_outcome(alert, SKIP_BLOCKED_EVENT)
                 return False, False
         if self.config.tsunami.enabled and self.tsunami_service and is_tsunami_event(alert.event):
+            self._set_skipped_outcome(alert, SKIP_GEO_HAZARD_TSUNAMI)
             return False, False
         if self.playback_policy and self.playback_policy.is_quiet_hours_active():
             allow_severe = self.config.alerts.quiet_hours.allow_severe and alert.severity in (
@@ -1826,6 +1932,7 @@ class SkywarnPlusApplication:
                 int(entry.get("attempts", 0)) + 1,
             )
             successful = await self._announce_alert(alert, only_nodes=pending)
+            self._record_announcement_outcome(alert, successful, attempted_nodes=pending)
             if successful:
                 first_success = alert_id not in self.state.get("last_sayalert", [])
                 self.state_manager.mark_alert_announced(self.state, alert_id)
@@ -1839,10 +1946,12 @@ class SkywarnPlusApplication:
                             announced=True,
                             script_executed=alert_id in self.state.get("alertscript_alerts", []),
                             announcement_nodes=delivered,
+                            announcement_outcome=self.state_manager.get_announcement_outcome(
+                                self.state, alert_id
+                            ),
                         )
                     except DatabaseError as e:
                         logger.error("Failed to update alert %s in database: %s", alert_id, e)
-            self._record_announcement_outcome(alert, successful, attempted_nodes=pending)
 
     async def _announce_alert(
         self, alert: WeatherAlert, only_nodes: list[int] | None = None
@@ -1859,6 +1968,7 @@ class SkywarnPlusApplication:
         Returns:
             List of node numbers where announcement was successful (empty if failed)
         """
+        self._last_announce_failure = None
         alert_type = "TEST" if alert.status == AlertStatus.TEST else "NWS"
         logger.info(f"Announcing {alert_type} alert: {alert.event} - {alert.area_desc}")
         logger.debug(
@@ -1898,18 +2008,22 @@ class SkywarnPlusApplication:
 
         if not self.audio_manager:
             logger.warning("Audio manager not available - skipping announcement")
+            self._last_announce_failure = FAIL_DELIVERY_NOT_CONFIGURED
             return []
 
         if not self.asterisk_manager:
             logger.warning("Asterisk manager not available - skipping announcement")
+            self._last_announce_failure = FAIL_DELIVERY_NOT_CONFIGURED
             return []
 
         if not self.config.asterisk.enabled:
             logger.warning("Asterisk integration disabled - skipping announcement")
+            self._last_announce_failure = FAIL_DELIVERY_NOT_CONFIGURED
             return []
 
         if not self.config.asterisk.nodes:
             logger.warning("No Asterisk nodes configured - skipping announcement")
+            self._last_announce_failure = FAIL_DELIVERY_NOT_CONFIGURED
             return []
 
         try:
@@ -1956,6 +2070,7 @@ class SkywarnPlusApplication:
             )
             if not audio_path:
                 logger.error(f"Failed to generate audio for alert: {alert.event}")
+                self._last_announce_failure = FAIL_AUDIO
                 return []
 
             logger.info(f"Generated alert audio: {audio_path}")
@@ -1963,10 +2078,12 @@ class SkywarnPlusApplication:
             # Verify file exists and is readable before attempting playback
             if not audio_path.exists():
                 logger.error(f"Audio file does not exist: {audio_path}")
+                self._last_announce_failure = FAIL_AUDIO
                 return []
 
             if audio_path.stat().st_size == 0:
                 logger.error(f"Audio file is empty: {audio_path}")
+                self._last_announce_failure = FAIL_AUDIO
                 return []
 
             # Determine which nodes should receive this alert based on counties
@@ -1978,6 +2095,7 @@ class SkywarnPlusApplication:
                 logger.warning(
                     f"No nodes configured to monitor counties {county_codes_list} - skipping announcement"
                 )
+                self._last_announce_failure = FAIL_NO_MATCHING_NODE
                 return []
 
             logger.info(
@@ -2000,10 +2118,12 @@ class SkywarnPlusApplication:
                 return successful_nodes
             else:
                 logger.error(f"Failed to play alert audio on any nodes: {alert.event}")
+                self._last_announce_failure = FAIL_PLAYBACK
                 return []
 
         except Exception as e:
             logger.error(f"Error announcing alert {alert.event}: {e}", exc_info=True)
+            self._last_announce_failure = FAIL_ERROR
             return []
 
     async def _handle_nhc_advisories(self) -> None:

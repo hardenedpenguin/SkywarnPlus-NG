@@ -285,6 +285,66 @@ class HealthMonitor:
                 last_check=start_time,
             )
 
+    async def check_announcement_delivery_health(
+        self, state: dict[str, Any] | None = None
+    ) -> ComponentHealth:
+        """
+        Report whether audio is actually starting on each node (not just Asterisk reachability).
+
+        Uses per-node playback stats recorded in state by the Asterisk playback observer.
+        """
+        start_time = datetime.now(UTC)
+        name = "announcement_delivery"
+        nodes = [int(n) for n in self.config.asterisk.get_nodes_list()]
+        if not self.config.asterisk.enabled or not self.asterisk_manager or not nodes:
+            # Asterisk check already reports disabled/uninitialized/no-node setups
+            return ComponentHealth(
+                name=name,
+                status=ComponentStatus.UNKNOWN,
+                message="Announcement delivery not configured",
+                last_check=start_time,
+            )
+        delivery = (state or {}).get("node_delivery") or {}
+        if not isinstance(delivery, dict):
+            delivery = {}
+        details: dict[str, Any] = {"node_delivery": {}}
+        failing: list[str] = []
+        attempted = 0
+        for node in nodes:
+            raw = delivery.get(str(node))
+            entry = raw if isinstance(raw, dict) else {}
+            failures = int(entry.get("consecutive_failures", 0) or 0)
+            details["node_delivery"][str(node)] = {
+                "last_success_at": entry.get("last_success_at"),
+                "last_failure_at": entry.get("last_failure_at"),
+                "consecutive_failures": failures,
+                "total_success": int(entry.get("total_success", 0) or 0),
+                "total_failures": int(entry.get("total_failures", 0) or 0),
+            }
+            if entry:
+                attempted += 1
+            if failures > 0:
+                suffix = "s" if failures != 1 else ""
+                failing.append(f"node {node}: {failures} consecutive failure{suffix}")
+
+        if attempted == 0:
+            message, status = "No playback attempted yet", ComponentStatus.HEALTHY
+        elif not failing:
+            message, status = f"Playback OK on {attempted} node(s)", ComponentStatus.HEALTHY
+        elif len(failing) >= attempted:
+            message = "Playback failing: " + "; ".join(failing)
+            status = ComponentStatus.UNHEALTHY
+        else:
+            message = "Playback failing on " + "; ".join(failing)
+            status = ComponentStatus.DEGRADED
+        return ComponentHealth(
+            name=name,
+            status=status,
+            message=message,
+            last_check=start_time,
+            details=details,
+        )
+
     async def check_scripts_health(self) -> ComponentHealth:
         """Check script system health."""
         start_time = datetime.now(UTC)
@@ -643,6 +703,7 @@ class HealthMonitor:
         ]
         if self.config.asterisk.enabled:
             check_coroutines.append(self.check_asterisk_health())
+            check_coroutines.append(self.check_announcement_delivery_health(state))
         if self.config.scripts.enabled:
             check_coroutines.append(self.check_scripts_health())
         if self.config.database.enabled:
