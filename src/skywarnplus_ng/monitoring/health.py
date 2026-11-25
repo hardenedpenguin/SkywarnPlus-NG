@@ -289,9 +289,11 @@ class HealthMonitor:
         self, state: dict[str, Any] | None = None
     ) -> ComponentHealth:
         """
-        Report whether audio is actually starting on each node (not just Asterisk reachability).
+        Report whether Asterisk accepts playback on each node (not just Asterisk reachability).
 
-        Uses per-node playback stats recorded in state by the Asterisk playback observer.
+        Uses per-node playback stats recorded in state by the Asterisk playback observer. A
+        node counts as delivered only when the ``rpt`` playback CLI command completed without
+        an error, not merely when the command was launched.
         """
         start_time = datetime.now(UTC)
         name = "announcement_delivery"
@@ -330,7 +332,10 @@ class HealthMonitor:
         if attempted == 0:
             message, status = "No playback attempted yet", ComponentStatus.HEALTHY
         elif not failing:
-            message, status = f"Playback OK on {attempted} node(s)", ComponentStatus.HEALTHY
+            message, status = (
+                f"Asterisk accepted playback on {attempted} node(s)",
+                ComponentStatus.HEALTHY,
+            )
         elif len(failing) >= attempted:
             message = "Playback failing: " + "; ".join(failing)
             status = ComponentStatus.UNHEALTHY

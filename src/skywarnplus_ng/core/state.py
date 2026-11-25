@@ -28,6 +28,7 @@ SKIP_ALREADY_ANNOUNCED = "already_announced"
 SKIP_GEO_HAZARD_TSUNAMI = "geo_hazard_tsunami"
 SKIP_BLOCKED_EVENT = "blocked_event"
 SKIP_QUIET_HOURS = "quiet_hours"
+SKIP_EXPIRED = "expired"
 FAIL_DELIVERY_NOT_CONFIGURED = "delivery_not_configured"
 FAIL_NO_MATCHING_NODE = "no_matching_node"
 FAIL_AUDIO = "audio_failed"
@@ -189,11 +190,20 @@ class ApplicationState:
             if not isinstance(canonical, dict):
                 retries[new_id] = alias_entry
             elif isinstance(alias_entry, dict):
-                # Keep the canonical schedule/attempts; add nodes still pending for the alias.
-                delivered = set(canonical.get("delivered_nodes") or [])
-                pending = set(canonical.get("pending_nodes") or [])
-                pending |= set(alias_entry.get("pending_nodes") or []) - delivered
-                canonical["pending_nodes"] = sorted(int(n) for n in pending)
+                # Keep the canonical schedule/attempts; a node delivered under either ID is
+                # done, and any node still pending under either ID stays pending.
+                delivered = {
+                    int(n)
+                    for n in (canonical.get("delivered_nodes") or [])
+                    + (alias_entry.get("delivered_nodes") or [])
+                }
+                pending = {
+                    int(n)
+                    for n in (canonical.get("pending_nodes") or [])
+                    + (alias_entry.get("pending_nodes") or [])
+                } - delivered
+                canonical["delivered_nodes"] = sorted(delivered)
+                canonical["pending_nodes"] = sorted(pending)
         held = state.get("quiet_hours_held")
         if isinstance(held, dict) and old_id in held:
             held.setdefault(new_id, held.pop(old_id))
@@ -566,10 +576,15 @@ class ApplicationState:
         return True
 
     def clear_announcement_retry(self, state: dict[str, Any], alert_id: str) -> None:
-        """Forget any pending announcement retry for an alert."""
+        """Forget any pending announcement retry for an alert, including its outcome metadata."""
         retries = state.get("announcement_retries")
         if isinstance(retries, dict):
             retries.pop(alert_id, None)
+        outcomes = state.get("announcement_outcomes")
+        outcome = outcomes.get(alert_id) if isinstance(outcomes, dict) else None
+        if isinstance(outcome, dict):
+            # The dashboard shows "retry N of M" from this block; drop it with the retry.
+            outcome.pop("retry", None)
 
     def get_announcement_retry(self, state: dict[str, Any], alert_id: str) -> dict[str, Any] | None:
         """Return the pending retry entry for an alert, if any."""

@@ -756,7 +756,9 @@ class AuthConfig(BaseModel):
         None,
         description=(
             "Secret key for session encryption (64 hex chars). When unset, a key is generated "
-            "once and stored in data_dir/session_secret.key so sessions survive restarts"
+            "once and stored in data_dir/session_secret.key so sessions survive restarts. If "
+            "data_dir is not writable, a new key is generated on every start and users must "
+            "log in again after each restart"
         ),
     )
     secure_cookies: bool = Field(

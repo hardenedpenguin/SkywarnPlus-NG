@@ -21,6 +21,7 @@ from .parser import (
     is_hurricane,
     normalize_cyclone_movement,
     parse_coordinates,
+    parse_cyclone_datetime,
     parse_nhc_cyclone_xml,
 )
 
@@ -73,6 +74,7 @@ class CycloneAdvisory:
     center: str
     wind: str
     movement: str
+    issued_utc: datetime | None = None
 
 
 class NhcCycloneService:
@@ -350,6 +352,7 @@ class NhcCycloneService:
                     center=cyclone.center,
                     wind=cyclone.wind,
                     movement=movement,
+                    issued_utc=parse_cyclone_datetime(cyclone.datetime_raw),
                 )
             )
 

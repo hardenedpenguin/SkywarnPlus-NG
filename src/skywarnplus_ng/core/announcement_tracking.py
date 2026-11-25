@@ -18,6 +18,7 @@ from .state import (
     FAIL_PLAYBACK,
     SKIP_ALREADY_ANNOUNCED,
     SKIP_BLOCKED_EVENT,
+    SKIP_EXPIRED,
     SKIP_GEO_HAZARD_TSUNAMI,
     SKIP_QUIET_HOURS,
     SKIP_VOICE_DISABLED,
@@ -51,6 +52,8 @@ class AnnouncementTrackingMixin:
     nws_client: NWSClient | None
     database_manager: DatabaseManager | None
     mobile_county_service: MobileCountyService | None
+    _last_announce_failure: str | None
+    _last_announce_targets: list[int] | None
 
     if TYPE_CHECKING:
 
@@ -89,15 +92,27 @@ class AnnouncementTrackingMixin:
 
         Without the retry, an alert whose first announcement failed (TTS error, missing audio,
         Asterisk unavailable) is stored in state and never voiced on later polls.
+
+        Args:
+            attempted_nodes: Nodes the caller asked to play on. The nodes ``_announce_alert``
+                actually attempted take precedence when known.
         """
         failure_reason = getattr(self, "_last_announce_failure", None) or FAIL_PLAYBACK
         if not self._announcement_delivery_configured():
             self.state_manager.clear_announcement_retry(self.state, alert.id)
             self._set_skipped_outcome(alert, FAIL_DELIVERY_NOT_CONFIGURED)
             return
-        targets = (
-            attempted_nodes if attempted_nodes is not None else self._target_nodes_for_alert(alert)
-        )
+        if not successful_nodes and failure_reason == SKIP_EXPIRED:
+            self.state_manager.clear_announcement_retry(self.state, alert.id)
+            self._set_skipped_outcome(alert, SKIP_EXPIRED)
+            return
+        played_targets = getattr(self, "_last_announce_targets", None)
+        if played_targets is not None:
+            targets = list(played_targets)
+        elif attempted_nodes is not None:
+            targets = list(attempted_nodes)
+        else:
+            targets = self._target_nodes_for_alert(alert)
         pending = sorted(set(targets) - set(successful_nodes))
         gave_up = False
         if pending:
@@ -182,18 +197,28 @@ class AnnouncementTrackingMixin:
     async def _store_announcement_result(
         self, alert: WeatherAlert, delivered_nodes: list[int] | None
     ) -> None:
-        """Update the stored alert row with the latest announcement result and outcome."""
+        """
+        Update the stored alert row with the latest announcement result and outcome.
+
+        Args:
+            delivered_nodes: Nodes that played on this attempt. Merged with every node that
+                has played so far; ``None`` keeps the stored list.
+        """
         if not self.database_manager:
             return
+        outcome = self.state_manager.get_announcement_outcome(self.state, alert.id)
+        if delivered_nodes is not None:
+            delivered_nodes = sorted(
+                {int(n) for n in delivered_nodes}
+                | {int(n) for n in (outcome or {}).get("played_nodes") or []}
+            )
         try:
             await self.database_manager.store_alert(
                 alert=alert,
                 announced=alert.id in self.state.get("last_sayalert", []),
                 script_executed=alert.id in self.state.get("alertscript_alerts", []),
                 announcement_nodes=delivered_nodes,
-                announcement_outcome=self.state_manager.get_announcement_outcome(
-                    self.state, alert.id
-                ),
+                announcement_outcome=outcome,
             )
         except DatabaseError as e:
             logger.error("Failed to update alert %s in database: %s", alert.id, e)
@@ -328,17 +353,6 @@ class AnnouncementTrackingMixin:
                 self.state_manager.mark_alert_announced(self.state, alert_id)
                 if first_success and self.playback_policy:
                     self.playback_policy.record_announcement(alert, self.state)
-                if self.database_manager:
-                    delivered = sorted(set(entry.get("delivered_nodes") or []) | set(successful))
-                    try:
-                        await self.database_manager.store_alert(
-                            alert=alert,
-                            announced=True,
-                            script_executed=alert_id in self.state.get("alertscript_alerts", []),
-                            announcement_nodes=delivered,
-                            announcement_outcome=self.state_manager.get_announcement_outcome(
-                                self.state, alert_id
-                            ),
-                        )
-                    except DatabaseError as e:
-                        logger.error("Failed to update alert %s in database: %s", alert_id, e)
+            # Store every attempt, so Alert History shows failed and given-up retries too.
+            delivered = sorted(set(entry.get("delivered_nodes") or []) | set(successful))
+            await self._store_announcement_result(alert, delivered or None)

@@ -38,6 +38,23 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# Config field holding each feed's maximum item age, in hours.
+_MAX_AGE_SETTINGS = {
+    "nhc": "max_advisory_age_hours",
+    "earthquake": "max_event_age_hours",
+    "wildfire": "max_discovery_age_hours",
+}
+
+
+def _hazard_time(item: Any) -> datetime | None:
+    """When a geo-hazard item was issued or observed, if the feed provides it."""
+    for attr in ("issued_utc", "time_utc", "discovery_utc"):
+        value = getattr(item, attr, None)
+        if isinstance(value, datetime):
+            return value
+    return None
+
+
 class GeoHazardSpeech(TypedDict):
     """What to say for a geo-hazard item, and how to name its audio file."""
 
@@ -75,7 +92,6 @@ class GeoHazardAnnouncerMixin:
         await self._handle_geo_hazard_feed(
             kind="nhc",
             service=self.nhc_service,
-            announce_enabled=True,
             key=lambda a: a.advisory_key,
             describe=lambda a: f"NHC advisory {a.advisory_key} ({a.name})",
             speech=self._cyclone_speech,
@@ -87,7 +103,6 @@ class GeoHazardAnnouncerMixin:
         await self._handle_geo_hazard_feed(
             kind="earthquake",
             service=self.earthquake_service,
-            announce_enabled=self.config.earthquake.announce_enabled,
             key=lambda e: e.announcement_key,
             describe=lambda e: f"earthquake {e.event_id} (M{e.magnitude})",
             speech=self._earthquake_speech,
@@ -99,7 +114,6 @@ class GeoHazardAnnouncerMixin:
         await self._handle_geo_hazard_feed(
             kind="wildfire",
             service=self.wildfire_service,
-            announce_enabled=self.config.wildfire.announce_enabled,
             key=lambda i: i.announcement_key,
             describe=lambda i: f"wildfire {i.incident_id} ({i.name})",
             speech=self._wildfire_speech,
@@ -111,7 +125,6 @@ class GeoHazardAnnouncerMixin:
         await self._handle_geo_hazard_feed(
             kind="tsunami",
             service=self.tsunami_service,
-            announce_enabled=self.config.tsunami.announce_enabled,
             key=lambda a: a.announcement_key,
             describe=lambda a: f"tsunami {a.alert_id} ({a.event})",
             speech=self._tsunami_speech,
@@ -123,7 +136,6 @@ class GeoHazardAnnouncerMixin:
         await self._handle_geo_hazard_feed(
             kind="space_weather",
             service=self.space_weather_service,
-            announce_enabled=self.config.space_weather.announce_enabled,
             key=lambda a: a.announcement_key,
             describe=lambda a: f"space weather {a.product_id} ({a.title})",
             speech=self._space_weather_speech,
@@ -135,7 +147,6 @@ class GeoHazardAnnouncerMixin:
         await self._handle_geo_hazard_feed(
             kind="volcano",
             service=self.volcano_service,
-            announce_enabled=self.config.volcano.announce_enabled,
             key=lambda n: n.announcement_key,
             describe=lambda n: f"volcano {n.vnum} ({n.name})",
             speech=self._volcano_speech,
@@ -147,7 +158,6 @@ class GeoHazardAnnouncerMixin:
         *,
         kind: str,
         service: Any,
-        announce_enabled: bool,
         key: Callable[[Any], str],
         describe: Callable[[Any], str],
         speech: Callable[[Any], GeoHazardSpeech],
@@ -169,7 +179,8 @@ class GeoHazardAnnouncerMixin:
         self._persist_announced_state()
         for item in items:
             item_key = key(item)
-            if not announce_enabled:
+            # Read the setting per item: the operator may disable voice while the feed polls.
+            if not self._geo_hazard_voice_enabled(kind):
                 service.mark_announced(item_key, self.state)
                 self._persist_announced_state()
                 continue
@@ -184,7 +195,9 @@ class GeoHazardAnnouncerMixin:
             if not played:
                 continue
             service.mark_announced(item_key, self.state)
-            self._schedule_geo_hazard_node_retry(kind, item_key, spoken, played)
+            self._schedule_geo_hazard_node_retry(
+                kind, item_key, spoken, played, issued_at=_hazard_time(item)
+            )
             self._persist_announced_state()
             await self._notify_geo_hazard_broadcast(title=title(item), message=spoken["tts_text"])
 
@@ -195,10 +208,44 @@ class GeoHazardAnnouncerMixin:
             return False
         return bool(getattr(section, "announce_enabled", True))
 
+    def _geo_hazard_still_current(self, entry: dict[str, Any], now: datetime) -> bool:
+        """
+        True while a queued geo-hazard is within its feed's maximum age.
+
+        Mirrors the age filters the services apply when polling (for example
+        ``nhc.max_advisory_age_hours``), using the current configuration.
+        """
+        setting = _MAX_AGE_SETTINGS.get(str(entry.get("kind")))
+        raw = entry.get("issued_at")
+        if not setting or not raw:
+            return True
+        section = getattr(self.config, str(entry.get("kind")), None)
+        max_age_hours = getattr(section, setting, None)
+        if not isinstance(max_age_hours, int | float) or max_age_hours <= 0:
+            return True
+        try:
+            issued_at = datetime.fromisoformat(str(raw))
+        except ValueError:
+            return True
+        if issued_at.tzinfo is None:
+            issued_at = issued_at.replace(tzinfo=UTC)
+        return now - issued_at <= timedelta(hours=max_age_hours)
+
     def _schedule_geo_hazard_node_retry(
-        self, kind: str, item_key: str, spoken: GeoHazardSpeech, played: list[int]
+        self,
+        kind: str,
+        item_key: str,
+        spoken: GeoHazardSpeech,
+        played: list[int],
+        issued_at: datetime | None = None,
     ) -> None:
-        """Queue nodes that missed a geo-hazard announcement for a later retry."""
+        """
+        Queue nodes that missed a geo-hazard announcement for a later retry.
+
+        Args:
+            issued_at: When the hazard was issued/observed; retries stop once it is older
+                than the feed's configured maximum age
+        """
         targets = self.config.asterisk.get_nodes_list()
         pending = sorted(n for n in targets if n not in set(played))
         if not pending:
@@ -213,6 +260,7 @@ class GeoHazardAnnouncerMixin:
             "pending_nodes": pending,
             "delivered_nodes": sorted(played),
             "attempts": 1,
+            "issued_at": issued_at.isoformat() if issued_at else None,
             "next_retry_at": (
                 datetime.now(UTC) + timedelta(seconds=ANNOUNCEMENT_RETRY_BASE_SECONDS)
             ).isoformat(),
@@ -256,6 +304,8 @@ class GeoHazardAnnouncerMixin:
                 drop_reason = "voice delivery is not configured"
             elif not self._geo_hazard_voice_enabled(str(entry.get("kind"))):
                 drop_reason = "announcements disabled"
+            elif not self._geo_hazard_still_current(entry, now):
+                drop_reason = "no longer current"
             elif self.playback_policy:
                 allowed, reason = self.playback_policy.should_announce_geo_hazard()
                 if not allowed:
