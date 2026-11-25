@@ -134,6 +134,9 @@ def _enrich_alert_payload(alert_data: dict[str, Any], state: dict[str, Any]) -> 
     alertscript_alerts = state.get("alertscript_alerts") or []
     payload["announced"] = bool(alert_id and alert_id in last_sayalert)
     payload["script_executed"] = bool(alert_id and alert_id in alertscript_alerts)
+    outcomes = state.get("announcement_outcomes") or {}
+    outcome = outcomes.get(alert_id) if isinstance(outcomes, dict) and alert_id else None
+    payload["announcement_outcome"] = copy.deepcopy(outcome) if outcome else None
     return payload
 
 

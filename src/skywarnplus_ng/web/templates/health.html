@@ -179,6 +179,7 @@
         volcano_api: 'Volcano Notices',
         audio_system: 'Audio System',
         asterisk_system: 'Asterisk',
+        announcement_delivery: 'Announcement Delivery',
         script_system: 'Scripts',
         database_system: 'Database',
     };
@@ -186,6 +187,19 @@
     function formatHealthComponentLabel(name) {
         if (!name) return 'UNKNOWN';
         return HEALTH_COMPONENT_LABELS[name] || String(name).replace(/_/g, ' ').toUpperCase();
+    }
+
+    function renderNodeDelivery(comp) {
+        var nodes = comp && comp.name === 'announcement_delivery' && comp.details && comp.details.node_delivery;
+        if (!nodes) return '';
+        var rows = Object.keys(nodes).map(function (node) {
+            var n = nodes[node] || {};
+            var last = n.last_success_at ? 'last played ' + formatRelativeTime(n.last_success_at).replace('Just now', 'just now') : 'never played';
+            var fail = n.consecutive_failures ? ' \u00b7 ' + n.consecutive_failures + ' consecutive failure' + (n.consecutive_failures === 1 ? '' : 's') : '';
+            var cls = n.consecutive_failures ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400';
+            return '<li class="' + cls + '">Node ' + escHtml(node) + ': ' + escHtml(last + fail) + '</li>';
+        }).join('');
+        return rows ? '<ul class="mt-1 text-xs space-y-0.5">' + rows + '</ul>' : '';
     }
 
     function renderComponents(components) {
@@ -209,6 +223,7 @@
                     <div>
                         <span class="text-sm font-medium text-gray-900 dark:text-white">${formatHealthComponentLabel(comp.name)}</span>
                         <p class="text-xs text-gray-500 dark:text-gray-400">${escHtml(comp.message)}</p>
+                        ${renderNodeDelivery(comp)}
                     </div>
                 </div>
                 <div class="text-right">

@@ -215,6 +215,12 @@ class AlertsApiMixin:
                         "processed_at": format_datetime(alert.processed_at),
                         "announced": alert.announced,
                         "script_executed": alert.script_executed,
+                        "announcement_nodes": alert.announcement_nodes or [],
+                        "announcement_outcome": (
+                            alert.additional_data.get("announcement_outcome")
+                            if isinstance(alert.additional_data, dict)
+                            else None
+                        ),
                     }
                 )
 

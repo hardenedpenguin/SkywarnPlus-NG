@@ -756,6 +756,54 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // Voice announcement outcome badge (Active Alerts + Alert History)
+        const ANNOUNCEMENT_REASON_LABELS = {
+            voice_disabled: 'Voice announcements disabled',
+            geo_hazard_tsunami: 'Handled by tsunami monitoring',
+            blocked_event: 'Event type blocked',
+            quiet_hours: 'Quiet hours',
+            announcement_hold: 'Announcement hold',
+            delivery_not_configured: 'Asterisk delivery not configured',
+            no_matching_node: 'No node monitors these counties',
+            audio_failed: 'Audio generation failed',
+            playback_failed: 'Asterisk playback failed',
+            announce_error: 'Announcement error'
+        };
+        function formatAnnouncementTime(iso) {
+            if (!iso) return '';
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        }
+        function renderAnnouncementOutcome(outcome) {
+            if (!outcome || !outcome.status) return '';
+            var played = outcome.played_nodes || [];
+            var failed = outcome.failed_nodes || [];
+            var reason = ANNOUNCEMENT_REASON_LABELS[outcome.reason] || outcome.reason || '';
+            var cls, text;
+            if (outcome.status === 'played') {
+                cls = 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+                text = 'Played on ' + played.join(', ');
+            } else if (outcome.status === 'partial') {
+                cls = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+                text = 'Played on ' + played.join(', ') + ' \u00b7 failed on ' + failed.join(', ');
+            } else if (outcome.status === 'failed') {
+                cls = 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+                text = 'Not played: ' + reason + (failed.length ? ' (' + failed.join(', ') + ')' : '');
+            } else {
+                cls = 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+                text = 'Skipped: ' + reason;
+            }
+            if (outcome.gave_up) {
+                text += ' \u00b7 gave up after retries';
+            } else if (outcome.retry && outcome.retry.attempt) {
+                var at = formatAnnouncementTime(outcome.retry.next_retry_at);
+                text += ' \u00b7 next attempt ' + (outcome.retry.attempt + 1) + ' of ' + outcome.retry.max_attempts + (at ? ' at ' + at : '');
+            }
+            var title = outcome.updated_at ? 'Updated ' + new Date(outcome.updated_at).toLocaleString() : '';
+            return '<span class="inline-block px-2 py-1 text-xs font-medium rounded-full ' + cls + '" title="' + escHtml(title) + '">' + escHtml(text) + '</span>';
+        }
+
         function showNotification(message, type, duration, opts) {
             if (typeof type !== 'string') type = 'info';
             if (typeof duration !== 'number') duration = 5000;
