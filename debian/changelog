@@ -1,3 +1,16 @@
+skywarnplus-ng (1.6.8-1) unstable; urgency=medium
+
+  * Playback: reject WAV files Asterisk cannot decode (non-8/16 kHz PCM)
+    before localplay so false "delivered" successes stop masking silent
+    frequency-mismatch failures found in live testing.
+  * Playback: refuse localplay on nodes not listed by Asterisk
+    (rpt localnodes) so misconfigured node numbers are not reported as
+    successful deliveries.
+  * Dashboard: make web site stop idempotent so double-stop on shutdown
+    no longer logs "Site is not registered in runner".
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Tue, 24 Nov 2026 21:33:55 -0600
+
 skywarnplus-ng (1.6.7-1) unstable; urgency=medium
 
   * Voice: retry NWS and geo-hazard announcements on nodes that missed
