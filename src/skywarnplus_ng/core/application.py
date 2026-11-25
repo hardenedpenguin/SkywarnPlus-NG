@@ -1800,6 +1800,12 @@ class SkywarnPlusApplication:
             if alert is None:
                 # Not active this poll; expiry handling prunes the entry.
                 continue
+            if self.nws_client and not self.nws_client.filter_active_alerts(
+                [alert], time_type=self.config.alerts.time_type
+            ):
+                # Expired (or cancelled) since this poll's fetch; never voice it late.
+                self.state_manager.clear_announcement_retry(self.state, alert_id)
+                continue
             allowed, keep_pending = self._retry_allowed_now(alert)
             if not allowed:
                 if not keep_pending:

@@ -164,8 +164,16 @@ class ApplicationState:
             last[new_id] = last.pop(old_id)
         retries = state.get("announcement_retries")
         if isinstance(retries, dict) and old_id in retries:
-            entry = retries.pop(old_id)
-            retries.setdefault(new_id, entry)
+            alias_entry = retries.pop(old_id)
+            canonical = retries.get(new_id)
+            if not isinstance(canonical, dict):
+                retries[new_id] = alias_entry
+            elif isinstance(alias_entry, dict):
+                # Keep the canonical schedule/attempts; add nodes still pending for the alias.
+                delivered = set(canonical.get("delivered_nodes") or [])
+                pending = set(canonical.get("pending_nodes") or [])
+                pending |= set(alias_entry.get("pending_nodes") or []) - delivered
+                canonical["pending_nodes"] = sorted(int(n) for n in pending)
         for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts", "active_alerts"):
             items = state.get(key)
             if not isinstance(items, list):
