@@ -7,7 +7,7 @@ import logging
 import os
 import tempfile
 from collections import OrderedDict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,11 @@ from .models import WeatherAlert
 logger = logging.getLogger(__name__)
 
 TRACKING_LIST_MAX = 2000
+
+# Voice announcement retry policy for delivery failures (TTS, audio file, Asterisk).
+ANNOUNCEMENT_RETRY_MAX_ATTEMPTS = 5
+ANNOUNCEMENT_RETRY_BASE_SECONDS = 30
+ANNOUNCEMENT_RETRY_MAX_SECONDS = 600
 
 
 class ApplicationState:
@@ -135,6 +140,8 @@ class ApplicationState:
             "wildfire_last_error_message": None,
             "wildfire_announced_incidents": [],  # WFIGS incident IDs already voiced
             "alert_id_aliases": {},  # collapsed NWS alert id -> canonical active id
+            # alert id -> {attempts, next_retry_at, pending_nodes, delivered_nodes}
+            "announcement_retries": {},
             "version": "1.0.4",  # State file version
         }
 
@@ -155,6 +162,10 @@ class ApplicationState:
         last = state.get("last_alerts")
         if isinstance(last, dict) and old_id in last and new_id not in last:
             last[new_id] = last.pop(old_id)
+        retries = state.get("announcement_retries")
+        if isinstance(retries, dict) and old_id in retries:
+            entry = retries.pop(old_id)
+            retries.setdefault(new_id, entry)
         for key in ("last_sayalert", "alertscript_alerts", "webhook_sent_alerts", "active_alerts"):
             items = state.get(key)
             if not isinstance(items, list):
@@ -188,6 +199,9 @@ class ApplicationState:
             items = state.get(key)
             if isinstance(items, list) and alert_id in items:
                 state[key] = [item for item in items if item != alert_id]
+        retries = state.get("announcement_retries")
+        if isinstance(retries, dict):
+            retries.pop(alert_id, None)
         aliases = state.get("alert_id_aliases")
         if isinstance(aliases, dict):
             aliases.pop(alert_id, None)
@@ -208,6 +222,10 @@ class ApplicationState:
         if isinstance(cooldown, dict) and len(cooldown) > TRACKING_LIST_MAX:
             keys = list(cooldown.keys())[-TRACKING_LIST_MAX:]
             state["announcement_cooldown"] = {k: cooldown[k] for k in keys}
+        retries = state.get("announcement_retries")
+        if isinstance(retries, dict) and len(retries) > TRACKING_LIST_MAX:
+            keys = list(retries.keys())[-TRACKING_LIST_MAX:]
+            state["announcement_retries"] = {k: retries[k] for k in keys}
 
     def get_alert_ids(self, state: dict[str, Any]) -> set[str]:
         """
@@ -447,6 +465,103 @@ class ApplicationState:
             state.setdefault("last_sayalert", []).append(alert_id)
             self._trim_tracking_list(state, "last_sayalert")
             logger.debug(f"Marked alert {alert_id} as announced")
+
+    def schedule_announcement_retry(
+        self,
+        state: dict[str, Any],
+        alert_id: str,
+        pending_nodes: list[int],
+        delivered_nodes: list[int] | None = None,
+        now: datetime | None = None,
+    ) -> bool:
+        """
+        Record a failed voice delivery so the alert is retried on a later poll.
+
+        Uses exponential backoff (30s, 60s, 120s, ... capped at 10 minutes) and gives up
+        after ``ANNOUNCEMENT_RETRY_MAX_ATTEMPTS`` failed attempts.
+
+        Args:
+            state: Current state dictionary
+            alert_id: Alert whose announcement failed
+            pending_nodes: Target nodes that did not start playback
+            delivered_nodes: Nodes that have already played this alert
+            now: Current time (for tests)
+
+        Returns:
+            True if a retry was scheduled, False if the attempt limit was reached
+        """
+        now = now or datetime.now(UTC)
+        retries = state.get("announcement_retries")
+        if not isinstance(retries, dict):
+            retries = {}
+            state["announcement_retries"] = retries
+        entry = retries.get(alert_id) if isinstance(retries.get(alert_id), dict) else {}
+        attempts = int(entry.get("attempts", 0)) + 1
+        delivered = set(entry.get("delivered_nodes") or []) | set(delivered_nodes or [])
+        if attempts >= ANNOUNCEMENT_RETRY_MAX_ATTEMPTS:
+            retries.pop(alert_id, None)
+            logger.warning(
+                "Giving up on voice announcement for alert %s after %s attempts "
+                "(nodes never reached: %s)",
+                alert_id,
+                attempts,
+                sorted(pending_nodes),
+            )
+            return False
+        delay = min(
+            ANNOUNCEMENT_RETRY_BASE_SECONDS * (2 ** (attempts - 1)),
+            ANNOUNCEMENT_RETRY_MAX_SECONDS,
+        )
+        retries[alert_id] = {
+            "attempts": attempts,
+            "next_retry_at": (now + timedelta(seconds=delay)).isoformat(),
+            "pending_nodes": sorted(int(n) for n in pending_nodes),
+            "delivered_nodes": sorted(int(n) for n in delivered),
+        }
+        logger.warning(
+            "Voice announcement for alert %s failed on nodes %s; retry %s in %ss",
+            alert_id,
+            sorted(pending_nodes),
+            attempts,
+            delay,
+        )
+        return True
+
+    def clear_announcement_retry(self, state: dict[str, Any], alert_id: str) -> None:
+        """Forget any pending announcement retry for an alert."""
+        retries = state.get("announcement_retries")
+        if isinstance(retries, dict):
+            retries.pop(alert_id, None)
+
+    def get_announcement_retry(self, state: dict[str, Any], alert_id: str) -> dict[str, Any] | None:
+        """Return the pending retry entry for an alert, if any."""
+        retries = state.get("announcement_retries")
+        if isinstance(retries, dict) and isinstance(retries.get(alert_id), dict):
+            return retries[alert_id]
+        return None
+
+    def get_due_announcement_retries(
+        self, state: dict[str, Any], now: datetime | None = None
+    ) -> dict[str, dict[str, Any]]:
+        """Return retry entries whose backoff has elapsed, keyed by alert id."""
+        now = now or datetime.now(UTC)
+        retries = state.get("announcement_retries")
+        if not isinstance(retries, dict):
+            return {}
+        due: dict[str, dict[str, Any]] = {}
+        for alert_id, entry in retries.items():
+            if not isinstance(entry, dict):
+                continue
+            raw = entry.get("next_retry_at")
+            try:
+                when = datetime.fromisoformat(str(raw).replace("Z", "+00:00")) if raw else now
+            except ValueError:
+                when = now
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=UTC)
+            if when <= now:
+                due[alert_id] = entry
+        return due
 
     def mark_alert_script_triggered(self, state: dict[str, Any], alert_id: str) -> None:
         """
