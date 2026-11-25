@@ -5,6 +5,7 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 import asyncio
 import logging
 import os
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 # Seconds to wait for ``asterisk -rx "rpt localplay ..."`` to return.
 PLAYBACK_COMMAND_TIMEOUT_SECONDS = 15.0
+
+# Seconds to reuse the ``rpt localnodes`` list before asking Asterisk again.
+LOCAL_NODES_CACHE_SECONDS = 60.0
 
 # CLI output that means Asterisk did not queue the playback even though the exit code is 0.
 _PLAYBACK_CLI_ERRORS = (
@@ -53,6 +57,7 @@ class AsteriskManager:
         self.asterisk_path = Path("/usr/sbin/asterisk")
         # Optional callback(attempted_nodes, successful_nodes) after each multi-node playback
         self.delivery_observer: Callable[[list[int], list[int]], None] | None = None
+        self._local_nodes_cache: tuple[float, set[int]] | None = None
         self._validate_asterisk()
 
     def _validate_asterisk(self) -> None:
@@ -250,6 +255,32 @@ class AsteriskManager:
 
         return node_statuses
 
+    async def get_local_nodes(self) -> set[int] | None:
+        """
+        Node numbers app_rpt hosts on this Asterisk (``rpt localnodes``), cached briefly.
+
+        Returns:
+            The node set, or ``None`` when it cannot be determined (callers then skip
+            the check rather than block playback).
+        """
+        now = time.monotonic()
+        cache = self._local_nodes_cache
+        if cache and now - cache[0] < LOCAL_NODES_CACHE_SECONDS:
+            return cache[1]
+        try:
+            return_code, stdout, _ = await self._run_asterisk_command(
+                "rpt localnodes", timeout=PLAYBACK_COMMAND_TIMEOUT_SECONDS
+            )
+        except AsteriskError:
+            return None
+        if return_code != 0:
+            return None
+        nodes = {int(line.strip()) for line in stdout.splitlines() if line.strip().isdigit()}
+        if not nodes:
+            return None
+        self._local_nodes_cache = (now, nodes)
+        return nodes
+
     async def play_audio_on_node(self, node_number: int, audio_path: Path) -> bool:
         """
         Play audio file on a specific node.
@@ -268,6 +299,17 @@ class AsteriskManager:
         # Verify file is not empty
         if audio_path.stat().st_size == 0:
             logger.error(f"Audio file is empty: {audio_path}")
+            return False
+
+        # app_rpt silently ignores "rpt localplay" for a node it does not host (exit 0, no
+        # output), so check the node exists before reporting playback as started.
+        local_nodes = await self.get_local_nodes()
+        if local_nodes is not None and int(node_number) not in local_nodes:
+            logger.error(
+                "Node %s is not hosted by this Asterisk (rpt localnodes: %s); not playing",
+                node_number,
+                sorted(local_nodes),
+            )
             return False
 
         # Log file extension for debugging
