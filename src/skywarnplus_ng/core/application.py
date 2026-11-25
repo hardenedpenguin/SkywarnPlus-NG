@@ -53,7 +53,7 @@ from ..volcano.volcano_service import VolcanoNotice, VolcanoService
 from ..web.server import WebDashboard
 from ..wildfire.wfigs_service import WfigsWildfireService, WildfireIncident
 from .config import AppConfig
-from .models import AlertStatus, WeatherAlert
+from .models import AlertSeverity, AlertStatus, WeatherAlert
 from .state import ApplicationState
 
 logger = logging.getLogger(__name__)
@@ -974,6 +974,9 @@ class SkywarnPlusApplication:
                 # Only say the alerts that changed
                 await self._handle_alerts_with_changes(alerts_with_county_changes)
 
+        # Retry announcements whose earlier delivery failed (TTS / audio / Asterisk errors)
+        await self._retry_failed_announcements(processed_alerts)
+
         # Process expired alerts
         if expired_alerts:
             await self._handle_expired_alerts(expired_alerts)
@@ -1077,6 +1080,7 @@ class SkywarnPlusApplication:
                         self.state_manager.mark_alert_announced(self.state, alert.id)
                         if self.playback_policy:
                             self.playback_policy.record_announcement(alert, self.state)
+                    self._record_announcement_outcome(alert, announcement_nodes)
 
                 # Execute alert script
                 if self.script_manager:
@@ -1717,8 +1721,132 @@ class SkywarnPlusApplication:
                     self.state_manager.mark_alert_announced(self.state, alert.id)
                     if self.playback_policy:
                         self.playback_policy.record_announcement(alert, self.state)
+                self._record_announcement_outcome(alert, announcement_nodes)
 
-    async def _announce_alert(self, alert: WeatherAlert) -> list[int]:
+    def _announcement_delivery_configured(self) -> bool:
+        """True when voice delivery is set up, so a failed attempt is worth retrying."""
+        return bool(
+            self.audio_manager
+            and self.asterisk_manager
+            and self.config.asterisk.enabled
+            and self.config.asterisk.nodes
+        )
+
+    def _target_nodes_for_alert(self, alert: WeatherAlert) -> list[int]:
+        """Nodes that should voice this alert based on its counties."""
+        county_codes_list = getattr(alert, "county_codes", []) or []
+        if self.mobile_county_service:
+            return list(self.mobile_county_service.get_nodes_for_counties(county_codes_list))
+        return list(self.config.get_nodes_for_counties(county_codes_list))
+
+    def _record_announcement_outcome(
+        self,
+        alert: WeatherAlert,
+        successful_nodes: list[int],
+        attempted_nodes: list[int] | None = None,
+    ) -> None:
+        """
+        Schedule a retry for target nodes that did not start playback.
+
+        Without this, an alert whose first announcement failed (TTS error, missing audio,
+        Asterisk unavailable) is stored in state and never voiced on later polls.
+        """
+        if not self._announcement_delivery_configured():
+            self.state_manager.clear_announcement_retry(self.state, alert.id)
+            return
+        targets = (
+            attempted_nodes if attempted_nodes is not None else self._target_nodes_for_alert(alert)
+        )
+        pending = sorted(set(targets) - set(successful_nodes))
+        if pending:
+            self.state_manager.schedule_announcement_retry(
+                self.state, alert.id, pending, delivered_nodes=successful_nodes
+            )
+        else:
+            self.state_manager.clear_announcement_retry(self.state, alert.id)
+
+    def _retry_allowed_now(self, alert: WeatherAlert) -> tuple[bool, bool]:
+        """
+        Decide whether a pending retry may run this poll.
+
+        Returns:
+            (allowed, keep_pending). keep_pending is False when the alert should no longer be
+            voiced at all (announcements disabled or event blocked).
+        """
+        if not self.config.alerts.say_alert:
+            return False, False
+        for blocked_event in self.config.filtering.say_alert_blocked:
+            if self._matches_pattern(alert.event, blocked_event):
+                return False, False
+        if self.config.tsunami.enabled and self.tsunami_service and is_tsunami_event(alert.event):
+            return False, False
+        if self.playback_policy and self.playback_policy.is_quiet_hours_active():
+            allow_severe = self.config.alerts.quiet_hours.allow_severe and alert.severity in (
+                AlertSeverity.SEVERE,
+                AlertSeverity.EXTREME,
+            )
+            if not allow_severe:
+                return False, True
+        return True, True
+
+    async def _retry_failed_announcements(self, active_alerts: list[WeatherAlert]) -> None:
+        """Retry voice announcements whose earlier delivery failed and whose backoff elapsed."""
+        due = self.state_manager.get_due_announcement_retries(self.state)
+        if not due:
+            return
+        by_id = {alert.id: alert for alert in active_alerts}
+        for alert_id, entry in due.items():
+            alert = by_id.get(alert_id)
+            if alert is None:
+                # Not active this poll; expiry handling prunes the entry.
+                continue
+            if self.nws_client and not self.nws_client.filter_active_alerts(
+                [alert], time_type=self.config.alerts.time_type
+            ):
+                # Expired (or cancelled) since this poll's fetch; never voice it late.
+                self.state_manager.clear_announcement_retry(self.state, alert_id)
+                continue
+            allowed, keep_pending = self._retry_allowed_now(alert)
+            if not allowed:
+                if not keep_pending:
+                    self.state_manager.clear_announcement_retry(self.state, alert_id)
+                continue
+            current_targets = set(self._target_nodes_for_alert(alert))
+            pending = [
+                int(n) for n in entry.get("pending_nodes") or [] if int(n) in current_targets
+            ]
+            if not pending:
+                self.state_manager.clear_announcement_retry(self.state, alert_id)
+                continue
+            logger.info(
+                "Retrying voice announcement for %s (%s) on nodes %s (attempt %s)",
+                alert.event,
+                alert_id,
+                pending,
+                int(entry.get("attempts", 0)) + 1,
+            )
+            successful = await self._announce_alert(alert, only_nodes=pending)
+            if successful:
+                first_success = alert_id not in self.state.get("last_sayalert", [])
+                self.state_manager.mark_alert_announced(self.state, alert_id)
+                if first_success and self.playback_policy:
+                    self.playback_policy.record_announcement(alert, self.state)
+                if self.database_manager:
+                    delivered = sorted(set(entry.get("delivered_nodes") or []) | set(successful))
+                    try:
+                        await self.database_manager.store_alert(
+                            alert=alert,
+                            announced=True,
+                            script_executed=alert_id in self.state.get("alertscript_alerts", []),
+                            announcement_nodes=delivered,
+                        )
+                    except DatabaseError as e:
+                        logger.error("Failed to update alert %s in database: %s", alert_id, e)
+            self._record_announcement_outcome(alert, successful, attempted_nodes=pending)
+
+    async def _announce_alert(
+        self, alert: WeatherAlert, only_nodes: list[int] | None = None
+    ) -> list[int]:
         """
         Announce an alert using TTS and Asterisk.
 
@@ -1726,6 +1854,7 @@ class SkywarnPlusApplication:
 
         Args:
             alert: Alert to announce (can be NWS or test alert)
+            only_nodes: Restrict playback to these nodes (used when retrying failed nodes)
 
         Returns:
             List of node numbers where announcement was successful (empty if failed)
@@ -1841,10 +1970,10 @@ class SkywarnPlusApplication:
                 return []
 
             # Determine which nodes should receive this alert based on counties
-            if self.mobile_county_service:
-                target_nodes = self.mobile_county_service.get_nodes_for_counties(county_codes_list)
-            else:
-                target_nodes = self.config.get_nodes_for_counties(county_codes_list)
+            target_nodes = self._target_nodes_for_alert(alert)
+            if only_nodes is not None:
+                allowed = set(only_nodes)
+                target_nodes = [node for node in target_nodes if node in allowed]
             if not target_nodes:
                 logger.warning(
                     f"No nodes configured to monitor counties {county_codes_list} - skipping announcement"

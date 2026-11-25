@@ -95,7 +95,7 @@ class DatabaseManager:
         alert: WeatherAlert,
         announced: bool = False,
         script_executed: bool = False,
-        announcement_nodes: list[int] = None,
+        announcement_nodes: list[int] | None = None,
     ) -> None:
         """
         Store a weather alert in the database.
@@ -104,7 +104,8 @@ class DatabaseManager:
             alert: Weather alert to store
             announced: Whether the alert was announced
             script_executed: Whether a script was executed
-            announcement_nodes: List of nodes that announced this alert
+            announcement_nodes: List of nodes that announced this alert. ``None`` keeps the
+                list already stored for an existing alert (snapshot refreshes).
         """
         try:
             async with await self.get_session() as session:
@@ -132,7 +133,8 @@ class DatabaseManager:
                     existing.sender_name = alert.sender_name
                     existing.announced = announced
                     existing.script_executed = script_executed
-                    existing.announcement_nodes = announcement_nodes or []
+                    if announcement_nodes is not None:
+                        existing.announcement_nodes = announcement_nodes
                     existing.processed_at = datetime.now(UTC)
                     existing.additional_data = {"original_alert": alert.model_dump(mode="json")}
                 else:
