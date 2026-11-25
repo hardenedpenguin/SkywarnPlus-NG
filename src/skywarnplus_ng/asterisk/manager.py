@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import time
+import wave
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,32 @@ def _playback_cli_error(stdout: str, stderr: str) -> str | None:
 
 class AsteriskError(Exception):
     """Asterisk manager error."""
+
+
+# Asterisk's format_wav only reads 16-bit mono PCM at 8 kHz or 16 kHz. Anything else
+# fails inside Asterisk ("Unable to open ... (format (slin))") while "rpt localplay"
+# still exits 0, so playback would be reported as accepted with nothing on air.
+ASTERISK_WAV_RATES = (8000, 16000)
+
+
+def _asterisk_wav_problem(audio_path: Path) -> str | None:
+    """Return why Asterisk cannot play a WAV file, or None if it looks playable."""
+    if audio_path.suffix.lower() != ".wav":
+        return None
+    try:
+        with wave.open(str(audio_path), "rb") as wav:
+            rate, channels, width = wav.getframerate(), wav.getnchannels(), wav.getsampwidth()
+    except (wave.Error, EOFError, OSError) as e:
+        # Non-PCM WAVs (e.g. WAV49/GSM) are not readable by the wave module; let Asterisk try.
+        logger.debug("Could not inspect WAV header of %s: %s", audio_path, e)
+        return None
+    if rate not in ASTERISK_WAV_RATES or channels != 1 or width != 2:
+        return (
+            f"WAV is {rate} Hz, {channels} channel(s), {width * 8}-bit; Asterisk needs "
+            "16-bit mono at 8000 or 16000 Hz (convert it, e.g. "
+            "sox in.wav -r 8000 -c 1 -b 16 out.wav)"
+        )
+    return None
 
 
 class AsteriskManager:
@@ -299,6 +326,11 @@ class AsteriskManager:
         # Verify file is not empty
         if audio_path.stat().st_size == 0:
             logger.error(f"Audio file is empty: {audio_path}")
+            return False
+
+        wav_problem = _asterisk_wav_problem(audio_path)
+        if wav_problem:
+            logger.error("Asterisk cannot play %s: %s", audio_path, wav_problem)
             return False
 
         # app_rpt silently ignores "rpt localplay" for a node it does not host (exit 0, no

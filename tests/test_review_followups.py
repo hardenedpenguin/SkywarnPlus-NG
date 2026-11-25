@@ -462,3 +462,33 @@ async def test_playback_on_hosted_node_proceeds_and_node_list_is_cached(tmp_path
 async def test_unknown_local_nodes_do_not_block_playback(tmp_path, localnodes_result):
     manager, audio = _asterisk_with_nodes(tmp_path, localnodes_result)
     assert await manager.play_audio_on_node(546051, audio) is True
+
+
+def _write_wav(path, rate, channels=1, width=2):
+    import wave
+
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(width)
+        wav.setframerate(rate)
+        wav.writeframes(b"\x00" * width * channels * 100)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rate,channels", [(44100, 1), (8000, 2)])
+async def test_wav_asterisk_cannot_read_is_rejected(tmp_path, rate, channels):
+    # Observed live: a 44.1 kHz WAV is "accepted" by rpt localplay but never plays
+    manager, _ = _asterisk(tmp_path, (0, "", ""))
+    audio = tmp_path / "Beep.wav"
+    _write_wav(audio, rate, channels)
+    assert await manager.play_audio_on_node(1999, audio) is False
+    manager._run_asterisk_command.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rate", [8000, 16000])
+async def test_wav_asterisk_can_read_plays(tmp_path, rate):
+    manager, _ = _asterisk(tmp_path, (0, "", ""))
+    audio = tmp_path / "Beep.wav"
+    _write_wav(audio, rate)
+    assert await manager.play_audio_on_node(1999, audio) is True
