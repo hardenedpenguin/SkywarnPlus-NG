@@ -790,6 +790,9 @@
             } else if (outcome.status === 'failed') {
                 cls = 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
                 text = 'Not played: ' + reason + (failed.length ? ' (' + failed.join(', ') + ')' : '');
+            } else if (outcome.held) {
+                cls = 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+                text = 'Held for quiet hours \u00b7 plays when they end if still active';
             } else {
                 cls = 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
                 text = 'Skipped: ' + reason;

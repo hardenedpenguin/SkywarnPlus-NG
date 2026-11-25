@@ -64,6 +64,7 @@ from .state import (
     SKIP_ALREADY_ANNOUNCED,
     SKIP_BLOCKED_EVENT,
     SKIP_GEO_HAZARD_TSUNAMI,
+    SKIP_QUIET_HOURS,
     SKIP_VOICE_DISABLED,
     ApplicationState,
 )
@@ -987,6 +988,9 @@ class SkywarnPlusApplication:
                 # Only say the alerts that changed
                 await self._handle_alerts_with_changes(alerts_with_county_changes)
 
+        # Voice alerts that were held while quiet hours were active, now that they ended
+        await self._announce_held_alerts(processed_alerts)
+
         # Retry announcements whose earlier delivery failed (TTS / audio / Asterisk errors)
         await self._retry_failed_announcements(processed_alerts)
 
@@ -1099,7 +1103,7 @@ class SkywarnPlusApplication:
                             self.playback_policy.record_announcement(alert, self.state)
                     self._record_announcement_outcome(alert, announcement_nodes)
                 elif skip_reason != SKIP_ALREADY_ANNOUNCED:
-                    self._set_skipped_outcome(alert, skip_reason)
+                    self._note_skipped_announcement(alert, skip_reason)
 
                 # Execute alert script
                 if self.script_manager:
@@ -1746,13 +1750,16 @@ class SkywarnPlusApplication:
         logger.info(f"Processing {len(alerts)} alerts with county changes")
 
         for alert in alerts:
-            if self._should_announce_alert(alert):
+            skip_reason = self._announce_skip_reason(alert)
+            if skip_reason is None:
                 announcement_nodes = await self._announce_alert(alert)
                 if announcement_nodes:
                     self.state_manager.mark_alert_announced(self.state, alert.id)
                     if self.playback_policy:
                         self.playback_policy.record_announcement(alert, self.state)
                 self._record_announcement_outcome(alert, announcement_nodes)
+            elif skip_reason == SKIP_QUIET_HOURS:
+                self._note_skipped_announcement(alert, skip_reason)
 
     def _announcement_delivery_configured(self) -> bool:
         """True when voice delivery is set up, so a failed attempt is worth retrying."""
@@ -1845,20 +1852,102 @@ class SkywarnPlusApplication:
             outcome["gave_up"] = True
         self.state_manager.set_announcement_outcome(self.state, alert.id, outcome)
 
-    def _set_skipped_outcome(self, alert: WeatherAlert, reason: str) -> None:
+    def _set_skipped_outcome(self, alert: WeatherAlert, reason: str, held: bool = False) -> None:
         """Record that an alert was intentionally not voiced (policy or configuration)."""
-        self.state_manager.set_announcement_outcome(
-            self.state,
-            alert.id,
-            {
-                "status": "skipped",
-                "reason": reason,
-                "nodes": {},
-                "played_nodes": [],
-                "failed_nodes": [],
-                "updated_at": datetime.now(UTC).isoformat(),
-            },
-        )
+        outcome: dict[str, Any] = {
+            "status": "skipped",
+            "reason": reason,
+            "nodes": {},
+            "played_nodes": [],
+            "failed_nodes": [],
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        if held:
+            outcome["held"] = True
+        self.state_manager.set_announcement_outcome(self.state, alert.id, outcome)
+
+    def _quiet_hours_catchup_enabled(self) -> bool:
+        """True when alerts skipped for quiet hours should be voiced once they end."""
+        return bool(self.config.alerts.quiet_hours.announce_held_on_end)
+
+    def _note_skipped_announcement(self, alert: WeatherAlert, reason: str) -> None:
+        """Record a skipped announcement; quiet-hours skips are held for catch-up."""
+        if reason == SKIP_QUIET_HOURS and self._quiet_hours_catchup_enabled():
+            self.state_manager.hold_for_quiet_hours(self.state, alert.id)
+            self._set_skipped_outcome(alert, reason, held=True)
+            return
+        self._set_skipped_outcome(alert, reason)
+
+    async def _store_announcement_result(
+        self, alert: WeatherAlert, delivered_nodes: list[int] | None
+    ) -> None:
+        """Update the stored alert row with the latest announcement result and outcome."""
+        if not self.database_manager:
+            return
+        try:
+            await self.database_manager.store_alert(
+                alert=alert,
+                announced=alert.id in self.state.get("last_sayalert", []),
+                script_executed=alert.id in self.state.get("alertscript_alerts", []),
+                announcement_nodes=delivered_nodes,
+                announcement_outcome=self.state_manager.get_announcement_outcome(
+                    self.state, alert.id
+                ),
+            )
+        except DatabaseError as e:
+            logger.error("Failed to update alert %s in database: %s", alert.id, e)
+
+    async def _announce_held_alerts(self, active_alerts: list[WeatherAlert]) -> None:
+        """
+        Voice alerts that were held during quiet hours once quiet hours have ended.
+
+        Without this, an alert that arrives during quiet hours (and is not allowed through as
+        Severe/Extreme) is never voiced, even if it is still in effect the next morning.
+        """
+        held = self.state_manager.get_quiet_hours_held(self.state)
+        if not held:
+            return
+        if not self._quiet_hours_catchup_enabled():
+            for alert_id in held:
+                self.state_manager.release_quiet_hours_hold(self.state, alert_id)
+                outcome = self.state_manager.get_announcement_outcome(self.state, alert_id)
+                if outcome and outcome.get("held"):
+                    outcome.pop("held", None)
+            return
+        if self.playback_policy and self.playback_policy.is_quiet_hours_active():
+            return
+
+        by_id = {alert.id: alert for alert in active_alerts}
+        due = [by_id[alert_id] for alert_id in held if alert_id in by_id]
+        if due:
+            logger.info("Quiet hours ended; announcing %d held alert(s)", len(due))
+        for alert_id in held:
+            if alert_id not in by_id:
+                # Not active this poll; expiry handling prunes the hold.
+                continue
+            alert = by_id[alert_id]
+            self.state_manager.release_quiet_hours_hold(self.state, alert_id)
+            if self.nws_client and not self.nws_client.filter_active_alerts(
+                [alert], time_type=self.config.alerts.time_type
+            ):
+                # Expired since this poll's fetch; never voice it late.
+                continue
+            skip_reason = self._announce_skip_reason(alert)
+            if skip_reason == SKIP_ALREADY_ANNOUNCED:
+                continue
+            if skip_reason is not None:
+                # Blocked, voice disabled, or on announcement hold since it was held.
+                self._set_skipped_outcome(alert, skip_reason)
+                await self._store_announcement_result(alert, None)
+                continue
+            logger.info("Announcing alert held during quiet hours: %s (%s)", alert.event, alert_id)
+            announcement_nodes = await self._announce_alert(alert)
+            if announcement_nodes:
+                self.state_manager.mark_alert_announced(self.state, alert_id)
+                if self.playback_policy:
+                    self.playback_policy.record_announcement(alert, self.state)
+            self._record_announcement_outcome(alert, announcement_nodes)
+            await self._store_announcement_result(alert, announcement_nodes or None)
 
     def _record_node_delivery(
         self, attempted_nodes: list[int], successful_nodes: list[int]

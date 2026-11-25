@@ -27,6 +27,7 @@ SKIP_VOICE_DISABLED = "voice_disabled"
 SKIP_ALREADY_ANNOUNCED = "already_announced"
 SKIP_GEO_HAZARD_TSUNAMI = "geo_hazard_tsunami"
 SKIP_BLOCKED_EVENT = "blocked_event"
+SKIP_QUIET_HOURS = "quiet_hours"
 FAIL_DELIVERY_NOT_CONFIGURED = "delivery_not_configured"
 FAIL_NO_MATCHING_NODE = "no_matching_node"
 FAIL_AUDIO = "audio_failed"
@@ -157,6 +158,8 @@ class ApplicationState:
             "announcement_outcomes": {},
             # node number (str) -> playback stats (last success/failure, consecutive failures)
             "node_delivery": {},
+            # alert id -> {held_at}: NWS alerts held during quiet hours, voiced when they end
+            "quiet_hours_held": {},
             "version": "1.0.4",  # State file version
         }
 
@@ -189,6 +192,9 @@ class ApplicationState:
                 pending = set(canonical.get("pending_nodes") or [])
                 pending |= set(alias_entry.get("pending_nodes") or []) - delivered
                 canonical["pending_nodes"] = sorted(int(n) for n in pending)
+        held = state.get("quiet_hours_held")
+        if isinstance(held, dict) and old_id in held:
+            held.setdefault(new_id, held.pop(old_id))
         outcomes = state.get("announcement_outcomes")
         if isinstance(outcomes, dict) and old_id in outcomes:
             alias_outcome = outcomes.pop(old_id)
@@ -226,7 +232,7 @@ class ApplicationState:
             items = state.get(key)
             if isinstance(items, list) and alert_id in items:
                 state[key] = [item for item in items if item != alert_id]
-        for key in ("announcement_retries", "announcement_outcomes"):
+        for key in ("announcement_retries", "announcement_outcomes", "quiet_hours_held"):
             tracked = state.get(key)
             if isinstance(tracked, dict):
                 tracked.pop(alert_id, None)
@@ -250,7 +256,7 @@ class ApplicationState:
         if isinstance(cooldown, dict) and len(cooldown) > TRACKING_LIST_MAX:
             keys = list(cooldown.keys())[-TRACKING_LIST_MAX:]
             state["announcement_cooldown"] = {k: cooldown[k] for k in keys}
-        for key in ("announcement_retries", "announcement_outcomes"):
+        for key in ("announcement_retries", "announcement_outcomes", "quiet_hours_held"):
             tracked = state.get(key)
             if isinstance(tracked, dict) and len(tracked) > TRACKING_LIST_MAX:
                 keys = list(tracked.keys())[-TRACKING_LIST_MAX:]
@@ -591,6 +597,30 @@ class ApplicationState:
             if when <= now:
                 due[alert_id] = entry
         return due
+
+    def hold_for_quiet_hours(
+        self, state: dict[str, Any], alert_id: str, now: datetime | None = None
+    ) -> None:
+        """Remember an alert that was not voiced because quiet hours were active."""
+        held = state.get("quiet_hours_held")
+        if not isinstance(held, dict):
+            held = {}
+            state["quiet_hours_held"] = held
+        if alert_id not in held:
+            held[alert_id] = {"held_at": (now or datetime.now(UTC)).isoformat()}
+
+    def release_quiet_hours_hold(self, state: dict[str, Any], alert_id: str) -> None:
+        """Forget a quiet-hours hold (voiced, expired, or no longer eligible)."""
+        held = state.get("quiet_hours_held")
+        if isinstance(held, dict):
+            held.pop(alert_id, None)
+
+    def get_quiet_hours_held(self, state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        """Return alerts held during quiet hours, keyed by alert id (oldest first)."""
+        held = state.get("quiet_hours_held")
+        if not isinstance(held, dict):
+            return {}
+        return {k: v for k, v in held.items() if isinstance(v, dict)}
 
     def set_announcement_outcome(
         self, state: dict[str, Any], alert_id: str, outcome: dict[str, Any]

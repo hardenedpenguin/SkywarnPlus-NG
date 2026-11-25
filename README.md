@@ -179,6 +179,7 @@ The dashboard URL is **`http://<host>/skywarnplus-ng/`** — no port in the path
 - NWS alert polling, voice announcements, tail messages, courtesy tones, ID changes
 - Failed NWS voice announcements (TTS, audio, or Asterisk errors) are retried with backoff — up to 5 attempts, only on nodes that missed playback, and held during quiet hours
 - Announcement outcomes on **Alerts** and **Alert History** (played, partial, skipped with reason, retry status) and per-node playback stats under **Health → Announcement Delivery**
+- NWS alerts held during quiet hours (non-Severe/Extreme) are voiced when quiet hours end if still active — toggle with `alerts.quiet_hours.announce_held_on_end`; geo-hazard announcements are not replayed
 - Per-node counties, SkyDescribe DTMF (**841–849** by alert index), AlertScript
 - Web dashboard with live status, health, logs, and configuration (public read-only views; sign in for **Configuration**, **Logs**, **Database**)
 - **PushOver** (global) and **Discord webhooks** (per-subscriber filters) on new alerts — see [docs/notifications-overview.md](docs/notifications-overview.md)

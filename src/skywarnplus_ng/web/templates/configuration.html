@@ -1285,6 +1285,17 @@
                                 </label>
                             </div>
                             <div class="ml-0 md:ml-6">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="alerts_quiet_hours_announce_held_on_end" name="alerts.quiet_hours.announce_held_on_end" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                    <label for="alerts_quiet_hours_announce_held_on_end" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Announce held alerts when quiet hours end
+                                    </label>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                                    NWS alerts that arrived during quiet hours and are still active are voiced once quiet hours end.
+                                </p>
+                            </div>
+                            <div class="ml-0 md:ml-6">
                                 <label for="alerts_announcement_hold_minutes" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                                     Announcement Hold (minutes)
                                 </label>
@@ -3006,6 +3017,7 @@
         document.getElementById('alerts_quiet_hours_end').value = config.alerts?.quiet_hours?.end || '06:00';
         document.getElementById('alerts_quiet_hours_timezone').value = config.alerts?.quiet_hours?.timezone || '';
         document.getElementById('alerts_quiet_hours_allow_severe').checked = config.alerts?.quiet_hours?.allow_severe !== false;
+        document.getElementById('alerts_quiet_hours_announce_held_on_end').checked = config.alerts?.quiet_hours?.announce_held_on_end !== false;
         document.getElementById('alerts_announcement_hold_minutes').value = config.alerts?.announcement_hold_minutes ?? 0;
 
         document.getElementById('nhc_enabled').checked = config.nhc?.enabled || false;
@@ -4040,6 +4052,9 @@
         { id: 'alerts_say_alerts_changed', path: ['alerts', 'say_alerts_changed'] },
         { id: 'alerts_say_alert_all', path: ['alerts', 'say_alert_all'] },
         { id: 'alerts_with_multiples', path: ['alerts', 'with_multiples'] },
+        { id: 'alerts_quiet_hours_enabled', path: ['alerts', 'quiet_hours', 'enabled'] },
+        { id: 'alerts_quiet_hours_allow_severe', path: ['alerts', 'quiet_hours', 'allow_severe'] },
+        { id: 'alerts_quiet_hours_announce_held_on_end', path: ['alerts', 'quiet_hours', 'announce_held_on_end'] },
         { id: 'scripts_enabled', path: ['scripts', 'enabled'] },
         { id: 'database_enabled', path: ['database', 'enabled'] },
         { id: 'database_backup_enabled', path: ['database', 'backup_enabled'] },

@@ -148,6 +148,8 @@ class PlaybackPolicy:
                 "start": self.config.quiet_hours.start,
                 "end": self.config.quiet_hours.end,
                 "allow_severe": self.config.quiet_hours.allow_severe,
+                "announce_held_on_end": self.config.quiet_hours.announce_held_on_end,
             },
+            "held_for_quiet_hours": len(state.get("quiet_hours_held") or {}),
             "cooldown_entries": len(state.get("announcement_cooldown") or {}),
         }
