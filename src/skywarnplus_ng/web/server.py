@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import ipaddress
 import logging
+import os
 import secrets
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -55,6 +56,43 @@ if TYPE_CHECKING:
     from ..core.application import SkywarnPlusApplication
 
 logger = logging.getLogger(__name__)
+
+SESSION_KEY_FILENAME = "session_secret.key"
+
+
+def _valid_session_key(value: str) -> bool:
+    try:
+        return len(bytes.fromhex(value)) == 32
+    except ValueError:
+        return False
+
+
+def load_or_create_session_key(path: Path) -> str:
+    """
+    Load a 32-byte hex session key from ``path``, or create one (mode 0600) if missing/invalid.
+
+    Raises:
+        OSError: if the key file cannot be read or written.
+    """
+    if path.exists():
+        existing = path.read_text(encoding="utf-8").strip()
+        if _valid_session_key(existing):
+            return existing
+        logger.warning("Ignoring invalid session key in %s; generating a new one", path)
+    key = secrets.token_hex(32)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(key + "\n")
+        os.replace(tmp, path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        raise
+    os.chmod(path, 0o600)
+    logger.info("Created dashboard session key at %s", path)
+    return key
 
 
 class WebDashboardError(Exception):
@@ -211,9 +249,22 @@ class WebDashboard(
         self.template_env.globals["base_path"] = base_path
         self.template_env.globals["app_version"] = _PACKAGE_VERSION
 
-        # Generate secret key if not provided
+        # Without a configured key, reuse one persisted in the data directory so a restart
+        # does not sign everyone out of the dashboard.
         if not self.config.monitoring.http_server.auth.secret_key:
-            self.config.monitoring.http_server.auth.secret_key = secrets.token_hex(32)
+            self.config.monitoring.http_server.auth.secret_key = self._persisted_session_key()
+
+    def _persisted_session_key(self) -> str:
+        """Return the session key stored in the data directory, creating it if needed."""
+        try:
+            return load_or_create_session_key(self._get_data_dir() / SESSION_KEY_FILENAME)
+        except OSError as e:
+            logger.warning(
+                "Could not persist the dashboard session key (%s); sessions will reset on "
+                "restart. Set monitoring.http_server.auth.secret_key to avoid this.",
+                e,
+            )
+            return secrets.token_hex(32)
 
     def _get_data_dir(self) -> Path:
         """Resolve and ensure the data directory exists."""
@@ -542,11 +593,11 @@ class WebDashboard(
         except ValueError as e:
             # Invalid user-supplied key must not crash startup; sessions reset instead.
             logger.warning(
-                "Invalid auth.secret_key (%s); generating a session key for this run. "
-                "Set a 64-character hex value to keep sessions across restarts.",
+                "Invalid auth.secret_key (%s); using the session key stored in the data "
+                "directory instead. Set a 64-character hex value or leave it empty.",
                 e,
             )
-            self.config.monitoring.http_server.auth.secret_key = secrets.token_hex(32)
+            self.config.monitoring.http_server.auth.secret_key = self._persisted_session_key()
             secret_key = bytes.fromhex(self.config.monitoring.http_server.auth.secret_key)
         setup(app, EncryptedCookieStorage(secret_key))
 
