@@ -48,6 +48,7 @@ class WildfireIncident:
     distance_miles: int
     announcement_key: str
     tts_text: str
+    discovery_utc: datetime | None = None
 
 
 class WfigsWildfireService:
@@ -266,6 +267,7 @@ class WfigsWildfireService:
                     distance_miles=incident.distance_miles,
                     announcement_key=incident.announcement_key,
                     tts_text=incident.tts_text,
+                    discovery_utc=incident.discovery_utc,
                 )
             )
 

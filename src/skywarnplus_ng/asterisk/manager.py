@@ -13,6 +13,27 @@ from ..core.config import AsteriskConfig
 
 logger = logging.getLogger(__name__)
 
+# Seconds to wait for ``asterisk -rx "rpt localplay ..."`` to return.
+PLAYBACK_COMMAND_TIMEOUT_SECONDS = 15.0
+
+# CLI output that means Asterisk did not queue the playback even though the exit code is 0.
+_PLAYBACK_CLI_ERRORS = (
+    "no such command",
+    "unable to connect",
+    "not found",
+    "unknown node",
+    "usage:",
+)
+
+
+def _playback_cli_error(stdout: str, stderr: str) -> str | None:
+    """Return the first line of Asterisk CLI output that reports a playback error."""
+    for line in f"{stdout}\n{stderr}".splitlines():
+        text = line.strip()
+        if text and any(marker in text.lower() for marker in _PLAYBACK_CLI_ERRORS):
+            return text
+    return None
+
 
 class AsteriskError(Exception):
     """Asterisk manager error."""
@@ -53,6 +74,7 @@ class AsteriskManager:
         *,
         cwd: Path | None = None,
         wait: bool = True,
+        timeout: float | None = None,
     ) -> tuple[int, str, str]:
         """
         Run an Asterisk CLI command.
@@ -61,6 +83,8 @@ class AsteriskManager:
             command: Asterisk CLI command to run
             cwd: Working directory for the subprocess
             wait: When false, start the command and return without blocking
+            timeout: Seconds to wait for the command; on timeout it is killed and
+                ``(-1, "", "timed out")`` is returned
 
         Returns:
             Tuple of (return_code, stdout, stderr)
@@ -109,7 +133,13 @@ class AsteriskManager:
                 cwd=work_dir,
             )
 
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+                logger.error("Asterisk command timed out after %ss: %s", timeout, command)
+                return -1, "", "timed out"
 
             return_code = process.returncode if process.returncode is not None else -1
             stdout_str = stdout.decode("utf-8", errors="replace")
@@ -229,7 +259,7 @@ class AsteriskManager:
             audio_path: Path to audio file (can be anywhere, including /tmp)
 
         Returns:
-            True if playback started successfully, False otherwise
+            True if Asterisk accepted the playback command, False otherwise
         """
         if not audio_path.exists():
             logger.error(f"Audio file does not exist: {audio_path}")
@@ -293,11 +323,18 @@ class AsteriskManager:
             playback_cwd = (
                 audio_path.parent if audio_path.parent.exists() else Path("/var/lib/skywarnplus-ng")
             )
+            # Wait for the CLI call so a sudo failure, an unreachable Asterisk, or an
+            # unknown node is reported as a failure instead of "playing" (the command
+            # only queues playback, so this returns quickly).
             return_code, stdout, stderr = await self._run_asterisk_command(
                 command,
                 cwd=playback_cwd,
-                wait=False,
+                timeout=PLAYBACK_COMMAND_TIMEOUT_SECONDS,
             )
+            cli_error = _playback_cli_error(stdout, stderr) if return_code == 0 else None
+            if cli_error:
+                logger.error("Asterisk rejected playback on node %s: %s", node_number, cli_error)
+                return False
 
             if return_code == 0:
                 logger.info(f"Started audio playback on node {node_number}: {playback_path}")

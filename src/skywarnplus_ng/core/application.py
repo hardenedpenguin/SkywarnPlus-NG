@@ -64,6 +64,7 @@ from .state import (
     FAIL_PLAYBACK,
     SKIP_ALREADY_ANNOUNCED,
     SKIP_BLOCKED_EVENT,
+    SKIP_EXPIRED,
     SKIP_GEO_HAZARD_TSUNAMI,
     SKIP_QUIET_HOURS,
     SKIP_VOICE_DISABLED,
@@ -102,6 +103,9 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
         self.alertscript_manager: AlertScriptManager | None = None
         self._previous_alert_events: set[str] = set()  # Track previous alert events for transitions
         self._pushover_notifier = None
+        # Result of the most recent _announce_alert call (reason code and nodes attempted)
+        self._last_announce_failure: str | None = None
+        self._last_announce_targets: list[int] | None = None
         self.health_monitor: HealthMonitor | None = None
         self.database_manager: DatabaseManager | None = None
         self.performance_logger: PerformanceLogger | None = None
@@ -686,6 +690,8 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
 
             if not county_codes:
                 logger.warning("No enabled counties configured or no nodes monitoring any counties")
+                # Geo hazards are position-based and do not depend on NWS counties.
+                await self._run_geo_hazard_feeds()
                 return
 
             # Poll timestamp reflects an actual NWS fetch attempt (not idle/no-county skips)
@@ -705,6 +711,9 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
                     "The alert list below may be stale until the next successful poll."
                 )
                 self.state_manager.save_state(self.state)
+                # Geo-hazard feeds are independent of the NWS county fetch; an NWS outage
+                # must not silence earthquake, tsunami, or other hazard announcements.
+                await self._run_geo_hazard_feeds()
                 if self.web_dashboard:
                     await self.web_dashboard.broadcast_update("status_update", self.get_status())
                 return
@@ -713,18 +722,8 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
             await self._process_alerts(current_alerts)
             poll_state_dirty = True
 
-            # NHC tropical cyclone advisories (separate cadence)
-            await self._handle_nhc_advisories()
-
-            # USGS earthquakes and NIFC wildfires (separate cadence)
-            await self._handle_earthquake_events()
-            await self._handle_wildfire_incidents()
-            await self._handle_tsunami_alerts()
-            await self._handle_space_weather_alerts()
-            await self._handle_volcano_notices()
-
-            # Re-voice geo-hazard announcements on nodes that missed them
-            await self._retry_geo_hazard_nodes()
+            # Geo-hazard feeds (NHC, USGS, wildfire, tsunami, ...) on their own cadence
+            await self._run_geo_hazard_feeds()
 
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
@@ -788,6 +787,16 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
                     self.state_manager.save_state(self.state)
                 except Exception as save_exc:
                     logger.error("Failed to save state after poll cycle error: %s", save_exc)
+
+    async def _run_geo_hazard_feeds(self) -> None:
+        """Poll every geo-hazard feed, then retry nodes that missed earlier hazard audio."""
+        await self._handle_nhc_advisories()
+        await self._handle_earthquake_events()
+        await self._handle_wildfire_incidents()
+        await self._handle_tsunami_alerts()
+        await self._handle_space_weather_alerts()
+        await self._handle_volcano_notices()
+        await self._retry_geo_hazard_nodes()
 
     async def _fetch_alerts(self, county_codes: list[str]) -> list[WeatherAlert] | None:
         """
@@ -1762,8 +1771,11 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
                     if self.playback_policy:
                         self.playback_policy.record_announcement(alert, self.state)
                 self._record_announcement_outcome(alert, announcement_nodes)
+                # The DB row is otherwise refreshed only when the alert snapshot changes.
+                await self._store_announcement_result(alert, announcement_nodes or None)
             elif skip_reason == SKIP_QUIET_HOURS:
                 self._note_skipped_announcement(alert, skip_reason)
+                await self._store_announcement_result(alert, None)
 
     async def _announce_alert(
         self, alert: WeatherAlert, only_nodes: list[int] | None = None
@@ -1781,6 +1793,7 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
             List of node numbers where announcement was successful (empty if failed)
         """
         self._last_announce_failure = None
+        self._last_announce_targets = None
         alert_type = "TEST" if alert.status == AlertStatus.TEST else "NWS"
         logger.info(f"Announcing {alert_type} alert: {alert.event} - {alert.area_desc}")
         logger.debug(
@@ -1898,6 +1911,18 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
                 self._last_announce_failure = FAIL_AUDIO
                 return []
 
+            # TTS can take a while; never voice an alert that expired in the meantime.
+            if (
+                alert.status != AlertStatus.TEST
+                and self.nws_client
+                and not self.nws_client.filter_active_alerts(
+                    [alert], time_type=self.config.alerts.time_type
+                )
+            ):
+                logger.info("Alert %s expired before playback; not voicing it", alert.id)
+                self._last_announce_failure = SKIP_EXPIRED
+                return []
+
             # Determine which nodes should receive this alert based on counties
             target_nodes = self._target_nodes_for_alert(alert)
             if only_nodes is not None:
@@ -1909,6 +1934,8 @@ class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin)
                 )
                 self._last_announce_failure = FAIL_NO_MATCHING_NODE
                 return []
+            # Outcomes and retries are recorded against the nodes actually attempted.
+            self._last_announce_targets = list(target_nodes)
 
             logger.info(
                 f"Alert {alert.event} will be sent to {len(target_nodes)} nodes: {target_nodes}"

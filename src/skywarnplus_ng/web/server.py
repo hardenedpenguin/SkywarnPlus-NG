@@ -76,8 +76,15 @@ def load_or_create_session_key(path: Path) -> str:
         OSError: if the key file cannot be read or written.
     """
     if path.exists():
-        existing = path.read_text(encoding="utf-8").strip()
+        try:
+            existing = path.read_text(encoding="utf-8").strip()
+        except UnicodeDecodeError:
+            existing = ""
         if _valid_session_key(existing):
+            if path.stat().st_mode & 0o077:
+                # Tighten a key file created or copied with group/other access.
+                os.chmod(path, 0o600)
+                logger.warning("Restricted permissions on session key %s to 0600", path)
             return existing
         logger.warning("Ignoring invalid session key in %s; generating a new one", path)
     key = secrets.token_hex(32)
