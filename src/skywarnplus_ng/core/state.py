@@ -61,7 +61,7 @@ class ApplicationState:
 
         try:
             with open(self.state_file, encoding="utf-8") as f:
-                state = json.load(f)
+                state: dict[str, Any] = json.load(f)
 
             # Ensure required keys exist
             for key, default_value in self._get_default_state().items():
@@ -532,7 +532,8 @@ class ApplicationState:
         if not isinstance(retries, dict):
             retries = {}
             state["announcement_retries"] = retries
-        entry = retries.get(alert_id) if isinstance(retries.get(alert_id), dict) else {}
+        existing = retries.get(alert_id)
+        entry: dict[str, Any] = existing if isinstance(existing, dict) else {}
         attempts = int(entry.get("attempts", 0)) + 1
         delivered = set(entry.get("delivered_nodes") or []) | set(delivered_nodes or [])
         if attempts >= ANNOUNCEMENT_RETRY_MAX_ATTEMPTS:
@@ -573,9 +574,8 @@ class ApplicationState:
     def get_announcement_retry(self, state: dict[str, Any], alert_id: str) -> dict[str, Any] | None:
         """Return the pending retry entry for an alert, if any."""
         retries = state.get("announcement_retries")
-        if isinstance(retries, dict) and isinstance(retries.get(alert_id), dict):
-            return retries[alert_id]
-        return None
+        entry = retries.get(alert_id) if isinstance(retries, dict) else None
+        return entry if isinstance(entry, dict) else None
 
     def get_due_announcement_retries(
         self, state: dict[str, Any], now: datetime | None = None
@@ -639,9 +639,8 @@ class ApplicationState:
     ) -> dict[str, Any] | None:
         """Return the latest voice announcement outcome for an alert, if any."""
         outcomes = state.get("announcement_outcomes")
-        if isinstance(outcomes, dict) and isinstance(outcomes.get(alert_id), dict):
-            return outcomes[alert_id]
-        return None
+        outcome = outcomes.get(alert_id) if isinstance(outcomes, dict) else None
+        return outcome if isinstance(outcome, dict) else None
 
     def record_node_delivery(
         self,
@@ -667,7 +666,8 @@ class ApplicationState:
         ok = {int(n) for n in successful_nodes}
         for node in attempted_nodes:
             key = str(int(node))
-            entry = delivery.get(key) if isinstance(delivery.get(key), dict) else {}
+            existing = delivery.get(key)
+            entry: dict[str, Any] = existing if isinstance(existing, dict) else {}
             if int(node) in ok:
                 entry["last_success_at"] = now_iso
                 entry["consecutive_failures"] = 0

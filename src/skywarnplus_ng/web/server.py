@@ -8,6 +8,7 @@ import ipaddress
 import logging
 import os
 import secrets
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -567,10 +568,12 @@ class WebDashboard(
                 return web.Response(status=302, headers={"Location": loc})
         return None
 
-    def require_auth(self, handler):
+    def require_auth(
+        self, handler: Callable[[Request], Awaitable[web.StreamResponse]]
+    ) -> Callable[[Request], Awaitable[web.StreamResponse]]:
         """Decorator to require authentication for handlers."""
 
-        async def wrapper(request: Request) -> Response:
+        async def wrapper(request: Request) -> web.StreamResponse:
             auth_response = await self._require_auth(request)
             if auth_response:
                 return auth_response
@@ -587,7 +590,7 @@ class WebDashboard(
 
         configured_key = self.config.monitoring.http_server.auth.secret_key
         try:
-            secret_key = bytes.fromhex(configured_key)
+            secret_key = bytes.fromhex(configured_key or "")
             if len(secret_key) != 32:
                 raise ValueError(f"secret_key must be 32 bytes, got {len(secret_key)}")
         except ValueError as e:

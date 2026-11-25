@@ -116,7 +116,7 @@ class PerformanceLogger:
         # Remove from active metrics
         del self._metrics[timer_id]
 
-    def log_metric(self, name: str, value: Any, unit: str = None, **extra_data) -> None:
+    def log_metric(self, name: str, value: Any, unit: str | None = None, **extra_data) -> None:
         """Log a performance metric."""
         self.logger.info(
             f"Performance metric: {name}",
@@ -235,7 +235,7 @@ def setup_logging(config: LoggingConfig) -> tuple[logging.Logger, PerformanceLog
 
     # Create formatter
     if config.format == "json":
-        formatter = SkywarnPlusFormatter()
+        formatter: logging.Formatter = SkywarnPlusFormatter()
     else:
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 

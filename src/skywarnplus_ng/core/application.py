@@ -10,7 +10,7 @@ import signal
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from ..api.nws_client import NWSClient, NWSClientError
 from ..asterisk.courtesy_tone import CourtesyToneManager
@@ -73,6 +73,14 @@ from .state import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class GeoHazardSpeech(TypedDict):
+    """What to say for a geo-hazard item, and how to name its audio file."""
+
+    tts_text: str
+    audio_prefix: str
+    label: str
 
 
 class SkywarnPlusApplication:
@@ -1278,10 +1286,10 @@ class SkywarnPlusApplication:
 
         if self.notification_manager:
             try:
-                county_names = ", ".join(
-                    county.name for county in self.config.counties if county.enabled
+                area_message = ", ".join(
+                    county.name or county.code for county in self.config.counties if county.enabled
                 )
-                result = await self.notification_manager.send_all_clear_notifications(county_names)
+                result = await self.notification_manager.send_all_clear_notifications(area_message)
                 if result.get("success"):
                     logger.info("Subscriber/global all-clear notifications sent")
                 else:
@@ -1550,7 +1558,7 @@ class SkywarnPlusApplication:
         )
         if should_use_area_desc:
             # Parse area_desc (typically "Onondaga; Madison" or "Onondaga County; Madison County")
-            area_names = [name.strip() for name in re.split(r"[;,]", area_desc)]
+            area_names = [name.strip() for name in re.split(r"[;,]", area_desc or "")]
             logger.info(f"Trying name-based matching from area_desc: {area_names}")
 
             for area_name in area_names:
@@ -1716,7 +1724,7 @@ class SkywarnPlusApplication:
             True if multiple instances exist
         """
         # Check current alerts in state for same event type
-        alerts_by_event = {}
+        alerts_by_event: dict[str, list[dict[str, Any]]] = {}
         for alert_data in self.state.get("last_alerts", {}).values():
             event = alert_data.get("event")
             if event == alert.event:
@@ -2301,7 +2309,7 @@ class SkywarnPlusApplication:
         announce_enabled: bool,
         key: Callable[[Any], str],
         describe: Callable[[Any], str],
-        speech: Callable[[Any], dict[str, str]],
+        speech: Callable[[Any], GeoHazardSpeech],
         title: Callable[[Any], str],
     ) -> None:
         """
@@ -2347,7 +2355,7 @@ class SkywarnPlusApplication:
         return bool(getattr(section, "announce_enabled", True))
 
     def _schedule_geo_hazard_node_retry(
-        self, kind: str, item_key: str, spoken: dict[str, str], played: list[int]
+        self, kind: str, item_key: str, spoken: GeoHazardSpeech, played: list[int]
     ) -> None:
         """Queue nodes that missed a geo-hazard announcement for a later retry."""
         targets = self.config.asterisk.get_nodes_list()
@@ -2561,17 +2569,17 @@ class SkywarnPlusApplication:
             return []
 
     @staticmethod
-    def _speech(tts_text: str, audio_prefix: str, label: str) -> dict[str, str]:
-        return {"tts_text": tts_text, "audio_prefix": audio_prefix, "label": label}
+    def _speech(tts_text: str, audio_prefix: str, label: str) -> GeoHazardSpeech:
+        return GeoHazardSpeech(tts_text=tts_text, audio_prefix=audio_prefix, label=label)
 
-    def _earthquake_speech(self, event: EarthquakeEvent) -> dict[str, str]:
+    def _earthquake_speech(self, event: EarthquakeEvent) -> GeoHazardSpeech:
         return self._speech(
             event.tts_text,
             f"usgs_{event.event_id.replace('.', '_')[:40]}",
             f"earthquake M{event.magnitude} ({event.distance_miles} mi)",
         )
 
-    def _wildfire_speech(self, incident: WildfireIncident) -> dict[str, str]:
+    def _wildfire_speech(self, incident: WildfireIncident) -> GeoHazardSpeech:
         prefix = (
             self.wildfire_service.audio_prefix_for(incident.incident_id)
             if self.wildfire_service
@@ -2581,24 +2589,24 @@ class SkywarnPlusApplication:
             incident.tts_text, prefix, f"wildfire {incident.name} ({incident.distance_miles} mi)"
         )
 
-    def _tsunami_speech(self, alert: TsunamiAlert) -> dict[str, str]:
+    def _tsunami_speech(self, alert: TsunamiAlert) -> GeoHazardSpeech:
         safe_id = re.sub(r"[^A-Za-z0-9_]", "_", alert.alert_id)[:40]
         return self._speech(alert.tts_text, f"tsunami_{safe_id}", f"tsunami {alert.event}")
 
-    def _space_weather_speech(self, alert: SpaceWeatherAlert) -> dict[str, str]:
+    def _space_weather_speech(self, alert: SpaceWeatherAlert) -> GeoHazardSpeech:
         return self._speech(
             alert.tts_text,
             f"swpc_{alert.product_id.lower()[:40]}",
             f"space weather {alert.title}",
         )
 
-    def _volcano_speech(self, notice: VolcanoNotice) -> dict[str, str]:
+    def _volcano_speech(self, notice: VolcanoNotice) -> GeoHazardSpeech:
         dist = notice.distance_miles if notice.distance_miles is not None else "?"
         return self._speech(
             notice.tts_text, f"volcano_{notice.vnum[:40]}", f"volcano {notice.name} ({dist} mi)"
         )
 
-    def _cyclone_speech(self, advisory: CycloneAdvisory) -> dict[str, str]:
+    def _cyclone_speech(self, advisory: CycloneAdvisory) -> GeoHazardSpeech:
         return self._speech(
             advisory.tts_text,
             f"nhc_{advisory.atcf}",

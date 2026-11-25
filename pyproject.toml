@@ -108,6 +108,41 @@ select = [
 python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
+ignore_missing_imports = true
+files = ["src/skywarnplus_ng"]
+
+# Modules with pre-existing type errors. CI type-checks everything else; remove a module
+# from this list once it passes `mypy` cleanly so it stays checked.
+[[tool.mypy.overrides]]
+module = [
+    "skywarnplus_ng.api.nws_client",
+    "skywarnplus_ng.audio.manager",
+    "skywarnplus_ng.audio.tts_engine",
+    "skywarnplus_ng.core.config",
+    "skywarnplus_ng.database.manager",
+    "skywarnplus_ng.database.models",
+    "skywarnplus_ng.geo_hazard.fetch_cache",
+    "skywarnplus_ng.notifications.email",
+    "skywarnplus_ng.notifications.manager",
+    "skywarnplus_ng.notifications.webhook",
+    "skywarnplus_ng.processing.analytics",
+    "skywarnplus_ng.processing.deduplication",
+    "skywarnplus_ng.processing.filters",
+    "skywarnplus_ng.processing.pipeline",
+    "skywarnplus_ng.processing.workflows",
+    "skywarnplus_ng.web.handlers.api_alerts",
+    "skywarnplus_ng.web.handlers.api_config",
+    "skywarnplus_ng.web.handlers.api_database",
+    "skywarnplus_ng.web.handlers.api_health_logs",
+    "skywarnplus_ng.web.handlers.api_notifications",
+    "skywarnplus_ng.web.handlers.api_status",
+    "skywarnplus_ng.web.handlers.api_tts_voices",
+    "skywarnplus_ng.web.handlers.api_updates_metrics",
+    "skywarnplus_ng.web.handlers.auth_handlers",
+    "skywarnplus_ng.web.handlers.page_handlers",
+    "skywarnplus_ng.web.handlers.websocket_handlers",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

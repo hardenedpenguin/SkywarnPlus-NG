@@ -75,7 +75,7 @@ def parse_earthquake_feature(
         return None
 
     try:
-        magnitude = float(props.get("mag"))
+        magnitude = float(props.get("mag"))  # type: ignore[arg-type]  # None -> TypeError
     except (TypeError, ValueError):
         return None
 

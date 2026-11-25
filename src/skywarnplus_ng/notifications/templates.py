@@ -47,7 +47,7 @@ class NotificationTemplate:
     subject_template: str
     body_template: str
     enabled: bool = True
-    variables: list[str] = None
+    variables: list[str] = None  # type: ignore[assignment]  # filled in __post_init__
 
     def __post_init__(self):
         if self.variables is None:

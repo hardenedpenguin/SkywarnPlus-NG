@@ -111,7 +111,7 @@ class AsteriskManager:
 
             stdout, stderr = await process.communicate()
 
-            return_code = process.returncode
+            return_code = process.returncode if process.returncode is not None else -1
             stdout_str = stdout.decode("utf-8", errors="replace")
             stderr_str = stderr.decode("utf-8", errors="replace")
 
@@ -213,7 +213,7 @@ class AsteriskManager:
 
         node_statuses = []
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Error getting node status: {result}")
                 continue
             node_statuses.append(result)

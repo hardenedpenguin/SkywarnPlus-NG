@@ -109,7 +109,8 @@ def load_config(config_path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
     with open(config_path) as f:
-        return yaml.load(f)
+        data: dict[str, Any] = yaml.load(f)
+        return data
 
 
 def save_config(config_path: Path, config_data: dict[str, Any]) -> None:

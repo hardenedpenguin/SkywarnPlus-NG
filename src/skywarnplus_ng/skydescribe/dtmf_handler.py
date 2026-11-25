@@ -359,6 +359,8 @@ class DTMFHandler:
                 command = cmd
                 break
 
+        if command is None:
+            return "Unknown DTMF code"
         return descriptions.get(command, "Unknown DTMF code")
 
     def get_code_mapping(self) -> dict[str, str]:
