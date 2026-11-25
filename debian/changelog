@@ -1,3 +1,19 @@
+skywarnplus-ng (1.6.7-1) unstable; urgency=medium
+
+  * Voice: retry NWS and geo-hazard announcements on nodes that missed
+    playback; record announcement outcomes and per-node playback health;
+    play alerts held during quiet hours once quiet hours end.
+  * Dashboard: persist session secret across restarts when data_dir is
+    writable (0600 key file; replace undecodable keys); show announcement
+    status in alerts UI.
+  * Refactor: split geo-hazard and announcement tracking out of
+    application.py; type-check the whole package in CI.
+  * Packaging: require sqlalchemy[asyncio] so greenlet is installed with
+    SQLAlchemy 2.1; import declarative_base from sqlalchemy.orm.
+  * Docs: document NWS marine zones for lake and coastal nodes (#16).
+
+ -- Jory A. Pratt <geekypenguin@gmail.com>  Tue, 24 Nov 2026 20:52:08 -0600
+
 skywarnplus-ng (1.6.6-1) unstable; urgency=medium
 
   * Dashboard/health: show only subsystems and geo-hazard sections that are
