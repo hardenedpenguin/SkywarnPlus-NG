@@ -529,7 +529,7 @@ class SkyDescribeManager:
             output_path = self.descriptions_dir / f"describe_{timestamp}.{output_ext}"
 
         # Generate audio using configured TTS engine
-        audio_file = self.audio_manager.tts_engine.synthesize(description, output_path)
+        audio_file: Path | None = self.audio_manager.tts_engine.synthesize(description, output_path)
         if not audio_file or not audio_file.exists():
             logger.error("SkyDescribe: Failed to generate audio file")
             return None

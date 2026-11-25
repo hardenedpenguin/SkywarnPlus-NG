@@ -81,7 +81,8 @@ def read_cache(path: Path) -> dict[str, Any] | None:
     if not path.is_file():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
     except Exception as exc:
         logger.warning("Could not read update check cache %s: %s", path, exc)
         return None

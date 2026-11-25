@@ -34,7 +34,7 @@ class TTSVoiceError(Exception):
 
 def catalog_path() -> Path:
     """Shipped Piper voice catalog (from supermon-ng announcement_voices.json)."""
-    return Path(resources.files("skywarnplus_ng.data") / "tts_voices_catalog.json")
+    return Path(str(resources.files("skywarnplus_ng.data") / "tts_voices_catalog.json"))
 
 
 def load_voice_catalog_data() -> dict[str, Any]:

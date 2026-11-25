@@ -753,7 +753,11 @@ class AuthConfig(BaseModel):
     password: str = Field("skywarn123", description="Admin password (change this!)")
     session_timeout_hours: int = Field(24, description="Session timeout in hours")
     secret_key: str | None = Field(
-        None, description="Secret key for session encryption (auto-generated if not set)"
+        None,
+        description=(
+            "Secret key for session encryption (64 hex chars). When unset, a key is generated "
+            "once and stored in data_dir/session_secret.key so sessions survive restarts"
+        ),
     )
     secure_cookies: bool = Field(
         False,

@@ -31,7 +31,8 @@ def model_dump_for_merge(config: AppConfig) -> dict[str, Any]:
             return str(obj)
         return obj
 
-    return convert_paths(config.model_dump())
+    result: dict[str, Any] = convert_paths(config.model_dump())
+    return result
 
 
 def deep_merge_dict(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:

@@ -21,7 +21,7 @@ from ..audio.tts_engine import TTSEngineError
 from ..database.manager import DatabaseError, DatabaseManager
 from ..location.mobile_counties import MobileCountyService
 from ..monitoring.health import HealthMonitor
-from ..nhc.cyclone_service import CycloneAdvisory, NhcCycloneService
+from ..nhc.cyclone_service import NhcCycloneService
 from ..notifications.factory import build_notification_manager
 from ..notifications.manager import NotificationManager
 from ..playback.policy import PlaybackPolicy
@@ -42,20 +42,21 @@ from ..processing.workflows import (
     WorkflowEngine,
     WorkflowStep,
 )
-from ..spaceweather.swpc_service import SpaceWeatherAlert, SwpcSpaceWeatherService
+from ..spaceweather.swpc_service import SwpcSpaceWeatherService
 from ..tsunami.parser import is_tsunami_event
-from ..tsunami.tsunami_service import TsunamiAlert, TsunamiService
-from ..usgs.earthquake_service import EarthquakeEvent, UsgsEarthquakeService
+from ..tsunami.tsunami_service import TsunamiService
+from ..usgs.earthquake_service import UsgsEarthquakeService
 from ..utils.alertscript import AlertScriptManager
 from ..utils.logging import AlertLogger, PerformanceLogger, setup_logging
 from ..utils.script_manager import ScriptManager
-from ..volcano.volcano_service import VolcanoNotice, VolcanoService
+from ..volcano.volcano_service import VolcanoService
 from ..web.server import WebDashboard
-from ..wildfire.wfigs_service import WfigsWildfireService, WildfireIncident
+from ..wildfire.wfigs_service import WfigsWildfireService
+from .announcement_tracking import AnnouncementTrackingMixin
 from .config import AppConfig
-from .models import AlertSeverity, AlertStatus, WeatherAlert
+from .geo_hazards import GeoHazardAnnouncerMixin
+from .models import AlertStatus, WeatherAlert
 from .state import (
-    ANNOUNCEMENT_RETRY_MAX_ATTEMPTS,
     FAIL_AUDIO,
     FAIL_DELIVERY_NOT_CONFIGURED,
     FAIL_ERROR,
@@ -72,7 +73,7 @@ from .state import (
 logger = logging.getLogger(__name__)
 
 
-class SkywarnPlusApplication:
+class SkywarnPlusApplication(AnnouncementTrackingMixin, GeoHazardAnnouncerMixin):
     """Main application class for SkywarnPlus-NG."""
 
     def __init__(self, config: AppConfig):
@@ -722,6 +723,9 @@ class SkywarnPlusApplication:
             await self._handle_space_weather_alerts()
             await self._handle_volcano_notices()
 
+            # Re-voice geo-hazard announcements on nodes that missed them
+            await self._retry_geo_hazard_nodes()
+
             # Clean up old alerts
             self.state_manager.cleanup_old_alerts(self.state)
 
@@ -1272,10 +1276,10 @@ class SkywarnPlusApplication:
 
         if self.notification_manager:
             try:
-                county_names = ", ".join(
-                    county.name for county in self.config.counties if county.enabled
+                area_message = ", ".join(
+                    county.name or county.code for county in self.config.counties if county.enabled
                 )
-                result = await self.notification_manager.send_all_clear_notifications(county_names)
+                result = await self.notification_manager.send_all_clear_notifications(area_message)
                 if result.get("success"):
                     logger.info("Subscriber/global all-clear notifications sent")
                 else:
@@ -1544,7 +1548,7 @@ class SkywarnPlusApplication:
         )
         if should_use_area_desc:
             # Parse area_desc (typically "Onondaga; Madison" or "Onondaga County; Madison County")
-            area_names = [name.strip() for name in re.split(r"[;,]", area_desc)]
+            area_names = [name.strip() for name in re.split(r"[;,]", area_desc or "")]
             logger.info(f"Trying name-based matching from area_desc: {area_names}")
 
             for area_name in area_names:
@@ -1710,7 +1714,7 @@ class SkywarnPlusApplication:
             True if multiple instances exist
         """
         # Check current alerts in state for same event type
-        alerts_by_event = {}
+        alerts_by_event: dict[str, list[dict[str, Any]]] = {}
         for alert_data in self.state.get("last_alerts", {}).values():
             event = alert_data.get("event")
             if event == alert.event:
@@ -1760,287 +1764,6 @@ class SkywarnPlusApplication:
                 self._record_announcement_outcome(alert, announcement_nodes)
             elif skip_reason == SKIP_QUIET_HOURS:
                 self._note_skipped_announcement(alert, skip_reason)
-
-    def _announcement_delivery_configured(self) -> bool:
-        """True when voice delivery is set up, so a failed attempt is worth retrying."""
-        return bool(
-            self.audio_manager
-            and self.asterisk_manager
-            and self.config.asterisk.enabled
-            and self.config.asterisk.nodes
-        )
-
-    def _target_nodes_for_alert(self, alert: WeatherAlert) -> list[int]:
-        """Nodes that should voice this alert based on its counties."""
-        county_codes_list = getattr(alert, "county_codes", []) or []
-        if self.mobile_county_service:
-            return list(self.mobile_county_service.get_nodes_for_counties(county_codes_list))
-        return list(self.config.get_nodes_for_counties(county_codes_list))
-
-    def _record_announcement_outcome(
-        self,
-        alert: WeatherAlert,
-        successful_nodes: list[int],
-        attempted_nodes: list[int] | None = None,
-    ) -> None:
-        """
-        Record what happened to an announcement attempt and schedule retries for missed nodes.
-
-        Without the retry, an alert whose first announcement failed (TTS error, missing audio,
-        Asterisk unavailable) is stored in state and never voiced on later polls.
-        """
-        failure_reason = getattr(self, "_last_announce_failure", None) or FAIL_PLAYBACK
-        if not self._announcement_delivery_configured():
-            self.state_manager.clear_announcement_retry(self.state, alert.id)
-            self._set_skipped_outcome(alert, FAIL_DELIVERY_NOT_CONFIGURED)
-            return
-        targets = (
-            attempted_nodes if attempted_nodes is not None else self._target_nodes_for_alert(alert)
-        )
-        pending = sorted(set(targets) - set(successful_nodes))
-        gave_up = False
-        if pending:
-            scheduled = self.state_manager.schedule_announcement_retry(
-                self.state, alert.id, pending, delivered_nodes=successful_nodes
-            )
-            gave_up = not scheduled
-        else:
-            self.state_manager.clear_announcement_retry(self.state, alert.id)
-        node_results = {str(int(n)): "played" for n in successful_nodes}
-        node_results.update({str(int(n)): "failed" for n in pending})
-        reason = FAIL_NO_MATCHING_NODE if not targets else failure_reason
-        self._set_delivery_outcome(alert, node_results, reason, gave_up=gave_up)
-
-    def _set_delivery_outcome(
-        self,
-        alert: WeatherAlert,
-        node_results: dict[str, str],
-        failure_reason: str,
-        gave_up: bool = False,
-    ) -> None:
-        """Merge per-node results into the alert's outcome and derive its overall status."""
-        previous = self.state_manager.get_announcement_outcome(self.state, alert.id) or {}
-        nodes = dict(previous.get("nodes") or {}) if previous.get("status") != "skipped" else {}
-        for node, result in node_results.items():
-            # A node that already played stays "played"
-            if nodes.get(node) != "played":
-                nodes[node] = result
-        played = sorted(int(n) for n, r in nodes.items() if r == "played")
-        failed = sorted(int(n) for n, r in nodes.items() if r != "played")
-        if played and not failed:
-            status, reason = "played", None
-        elif played:
-            status, reason = "partial", failure_reason
-        else:
-            status, reason = "failed", failure_reason
-        outcome: dict[str, Any] = {
-            "status": status,
-            "reason": reason,
-            "nodes": nodes,
-            "played_nodes": played,
-            "failed_nodes": failed,
-            "updated_at": datetime.now(UTC).isoformat(),
-        }
-        retry = self.state_manager.get_announcement_retry(self.state, alert.id)
-        if retry:
-            outcome["retry"] = {
-                "attempt": int(retry.get("attempts", 0)),
-                "max_attempts": ANNOUNCEMENT_RETRY_MAX_ATTEMPTS,
-                "next_retry_at": retry.get("next_retry_at"),
-            }
-        if gave_up:
-            outcome["gave_up"] = True
-        self.state_manager.set_announcement_outcome(self.state, alert.id, outcome)
-
-    def _set_skipped_outcome(self, alert: WeatherAlert, reason: str, held: bool = False) -> None:
-        """Record that an alert was intentionally not voiced (policy or configuration)."""
-        outcome: dict[str, Any] = {
-            "status": "skipped",
-            "reason": reason,
-            "nodes": {},
-            "played_nodes": [],
-            "failed_nodes": [],
-            "updated_at": datetime.now(UTC).isoformat(),
-        }
-        if held:
-            outcome["held"] = True
-        self.state_manager.set_announcement_outcome(self.state, alert.id, outcome)
-
-    def _quiet_hours_catchup_enabled(self) -> bool:
-        """True when alerts skipped for quiet hours should be voiced once they end."""
-        return bool(self.config.alerts.quiet_hours.announce_held_on_end)
-
-    def _note_skipped_announcement(self, alert: WeatherAlert, reason: str) -> None:
-        """Record a skipped announcement; quiet-hours skips are held for catch-up."""
-        if reason == SKIP_QUIET_HOURS and self._quiet_hours_catchup_enabled():
-            self.state_manager.hold_for_quiet_hours(self.state, alert.id)
-            self._set_skipped_outcome(alert, reason, held=True)
-            return
-        self._set_skipped_outcome(alert, reason)
-
-    async def _store_announcement_result(
-        self, alert: WeatherAlert, delivered_nodes: list[int] | None
-    ) -> None:
-        """Update the stored alert row with the latest announcement result and outcome."""
-        if not self.database_manager:
-            return
-        try:
-            await self.database_manager.store_alert(
-                alert=alert,
-                announced=alert.id in self.state.get("last_sayalert", []),
-                script_executed=alert.id in self.state.get("alertscript_alerts", []),
-                announcement_nodes=delivered_nodes,
-                announcement_outcome=self.state_manager.get_announcement_outcome(
-                    self.state, alert.id
-                ),
-            )
-        except DatabaseError as e:
-            logger.error("Failed to update alert %s in database: %s", alert.id, e)
-
-    async def _announce_held_alerts(self, active_alerts: list[WeatherAlert]) -> None:
-        """
-        Voice alerts that were held during quiet hours once quiet hours have ended.
-
-        Without this, an alert that arrives during quiet hours (and is not allowed through as
-        Severe/Extreme) is never voiced, even if it is still in effect the next morning.
-        """
-        held = self.state_manager.get_quiet_hours_held(self.state)
-        if not held:
-            return
-        if not self._quiet_hours_catchup_enabled():
-            for alert_id in held:
-                self.state_manager.release_quiet_hours_hold(self.state, alert_id)
-                outcome = self.state_manager.get_announcement_outcome(self.state, alert_id)
-                if outcome and outcome.get("held"):
-                    outcome.pop("held", None)
-            return
-        if self.playback_policy and self.playback_policy.is_quiet_hours_active():
-            return
-
-        by_id = {alert.id: alert for alert in active_alerts}
-        due = [by_id[alert_id] for alert_id in held if alert_id in by_id]
-        if due:
-            logger.info("Quiet hours ended; announcing %d held alert(s)", len(due))
-        for alert_id in held:
-            if alert_id not in by_id:
-                # Not active this poll; expiry handling prunes the hold.
-                continue
-            alert = by_id[alert_id]
-            self.state_manager.release_quiet_hours_hold(self.state, alert_id)
-            if self.nws_client and not self.nws_client.filter_active_alerts(
-                [alert], time_type=self.config.alerts.time_type
-            ):
-                # Expired since this poll's fetch; never voice it late.
-                continue
-            skip_reason = self._announce_skip_reason(alert)
-            if skip_reason == SKIP_ALREADY_ANNOUNCED:
-                continue
-            if skip_reason is not None:
-                # Blocked, voice disabled, or on announcement hold since it was held.
-                self._set_skipped_outcome(alert, skip_reason)
-                await self._store_announcement_result(alert, None)
-                continue
-            logger.info("Announcing alert held during quiet hours: %s (%s)", alert.event, alert_id)
-            announcement_nodes = await self._announce_alert(alert)
-            if announcement_nodes:
-                self.state_manager.mark_alert_announced(self.state, alert_id)
-                if self.playback_policy:
-                    self.playback_policy.record_announcement(alert, self.state)
-            self._record_announcement_outcome(alert, announcement_nodes)
-            await self._store_announcement_result(alert, announcement_nodes or None)
-
-    def _record_node_delivery(
-        self, attempted_nodes: list[int], successful_nodes: list[int]
-    ) -> None:
-        """AsteriskManager observer: track per-node playback health in state."""
-        if getattr(self, "state", None) is None:
-            return
-        self.state_manager.record_node_delivery(self.state, attempted_nodes, successful_nodes)
-
-    def _retry_allowed_now(self, alert: WeatherAlert) -> tuple[bool, bool]:
-        """
-        Decide whether a pending retry may run this poll.
-
-        Returns:
-            (allowed, keep_pending). keep_pending is False when the alert should no longer be
-            voiced at all (announcements disabled or event blocked).
-        """
-        if not self.config.alerts.say_alert:
-            self._set_skipped_outcome(alert, SKIP_VOICE_DISABLED)
-            return False, False
-        for blocked_event in self.config.filtering.say_alert_blocked:
-            if self._matches_pattern(alert.event, blocked_event):
-                self._set_skipped_outcome(alert, SKIP_BLOCKED_EVENT)
-                return False, False
-        if self.config.tsunami.enabled and self.tsunami_service and is_tsunami_event(alert.event):
-            self._set_skipped_outcome(alert, SKIP_GEO_HAZARD_TSUNAMI)
-            return False, False
-        if self.playback_policy and self.playback_policy.is_quiet_hours_active():
-            allow_severe = self.config.alerts.quiet_hours.allow_severe and alert.severity in (
-                AlertSeverity.SEVERE,
-                AlertSeverity.EXTREME,
-            )
-            if not allow_severe:
-                return False, True
-        return True, True
-
-    async def _retry_failed_announcements(self, active_alerts: list[WeatherAlert]) -> None:
-        """Retry voice announcements whose earlier delivery failed and whose backoff elapsed."""
-        due = self.state_manager.get_due_announcement_retries(self.state)
-        if not due:
-            return
-        by_id = {alert.id: alert for alert in active_alerts}
-        for alert_id, entry in due.items():
-            alert = by_id.get(alert_id)
-            if alert is None:
-                # Not active this poll; expiry handling prunes the entry.
-                continue
-            if self.nws_client and not self.nws_client.filter_active_alerts(
-                [alert], time_type=self.config.alerts.time_type
-            ):
-                # Expired (or cancelled) since this poll's fetch; never voice it late.
-                self.state_manager.clear_announcement_retry(self.state, alert_id)
-                continue
-            allowed, keep_pending = self._retry_allowed_now(alert)
-            if not allowed:
-                if not keep_pending:
-                    self.state_manager.clear_announcement_retry(self.state, alert_id)
-                continue
-            current_targets = set(self._target_nodes_for_alert(alert))
-            pending = [
-                int(n) for n in entry.get("pending_nodes") or [] if int(n) in current_targets
-            ]
-            if not pending:
-                self.state_manager.clear_announcement_retry(self.state, alert_id)
-                continue
-            logger.info(
-                "Retrying voice announcement for %s (%s) on nodes %s (attempt %s)",
-                alert.event,
-                alert_id,
-                pending,
-                int(entry.get("attempts", 0)) + 1,
-            )
-            successful = await self._announce_alert(alert, only_nodes=pending)
-            self._record_announcement_outcome(alert, successful, attempted_nodes=pending)
-            if successful:
-                first_success = alert_id not in self.state.get("last_sayalert", [])
-                self.state_manager.mark_alert_announced(self.state, alert_id)
-                if first_success and self.playback_policy:
-                    self.playback_policy.record_announcement(alert, self.state)
-                if self.database_manager:
-                    delivered = sorted(set(entry.get("delivered_nodes") or []) | set(successful))
-                    try:
-                        await self.database_manager.store_alert(
-                            alert=alert,
-                            announced=True,
-                            script_executed=alert_id in self.state.get("alertscript_alerts", []),
-                            announcement_nodes=delivered,
-                            announcement_outcome=self.state_manager.get_announcement_outcome(
-                                self.state, alert_id
-                            ),
-                        )
-                    except DatabaseError as e:
-                        logger.error("Failed to update alert %s in database: %s", alert_id, e)
 
     async def _announce_alert(
         self, alert: WeatherAlert, only_nodes: list[int] | None = None
@@ -2215,205 +1938,6 @@ class SkywarnPlusApplication:
             self._last_announce_failure = FAIL_ERROR
             return []
 
-    async def _handle_nhc_advisories(self) -> None:
-        """Poll NHC feed and announce new tropical cyclone advisories within range."""
-        if not self.nhc_service or not hasattr(self, "state") or self.state is None:
-            return
-        if not self.nhc_service.should_poll():
-            return
-
-        advisories = await self.nhc_service.poll(self.state)
-        self._persist_announced_state()
-        for advisory in advisories:
-            if self.playback_policy:
-                allowed, reason = self.playback_policy.should_announce_cyclone()
-                if not allowed:
-                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
-                    log_fn(
-                        "Skipping NHC advisory %s (%s): %s",
-                        advisory.advisory_key,
-                        advisory.name,
-                        reason,
-                    )
-                    continue
-            if await self._announce_cyclone(advisory):
-                self.nhc_service.mark_announced(advisory.advisory_key, self.state)
-                self._persist_announced_state()
-                await self._notify_geo_hazard_broadcast(
-                    title=f"Tropical Cyclone: {advisory.name}",
-                    message=advisory.tts_text,
-                )
-
-    async def _handle_earthquake_events(self) -> None:
-        """Poll USGS and announce new earthquakes within range."""
-        if not self.earthquake_service or not hasattr(self, "state") or self.state is None:
-            return
-        if not self.earthquake_service.should_poll():
-            return
-
-        events = await self.earthquake_service.poll(self.state)
-        self._persist_announced_state()
-        eq = self.config.earthquake
-        for event in events:
-            if not eq.announce_enabled:
-                self.earthquake_service.mark_announced(event.announcement_key, self.state)
-                self._persist_announced_state()
-                continue
-            if self.playback_policy:
-                allowed, reason = self.playback_policy.should_announce_geo_hazard()
-                if not allowed:
-                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
-                    log_fn(
-                        "Skipping earthquake %s (M%s): %s",
-                        event.event_id,
-                        event.magnitude,
-                        reason,
-                    )
-                    continue
-            if await self._announce_earthquake(event):
-                self.earthquake_service.mark_announced(event.announcement_key, self.state)
-                self._persist_announced_state()
-                await self._notify_geo_hazard_broadcast(
-                    title=f"Earthquake M{event.magnitude}",
-                    message=event.tts_text,
-                )
-
-    async def _handle_wildfire_incidents(self) -> None:
-        """Poll WFIGS and announce new wildfire incidents within range."""
-        if not self.wildfire_service or not hasattr(self, "state") or self.state is None:
-            return
-        if not self.wildfire_service.should_poll():
-            return
-
-        incidents = await self.wildfire_service.poll(self.state)
-        self._persist_announced_state()
-        wf = self.config.wildfire
-        for incident in incidents:
-            if not wf.announce_enabled:
-                self.wildfire_service.mark_announced(incident.announcement_key, self.state)
-                self._persist_announced_state()
-                continue
-            if self.playback_policy:
-                allowed, reason = self.playback_policy.should_announce_geo_hazard()
-                if not allowed:
-                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
-                    log_fn(
-                        "Skipping wildfire %s (%s): %s",
-                        incident.incident_id,
-                        incident.name,
-                        reason,
-                    )
-                    continue
-            if await self._announce_wildfire(incident):
-                self.wildfire_service.mark_announced(incident.announcement_key, self.state)
-                self._persist_announced_state()
-                await self._notify_geo_hazard_broadcast(
-                    title=f"Wildfire: {incident.name}",
-                    message=incident.tts_text,
-                )
-
-    async def _handle_tsunami_alerts(self) -> None:
-        """Poll NWS and announce new tsunami alerts at the monitoring position."""
-        if not self.tsunami_service or not hasattr(self, "state") or self.state is None:
-            return
-        if not self.tsunami_service.should_poll():
-            return
-
-        alerts = await self.tsunami_service.poll(self.state)
-        self._persist_announced_state()
-        ts = self.config.tsunami
-        for alert in alerts:
-            if not ts.announce_enabled:
-                self.tsunami_service.mark_announced(alert.announcement_key, self.state)
-                self._persist_announced_state()
-                continue
-            if self.playback_policy:
-                allowed, reason = self.playback_policy.should_announce_geo_hazard()
-                if not allowed:
-                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
-                    log_fn(
-                        "Skipping tsunami %s (%s): %s",
-                        alert.alert_id,
-                        alert.event,
-                        reason,
-                    )
-                    continue
-            if await self._announce_tsunami(alert):
-                self.tsunami_service.mark_announced(alert.announcement_key, self.state)
-                self._persist_announced_state()
-                await self._notify_geo_hazard_broadcast(
-                    title=f"Tsunami: {alert.event}",
-                    message=alert.tts_text,
-                )
-
-    async def _handle_space_weather_alerts(self) -> None:
-        """Poll SWPC and announce new space weather alerts."""
-        if not self.space_weather_service or not hasattr(self, "state") or self.state is None:
-            return
-        if not self.space_weather_service.should_poll():
-            return
-
-        alerts = await self.space_weather_service.poll(self.state)
-        self._persist_announced_state()
-        sw = self.config.space_weather
-        for alert in alerts:
-            if not sw.announce_enabled:
-                self.space_weather_service.mark_announced(alert.announcement_key, self.state)
-                self._persist_announced_state()
-                continue
-            if self.playback_policy:
-                allowed, reason = self.playback_policy.should_announce_geo_hazard()
-                if not allowed:
-                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
-                    log_fn(
-                        "Skipping space weather %s (%s): %s",
-                        alert.product_id,
-                        alert.title,
-                        reason,
-                    )
-                    continue
-            if await self._announce_space_weather(alert):
-                self.space_weather_service.mark_announced(alert.announcement_key, self.state)
-                self._persist_announced_state()
-                await self._notify_geo_hazard_broadcast(
-                    title=f"Space Weather: {alert.title}",
-                    message=alert.tts_text,
-                )
-
-    async def _handle_volcano_notices(self) -> None:
-        """Poll USGS and announce new volcano notices within range."""
-        if not self.volcano_service or not hasattr(self, "state") or self.state is None:
-            return
-        if not self.volcano_service.should_poll():
-            return
-
-        notices = await self.volcano_service.poll(self.state)
-        self._persist_announced_state()
-        vo = self.config.volcano
-        for notice in notices:
-            if not vo.announce_enabled:
-                self.volcano_service.mark_announced(notice.announcement_key, self.state)
-                self._persist_announced_state()
-                continue
-            if self.playback_policy:
-                allowed, reason = self.playback_policy.should_announce_geo_hazard()
-                if not allowed:
-                    log_fn = logger.debug if reason == "quiet_hours" else logger.info
-                    log_fn(
-                        "Skipping volcano %s (%s): %s",
-                        notice.vnum,
-                        notice.name,
-                        reason,
-                    )
-                    continue
-            if await self._announce_volcano(notice):
-                self.volcano_service.mark_announced(notice.announcement_key, self.state)
-                self._persist_announced_state()
-                await self._notify_geo_hazard_broadcast(
-                    title=f"Volcano: {notice.name}",
-                    message=notice.tts_text,
-                )
-
     def _persist_announced_state(self) -> None:
         """Save geo-hazard announcement state after each successful voice alert."""
         if hasattr(self, "state") and self.state is not None:
@@ -2461,104 +1985,6 @@ class SkywarnPlusApplication:
             await self.notification_manager.send_broadcast_notification(title, message)
         except Exception as exc:
             logger.warning("Geo hazard notification delivery failed: %s", exc)
-
-    async def _announce_position_hazard(
-        self,
-        *,
-        tts_text: str,
-        audio_prefix: str,
-        label: str,
-    ) -> bool:
-        """Announce a position-based hazard (cyclone/earthquake/wildfire) on all nodes."""
-        logger.info("Announcing %s", label)
-
-        if not self.audio_manager:
-            logger.warning("Audio manager not available - skipping %s", label)
-            return False
-        if not self.asterisk_manager or not self.config.asterisk.enabled:
-            logger.warning("Asterisk not available - skipping %s", label)
-            return False
-        if not self.config.asterisk.nodes:
-            logger.warning("No Asterisk nodes configured - skipping %s", label)
-            return False
-
-        try:
-            audio_path = await asyncio.to_thread(
-                self.audio_manager.generate_spoken_audio,
-                tts_text,
-                prefix=audio_prefix,
-            )
-            if not audio_path or not audio_path.exists() or audio_path.stat().st_size == 0:
-                logger.error("Failed to generate audio for %s", label)
-                return False
-
-            successful_nodes = await self.asterisk_manager.play_audio_on_all_nodes(audio_path)
-            if successful_nodes:
-                logger.info(
-                    "%s audio playing on %s nodes: %s",
-                    label,
-                    len(successful_nodes),
-                    successful_nodes,
-                )
-                if self.config.asterisk.audio_delay > 0:
-                    await asyncio.sleep(self.config.asterisk.audio_delay / 1000.0)
-                return True
-
-            logger.error("Failed to play audio on any nodes for %s", label)
-            return False
-        except Exception as e:
-            logger.error("Error announcing %s: %s", label, e, exc_info=True)
-            return False
-
-    async def _announce_earthquake(self, event: EarthquakeEvent) -> bool:
-        return await self._announce_position_hazard(
-            tts_text=event.tts_text,
-            audio_prefix=f"usgs_{event.event_id.replace('.', '_')[:40]}",
-            label=f"earthquake M{event.magnitude} ({event.distance_miles} mi)",
-        )
-
-    async def _announce_wildfire(self, incident: WildfireIncident) -> bool:
-        prefix = (
-            self.wildfire_service.audio_prefix_for(incident.incident_id)
-            if self.wildfire_service
-            else f"wildfire_{incident.incident_id[:40]}"
-        )
-        return await self._announce_position_hazard(
-            tts_text=incident.tts_text,
-            audio_prefix=prefix,
-            label=f"wildfire {incident.name} ({incident.distance_miles} mi)",
-        )
-
-    async def _announce_tsunami(self, alert: TsunamiAlert) -> bool:
-        safe_id = re.sub(r"[^A-Za-z0-9_]", "_", alert.alert_id)[:40]
-        return await self._announce_position_hazard(
-            tts_text=alert.tts_text,
-            audio_prefix=f"tsunami_{safe_id}",
-            label=f"tsunami {alert.event}",
-        )
-
-    async def _announce_space_weather(self, alert: SpaceWeatherAlert) -> bool:
-        return await self._announce_position_hazard(
-            tts_text=alert.tts_text,
-            audio_prefix=f"swpc_{alert.product_id.lower()[:40]}",
-            label=f"space weather {alert.title}",
-        )
-
-    async def _announce_volcano(self, notice: VolcanoNotice) -> bool:
-        dist = notice.distance_miles if notice.distance_miles is not None else "?"
-        return await self._announce_position_hazard(
-            tts_text=notice.tts_text,
-            audio_prefix=f"volcano_{notice.vnum[:40]}",
-            label=f"volcano {notice.name} ({dist} mi)",
-        )
-
-    async def _announce_cyclone(self, advisory: CycloneAdvisory) -> bool:
-        """Announce an NHC tropical cyclone advisory on all configured nodes."""
-        return await self._announce_position_hazard(
-            tts_text=advisory.tts_text,
-            audio_prefix=f"nhc_{advisory.atcf}",
-            label=f"NHC advisory {advisory.storm_type} {advisory.name} ({advisory.distance_miles} mi)",
-        )
 
     async def _announce_all_clear(self) -> None:
         """Announce all-clear message using TTS and Asterisk."""

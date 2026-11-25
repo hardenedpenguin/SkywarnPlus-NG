@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class UpdatesMetricsApiMixin:
+    _github_http_session: aiohttp.ClientSession | None
+
     def _update_check_cache_path(self) -> Path:
         return self._get_data_dir() / "update_check_cache.json"
 

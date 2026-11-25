@@ -37,11 +37,9 @@ jobs:
       - name: Ruff format
         run: ruff format --check src tests
 
-      - name: Mypy (subset)
-        run: |
-          mypy --follow-imports=skip --ignore-missing-imports \
-            src/skywarnplus_ng/utils/url_security.py \
-            src/skywarnplus_ng/utils/rate_limit.py
+      - name: Mypy
+        # Whole package; modules with known type debt are listed in pyproject.toml
+        run: mypy
 
       - name: Pytest
         run: pytest tests/ -v --tb=short

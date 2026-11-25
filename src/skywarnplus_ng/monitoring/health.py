@@ -729,7 +729,7 @@ class HealthMonitor:
         # Process results (skip UNKNOWN — e.g. manager missing for an enabled feature)
         components = []
         for check in health_checks:
-            if isinstance(check, Exception):
+            if isinstance(check, BaseException):
                 components.append(
                     ComponentHealth(
                         name="unknown",
