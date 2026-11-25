@@ -289,6 +289,13 @@ class QuietHoursConfig(BaseModel):
         True,
         description="Still announce Severe/Extreme severity alerts during quiet hours",
     )
+    announce_held_on_end: bool = Field(
+        True,
+        description=(
+            "When quiet hours end, voice NWS alerts that were held during quiet hours "
+            "and are still active"
+        ),
+    )
 
     @field_validator("timezone", mode="before")
     @classmethod

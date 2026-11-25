@@ -117,6 +117,7 @@ alerts:
     end: "06:00"
     timezone: null  # IANA timezone; null uses system local time
     allow_severe: true  # Still voice Severe/Extreme alerts during quiet hours
+    announce_held_on_end: true  # Voice still-active alerts held during quiet hours once they end
   announcement_hold_minutes: 0  # Suppress re-announcing same event+counties (0=off)
 
 # Shared position for NHC, USGS earthquake, wildfire, tsunami, and volcano monitoring
